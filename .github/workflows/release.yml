@@ -10,9 +10,8 @@ on:
 
 jobs:
   build:
-    # Çözüm: SVG sembol formatı uyumsuzluğunu çözmek için daha yeni bir Xcode sürümü içeren
-    # macos-13 runner'ını kullanıyoruz.
-    runs-on: macos-13
+    # Çözüm: Proje formatı ve varlık uyumluluğu sorunlarını çözmek için en güncel kararlı runner'ı kullanıyoruz.
+    runs-on: macos-14
 
     steps:
       - name: Checkout code

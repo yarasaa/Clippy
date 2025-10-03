@@ -9,8 +9,16 @@ APP_NAME="Clippy"
 PROJECT_NAME="Clippy"
 SCHEME_NAME="Clippy"
 
-VERSION=$(agvtool what-marketing-version -terse1)
-BUILD_NUMBER=$(agvtool what-version -terse)
+# Versiyon numarasını al. Önce agvtool'u dene, başarısız olursa GITHUB_REF_NAME'den al.
+VERSION=$(agvtool what-marketing-version -terse1 2>/dev/null)
+if [ -z "$VERSION" ]; then
+    echo "⚠️ agvtool ile versiyon alınamadı. Etiket (tag) adı kullanılacak."
+    # GITHUB_REF_NAME, GitHub Actions'da 'v1.2.3' gibi bir değer içerir.
+    # Başındaki 'v' harfini kaldırıyoruz.
+    VERSION=${GITHUB_REF_NAME#v}
+fi
+
+BUILD_NUMBER=$(agvtool what-version -terse 2>/dev/null || echo "1")
 
 FINAL_DMG_NAME="${APP_NAME}_${VERSION}_${BUILD_NUMBER}.dmg"
 VOLUME_NAME="${APP_NAME} ${VERSION}"
