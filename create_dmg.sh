@@ -41,7 +41,9 @@ xcodebuild -project "${PROJECT_NAME}.xcodeproj" \
            -scheme "${SCHEME_NAME}" \
            -configuration Release \
            -archivePath "${ARCHIVE_PATH}" \
-           clean archive
+           clean archive \
+           CODE_SIGN_IDENTITY="" \
+           CODE_SIGNING_REQUIRED=NO
 
 if [ $? -ne 0 ]; then
     echo "❌ Arşivleme başarısız oldu."

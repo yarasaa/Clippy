@@ -1,11 +1,12 @@
 # Bu GitHub Actions iş akışı, yeni bir release yayınlandığında otomatik olarak tetiklenir.
 # Uygulamayı derler, imzalar, bir .dmg dosyası oluşturur ve bu dosyayı release'in varlıklarına (assets) yükler.
 
-name: Create Release DMG
+name: Create and Publish Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*.*.*" # v1.0.0, v1.2.3 gibi etiketler push'landığında tetiklenir.
 
 jobs:
   build:
@@ -62,12 +63,24 @@ jobs:
           echo "dmg_name=$DMG_NAME" >> $GITHUB_OUTPUT
           echo "💿 Bulunan DMG dosyası: $DMG_PATH"
 
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: "New release of Clippy. See CHANGELOG.md for details."
+          draft: false
+          prerelease: false
+
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ github.event.release.upload_url }}
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # Bir önceki adımda oluşturulan release'in URL'si
           asset_path: ${{ env.DMG_PATH }}
           asset_name: ${{ steps.find_dmg.outputs.dmg_name }}
           asset_content_type: application/octet-stream
