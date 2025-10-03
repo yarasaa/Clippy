@@ -1,0 +1,76 @@
+# Bu GitHub Actions iş akışı, yeni bir release yayınlandığında otomatik olarak tetiklenir.
+# Uygulamayı derler, imzalar, bir .dmg dosyası oluşturur ve bu dosyayı release'in varlıklarına (assets) yükler.
+
+name: Create Release DMG
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Set up temporary keychain
+        run: |
+          security create-keychain -p "${{ secrets.APPLE_DEV_CERT_PASSWORD }}" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "${{ secrets.APPLE_DEV_CERT_PASSWORD }}" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+
+      - name: Import Apple Developer Certificate
+        run: |
+          echo "${{ secrets.APPLE_DEV_CERT_BASE64 }}" | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P "${{ secrets.APPLE_DEV_CERT_PASSWORD }}" -T /usr/bin/codesign
+          rm certificate.p12
+
+      - name: Update ExportOptions.plist with Team ID
+        run: |
+          sed -i '' "s/YOUR_TEAM_ID/${{ secrets.APPLE_TEAM_ID }}/g" ExportOptions.plist
+          echo "✅ ExportOptions.plist Team ID ile güncellendi."
+
+      - name: Set build number
+        id: build_number
+        run: |
+          # GitHub'da release için kullanılan etiket adını (örn: v1.2.3) al
+          TAG=${{ github.ref_name }}
+          # Başındaki 'v' harfini kaldır (eğer varsa)
+          VERSION_NUMBER=${TAG#v}
+          # Projedeki versiyon numarasını bu etiketle güncelle
+          agvtool new-marketing-version $VERSION_NUMBER
+          echo "✅ Uygulama versiyonu ${VERSION_NUMBER} olarak ayarlandı."
+
+      - name: Run DMG creation script
+        run: |
+          chmod +x create_dmg.sh
+          ./create_dmg.sh
+
+      - name: Find DMG file
+        id: find_dmg
+        run: |
+          # 'build' klasöründeki .dmg dosyasını bul ve yolunu bir değişkene ata
+          DMG_PATH=$(find build -name "*.dmg" -print -quit)
+          echo "DMG_PATH=$DMG_PATH" >> $GITHUB_ENV
+          echo "💿 Bulunan DMG dosyası: $DMG_PATH"
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ${{ env.DMG_PATH }}
+          asset_name: ${{ env.DMG_PATH }}
+          asset_content_type: application/octet-stream
+
+      - name: Clean up keychain
+        if: always()
+        run: |
+          security delete-keychain build.keychain
