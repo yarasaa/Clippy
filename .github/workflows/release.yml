@@ -19,8 +19,11 @@ jobs:
 
       - name: Select Xcode version
         run: |
-          sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
-          xcodebuild -version
+          # Çözüm: Sabit bir yol yerine, "Xcode_16" ile başlayan en güncel beta sürümünü dinamik olarak bul ve seç.
+          XCODE_PATH=$(ls -d /Applications/Xcode_16*.app | sort -r | head -n 1)
+          echo "Seçilen Xcode sürümü: $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version -sdk
 
       - name: Set up temporary keychain
         run: |
