@@ -55,9 +55,11 @@ jobs:
       - name: Find DMG file
         id: find_dmg
         run: |
-          # 'build' klasöründeki .dmg dosyasını bul ve yolunu bir değişkene ata
+          # 'build' klasöründeki .dmg dosyasını bul ve yolunu/adını değişkenlere ata
           DMG_PATH=$(find build -name "*.dmg" -print -quit)
+          DMG_NAME=$(basename "$DMG_PATH")
           echo "DMG_PATH=$DMG_PATH" >> $GITHUB_ENV
+          echo "dmg_name=$DMG_NAME" >> $GITHUB_OUTPUT
           echo "💿 Bulunan DMG dosyası: $DMG_PATH"
 
       - name: Upload Release Asset
@@ -67,7 +69,7 @@ jobs:
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ${{ env.DMG_PATH }}
-          asset_name: ${{ env.DMG_PATH }}
+          asset_name: ${{ steps.find_dmg.outputs.dmg_name }}
           asset_content_type: application/octet-stream
 
       - name: Clean up keychain
