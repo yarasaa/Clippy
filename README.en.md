@@ -6,21 +6,17 @@
 
 Clippy is a powerful macOS menu bar application designed for developers and power users to manage their clipboard history. It saves everything you copy, allowing you to quickly access, organize, and use your clipboard items.
 
-![1759521906350](image/README/1759521906350.png)
+![1758713423686](image/README/1758713423686.png)
 
-![1759522032838](image/README/1759522032838.png)
+![1758713622187](image/README/1758713622187.png)
 
-![1759522217489](image/README/1759522217489.png)
+![1758713514867](image/README/1758713514867.png)
 
-![1759522386365](image/README/1759522386365.png)
+![1758713532116](image/README/1758713532116.png)
 
-![1759522392271](image/README/1759522392271.png)
+![1758713566553](image/README/1758713566553.png)
 
-![1759522474906](image/README/1759522474906.png)
-
-![1759522498669](image/README/1759522498669.png)
-
-![1759522601059](image/README/1759522601059.png)
+![1758713582897](image/README/1758713582897.png)
 
 ## ✨ Features
 
@@ -111,7 +107,6 @@ This feature takes your productivity to the next level. Assign a keyword to your
    - Click the pin (`📌`) icon next to the star to pin important items to the top of the list.
 
 5. **Settings:**
-
    - **Right-click** the Clippy icon in the menu bar and select "Settings...".
    - Or, use the standard macOS shortcut `Cmd (⌘) + ,`.
 

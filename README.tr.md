@@ -1,0 +1,144 @@
+# Clippy for macOS
+
+Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin kullananlar için tasarlanmış güçlü bir macOS menü çubuğu uygulamasıdır. Kopyaladığınız her şeyi saklar, onlara hızlıca erişmenizi, düzenlemenizi ve kullanmanızı sağlar.
+
+![1759521906350](image/README/1759521906350.png)
+
+![1759522032838](image/README/1759522032838.png)
+
+![1759522217489](image/README/1759522217489.png)
+
+![1759522386365](image/README/1759522386365.png)
+
+![1759522392271](image/README/1759522392271.png)
+
+![1759522474906](image/README/1759522474906.png)
+
+![1759522498669](image/README/1759522498669.png)
+
+![1759522601059](image/README/1759522601059.png)
+
+## ✨ Özellikler
+
+### Temel Pano Yönetimi
+
+- **Geçmiş Kaydı:** Kopyaladığınız tüm metinleri ve resimleri otomatik olarak kaydeder.
+- **Hızlı Erişim:** Menü çubuğundaki simgeye veya klavye kısayoluna basarak pano geçmişinize anında erişin.
+- **Arama:** Tüm geçmişinizde anında arama yapın.
+- **Favoriler:** Sık kullandığınız öğeleri favorilere ekleyerek kaybolmalarını önleyin ve hızlıca bulun.
+- **Kod Algılama:** Kopyalanan metinlerin kod olup olmadığını otomatik olarak algılar ve ayrı bir "Kod" sekmesinde düzenler.
+- **Özel Başlıklar:** Her bir pano öğesine, onu daha kolay tanımanızı sağlayacak özel bir başlık ekleyin. Başlıklar, detay ekranından düzenlenebilir ve ana listede içeriğin üzerinde belirgin bir şekilde gösterilir.
+- **Kaynak Uygulama İkonları:** Her bir pano öğesinin hangi uygulamadan kopyalandığını gösteren ikonlarla geçmişinizi daha kolay takip edin.
+
+### Gelişmiş İşlevsellik
+
+- **Sabitleme (Pinning):** O an üzerinde çalıştığınız önemli öğeleri, yeni kopyalamalar yapılsa bile listenin en üstünde kalacak şekilde sabitleyin.
+- **Çoklu Seçim:** `Cmd (⌘)` tuşuna basılı tutarak birden fazla öğeyi seçin.
+- **Hepsini Yapıştır:** Seçtiğiniz tüm metin öğelerini, aralarına yeni satır ekleyerek tek seferde yapıştırın.
+- **Diff (Fark) Görüntüleyici:** `Cmd` ile seçilen iki metin öğesi arasındaki farkları yan yana, karakter bazında vurgulanmış şekilde gösteren bir özellik.
+- **Sürükle & Bırak:** Listeden tek bir öğeyi veya `Cmd` ile seçtiğiniz birden fazla metin öğesini sürükleyip herhangi bir uygulamaya bırakın.
+- **Sıralı Yapıştırma:**
+  - **Kısayolla:** `Cmd+Shift+C` ile birden fazla öğeyi sırayla kopyalayın. Ardından `Cmd+Shift+B` ile bu öğeleri kopyaladığınız sırayla farklı yerlere tek tek yapıştırın.
+  - **Görsel Seçimle:** Listeden `Cmd` ile istediğiniz öğeleri seçin ve alttaki **"Sıraya Ekle"** butonuna basın. Bu seçim, doğrudan sıralı yapıştırma kuyruğunuzu oluşturur.
+- **Doğrudan Yapıştırma:** Her öğenin yanındaki "Yapıştır" butonu ile doğrudan aktif uygulamaya yapıştırın.
+- **Hızlı Metin Önizleme:** Fareyi bir metin öğesinin üzerine getirerek, sistemin standart yardım balonuyla içeriğin tamamını görün.
+- **Şifreleme (Encryption):** Hassas verilerinizi sağ tık menüsünden tek tıkla şifreleyin. Şifreli öğelerin içeriği, siz tekrar şifresini çözene kadar gizli kalır.
+- **Akıllı Algılama:**
+  - **Takvim Etkinliği:** "Yarın 14:00'te toplantı" gibi bir metin kopyalandığında, bunu algılayıp tek tıkla takvime etkinlik ekleme önerisi sunar.
+  - **JSON Görüntüleyici:** Kopyalanan bir JSON metnini otomatik olarak algılar ve detay görünümünde hiyerarşik bir ağaç yapısında gösterir. Bu görünümde JSON'u düzenleyebilir, doğrulayabilir ve anahtar/değer/yol kopyalayabilirsiniz.
+- **Metin Dönüştürme:** Öğelerin üzerine gelip `✨` simgesine tıklayarak metinleri anında dönüştürün:
+  - Tümü Büyük Harf
+  - Tümü Küçük Harf
+  - Başlık Stili (Her Kelimenin İlk Harfi Büyük)
+  - Baştaki/Sondaki Boşlukları Temizle
+  - Base64 Kodlama / Kod Çözme
+  - Yinelenen Satırları Silme
+  - Tüm Satırları Tek Satırda Birleştirme
+  - **JSON String Encode/Decode:** Ham bir metni, bir JSON dosyasına yapıştırmak için geçerli bir string literaline (`"metin"`) dönüştürün veya bu işlemi geri alın.
+- **Araçlar Menüsü:** Tek bir menüden test verileri (UUID, Lorem Ipsum) oluşturun veya aktif sekmedeki tüm öğeleri silin.
+
+### Özelleştirme ve Ayarlar
+
+- **Özelleştirilebilir Kısayollar:** Hem uygulamayı açma hem de "Hepsini Yapıştır" işlevi için kendi klavye kısayollarınızı belirleyin.
+- **Dil Desteği:** Uygulamayı Türkçe veya İngilizce olarak kullanın.
+- **Sekme Yönetimi:** İhtiyaç duymadığınız "Kod" veya "Favoriler" sekmelerini gizleyin.
+- **Limit Ayarları:** Geçmişte ve favorilerde tutulacak maksimum öğe sayısını belirleyin.
+- **Oturumda Başlatma:** Mac'iniz açıldığında Clippy'nin otomatik olarak başlamasını sağlayın.
+- **Modern Ayarlar Penceresi:** Ayarlar, "Genel", "Kısayollar" ve "Gelişmiş" sekmeleri altında gruplanarak daha düzenli ve kullanıcı dostu bir hale getirildi.
+- **Uyku Modu Desteği:** Bilgisayarınız uyku modundan çıktıktan sonra, Clippy'nin tüm özellikleri (pano izleme, kısayollar, anahtar kelime genişletme) otomatik olarak yeniden başlatılır ve sorunsuz bir şekilde çalışmaya devam eder.
+
+### Resim Düzenleyici
+
+- Panonuza kopyaladığınız ekran görüntülerini veya resimleri, uygulamadan ayrılmadan hızlıca düzenleyin.
+- **Çizim Araçları:** Ok, dörtgen ve metin araçlarıyla resimlerinize kolayca notlar alın veya önemli yerleri işaretleyin.
+- **Renk Seçenekleri:** Çizimleriniz için çeşitli renkler arasından seçim yapın.
+- **Geri Al (Undo):** Yaptığınız son işlemi `Cmd+Z` kısayoluyla veya butonla kolayca geri alın.
+
+### Anahtar Kelime ile Yapıştırma (Snippet Genişletme)
+
+Bu özellik, üretkenliğinizi bir üst seviyeye taşır. Sık kullandığınız metin parçacıklarına (imza, adres, e-posta şablonu, kod bloğu vb.) bir anahtar kelime atayın ve bu anahtar kelimeyi herhangi bir uygulamada yazarak ilgili metnin otomatik olarak yapıştırılmasını sağlayın.
+
+- **Kolay Kullanım:** Herhangi bir metin öğesinin detay ekranına gidin ve `;imza` veya `;adres` gibi bir anahtar kelime atayın.
+- **Sistem Genelinde Çalışma:** Atadığınız anahtar kelimeyi herhangi bir metin alanında yazdığınızda, Clippy bunu algılayıp içeriği sizin için yapıştırır.
+- **Performans Odaklı:**
+  - **Akıllı Tetikleme:** Özellik, sadece tetikleyici karakter (`;`) ile başlayan ve bir sonlandırıcı karakter (boşluk, enter, nokta vb.) ile biten girişleri kontrol eder.
+  - **Önbellekleme (Caching):** Tüm anahtar kelimeler bellekte tutularak, her tuş vuruşunda veritabanına erişim engellenir ve anlık bir performans sağlanır.
+  - **Kontrol Sizde:** Bu özelliği Ayarlar menüsünden tamamen kapatabilir veya menü çubuğu ikonuna sağ tıklayarak geçici olarak duraklatıp yeniden başlatabilirsiniz.
+
+## 🚀 Kullanım
+
+1. **Uygulamayı Açma:**
+
+   - Menü çubuğundaki Clippy simgesine tıklayın.
+   - Veya varsayılan kısayol olan `Cmd (⌘) + Shift (⇧) + V` tuşlarına basın.
+
+2. **Öğe Yapıştırma:**
+
+   - **Tek Öğe:** Öğenin üzerine gelin ve "Yapıştır" butonuna tıklayın.
+   - **Çoklu Öğe:** `Cmd (⌘)` tuşuna basılı tutarak istediğiniz öğeleri seçin. Pencerenin alt kısmında beliren **"Hepsini Yapıştır"** butonuna tıklayın veya kısayolunu (`Cmd (⌘) + Shift (⇧) + P`) kullanın.
+
+3. **Diğer Eylemler (Sağ Tık Menüsü):**
+
+   - Bir öğenin üzerine sağ tıklayarak **Kopyala, Şifrele/Çöz, Farkları Karşılaştır, Sil** gibi tüm gelişmiş eylemlere erişin.
+
+4. **Favorilere Ekleme ve Sabitleme:**
+
+   - Her öğenin solundaki yıldız (`☆`) simgesine tıklayarak favorilerinize ekleyin veya çıkarın.
+   - Yıldızın yanındaki pin (`📌`) simgesine tıklayarak önemli öğeleri listenin en üstüne sabitleyin.
+
+5. **Ayarlar:**
+
+   - Menü çubuğundaki Clippy simgesine **sağ tıklayın** ve "Ayarlar..." seçeneğini seçin.
+   - Veya standart macOS kısayolu olan `Cmd (⌘) + ,` tuşlarını kullanın.
+
+## ⌨️ Varsayılan Kısayollar
+
+| Eylem                   | Kısayol                       |
+| ----------------------- | ----------------------------- |
+| Uygulamayı Göster/Gizle | `Cmd (⌘)` + `Shift (⇧)` + `V` |
+| Seçilenleri Yapıştır    | `Cmd (⌘)` + `Shift (⇧)` + `P` |
+| Sıraya Ekle             | `Cmd (⌘)` + `Shift (⇧)` + `C` |
+| Sıradakini Yapıştır     | `Cmd (⌘)` + `Shift (⇧)` + `B` |
+| Sıralı Kuyruğu Temizle  | `Cmd (⌘)` + `Shift (⇧)` + `K` |
+| Çoklu Öğe Seçimi        | `Cmd (⌘)` + Tıklama           |
+| Ayarları Aç             | `Cmd (⌘)` + `,`               |
+
+> **Not:** Tüm klavye kısayolları, Ayarlar menüsünden tamamen özelleştirilebilir.
+
+## 🛠️ Kurulum ve Güvenlik
+
+### Kurulum
+
+En son `.dmg` dosyasını Releases sayfasından indirin. DMG dosyasını açın ve **Clippy** uygulamasını **Uygulamalar (Applications)** klasörünüze sürükleyin.
+
+### Güvenlik İzinleri
+
+Clippy'nin diğer uygulamalara metin yapıştırabilmesi için **Erişilebilirlik** iznine ihtiyacı vardır.
+
+Uygulama, bu izne ihtiyaç duyduğunda size otomatik olarak bir sistem penceresi gösterecektir. Bu penceredeki **"Sistem Ayarlarını Aç"** butonuna tıklayarak doğrudan ilgili ayar menüsüne gidebilir ve Clippy için izni etkinleştirebilirsiniz.
+
+> **Gizlilik:** Clippy, pano verilerinizi asla internete göndermez. Tüm verileriniz, bilgisayarınızdaki `~/Library/Application Support/Clippy/` klasöründe, **Core Data** veritabanı (`Clippy.sqlite`) içinde güvenli bir şekilde saklanır.
+
+---
+
+_Bu proje, verimliliği artırmak ve pano yönetimini kolaylaştırmak amacıyla geliştirilmiştir._

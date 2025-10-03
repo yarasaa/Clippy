@@ -13,6 +13,7 @@ import Combine
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var statusBarController: StatusBarController?
     var settingsWindow: NSWindow?
+    var aboutWindow: NSWindow?
     var clipboardMonitor: ClipboardMonitor?
     var keywordManager: KeywordExpansionManager?
     var editorWindow: NSWindow?
@@ -208,6 +209,12 @@ extension AppDelegate {
     func createMenu() {
         let menu = NSMenu()
         
+        // Hakkında menü öğesi
+        let aboutItem = NSMenuItem(title: L("About Clippy", settings: SettingsManager.shared), action: #selector(openAbout), keyEquivalent: "")
+        aboutItem.target = self
+        menu.addItem(aboutItem)
+        menu.addItem(NSMenuItem.separator())
+        
         // Ayarlar menü öğesi
         let settingsItem = NSMenuItem(title: L("Settings...", settings: SettingsManager.shared), action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
@@ -245,6 +252,20 @@ extension AppDelegate {
         }
         settingsWindow?.center()
         settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    @objc func openAbout() {
+        if aboutWindow == nil {
+            let aboutView = AboutView()
+                .environmentObject(SettingsManager.shared)
+            aboutWindow = NSWindow(contentViewController: NSHostingController(rootView: aboutView))
+            aboutWindow?.title = L("About Clippy", settings: SettingsManager.shared)
+            aboutWindow?.styleMask = [.titled, .closable]
+            aboutWindow?.setContentSize(NSSize(width: 320, height: 280))
+        }
+        aboutWindow?.center()
+        aboutWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
     
