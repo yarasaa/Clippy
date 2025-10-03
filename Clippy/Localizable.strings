@@ -1,0 +1,97 @@
+/* 
+  Localizable.strings
+  Clippy
+
+  Created by Gemini Code Assist on 20.09.2025.
+*/
+
+// MARK: - Content View
+"History" = "Geçmiş";
+"Code" = "Kod";
+"Favorites" = "Favoriler";
+"Images" = "Resimler";
+"Clear duplicate items" = "Yinelenen öğeleri temizle";
+"Search in clipboard history..." = "Pano geçmişinde ara...";
+"Search..." = "Ara...";
+"Generate" = "Oluştur";
+"Generate UUID" = "UUID Oluştur";
+"Generate Lorem Ipsum" = "Lorem Ipsum Oluştur";
+"Clean Up" = "Temizle";
+"Clear items in current tab" = "Geçerli sekmedeki tüm öğeleri sil";
+"%d items selected" = "%d öğe seçildi";
+"Clear Selection" = "Seçimi Temizle";
+"Paste All" = "Hepsini Yapıştır";
+
+// MARK: - Row View
+"Copy" = "Kopyala";
+"Paste" = "Yapıştır";
+"Delete this item" = "Bu öğeyi sil";
+"Open in Browser" = "Tarayıcıda Aç";
+"Add to Calendar" = "Takvime Ekle";
+"Transform Text" = "Metni Dönüştür";
+"All Uppercase" = "Tümü Büyük Harf";
+"All Lowercase" = "Tümü Küçük Harf";
+"Title Case" = "Başlık Stili";
+"Trim Whitespace" = "Boşlukları Temizle";
+"Base64 Encode" = "Base64 Kodla";
+"Base64 Decode" = "Base64 Kodunu Çöz";
+"Line Operations" = "Satır İşlemleri";
+"Remove Duplicate Lines" = "Yinelenen Satırları Sil";
+"Join All Lines" = "Tüm Satırları Birleştir";
+"Coding" = "Kodlama";
+"JSON" = "JSON";
+"Pretty Print" = "Güzelleştir";
+"Minify" = "Küçült";
+
+// MARK: - Detail View
+"Detail" = "Detay";
+"Back" = "Geri";
+"Copied" = "Kopyalandı";
+"Characters" = "Karakter";
+"Words" = "Kelime";
+"Lines" = "Satır";
+"Invalid JSON" = "Geçersiz JSON";
+"Valid JSON" = "Geçerli JSON";
+"Show Raw Text" = "Ham Metni Göster";
+"Show Tree View" = "Ağaç Görünümünü Göster";
+"Save" = "Kaydet";
+
+// MARK: - Settings View
+"General Settings" = "Genel Ayarlar";
+"Launch Clippy on login" = "Oturum açıldığında Clippy'yi başlat";
+"History Limit: %d" = "Geçmiş Limiti: %d";
+"Favorites Limit: %d" = "Favori Limiti: %d";
+"Image Limit: %d" = "Resim Limiti: %d";
+"Tab Visibility" = "Sekme Görünürlüğü";
+"Determines how many non-favorite items will be stored." = "Favori olmayan kaç adet öğenin saklanacağını belirler.";
+"Determines how many favorite items will be stored." = "Kaç adet favori öğenin saklanacağını belirler.";
+"Show Code Tab" = "Kod Sekmesini Göster";
+"Show Images Tab" = "Resimler Sekmesini Göster";
+"Show Favorites Tab" = "Favoriler Sekmesini Göster";
+"Keyboard Shortcut" = "Klavye Kısayolu";
+"Show/Hide App" = "Uygulamayı Göster/Gizle";
+"Paste Selected" = "Seçilenleri Yapıştır";
+"Language" = "Dil";
+"Sequential Copy" = "Sıraya Ekle";
+"Sequential Paste" = "Sıradakini Yapıştır";
+"System Default" = "Sistem Varsayılanı";
+"English" = "İngilizce";
+"Turkish" = "Türkçe";
+"Clippy Settings" = "Clippy Ayarları";
+
+// MARK: - Menu
+"Settings..." = "Ayarlar...";
+"Quit Clippy" = "Clippy'den Çık";
+"Edit Image from Clipboard" = "Panodaki Resmi Düzenle";
+"Clear Sequential Queue" = "Sıralı Kuyruğu Temizle";
+
+// MARK: - Tools Menu
+"Tools" = "Araçlar";
+"Compare" = "Karşılaştır";
+/* Settings Tabs */
+"General" = "Genel";
+"Shortcuts" = "Kısayollar";
+"Advanced" = "Gelişmiş";
+
+/* Settings Sections */
+"Storage Limits" = "Depolama Limitleri";
