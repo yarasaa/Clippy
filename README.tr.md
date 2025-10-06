@@ -1,5 +1,9 @@
 # Clippy for macOS
 
+<p align="center">
+  <a href="https://www.buymeacoffee.com/yarasaa" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+</p>
+
 Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin kullananlar için tasarlanmış güçlü bir macOS menü çubuğu uygulamasıdır. Kopyaladığınız her şeyi saklar, onlara hızlıca erişmenizi, düzenlemenizi ve kullanmanızı sağlar.
 
 ![1759521906350](image/README/1759521906350.png)
@@ -20,10 +24,10 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 
 ## ✨ Özellikler
 
-### Temel Pano Yönetimi
+### 📋 Temel Pano Yönetimi
 
 - **Geçmiş Kaydı:** Kopyaladığınız tüm metinleri ve resimleri otomatik olarak kaydeder.
-- **Hızlı Erişim:** Menü çubuğundaki simgeye veya klavye kısayoluna basarak pano geçmişinize anında erişin.
+- **Hızlı Erişim & Arayüz:** Menü çubuğundaki simgeye veya klavye kısayoluna basarak pano geçmişinize anında erişin.
 - **Arama:** Tüm geçmişinizde anında arama yapın.
 - **Favoriler:** Sık kullandığınız öğeleri favorilere ekleyerek kaybolmalarını önleyin ve hızlıca bulun.
 - **Kod Algılama:** Kopyalanan metinlerin kod olup olmadığını otomatik olarak algılar ve ayrı bir "Kod" sekmesinde düzenler.
@@ -57,7 +61,14 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
   - **JSON String Encode/Decode:** Ham bir metni, bir JSON dosyasına yapıştırmak için geçerli bir string literaline (`"metin"`) dönüştürün veya bu işlemi geri alın.
 - **Araçlar Menüsü:** Tek bir menüden test verileri (UUID, Lorem Ipsum) oluşturun veya aktif sekmedeki tüm öğeleri silin.
 
-### Özelleştirme ve Ayarlar
+### 🛠️ Akıllı Araçlar & Geliştirici Özellikleri
+
+- **Diff (Fark) Görüntüleyici:** `Cmd` ile seçilen iki metin öğesi arasındaki farkları yan yana, karakter bazında vurgulanmış şekilde gösteren bir özellik.
+- **JSON Görüntüleyici:** Kopyalanan bir JSON metnini otomatik olarak algılar ve detay görünümünde hiyerarşik bir ağaç yapısında gösterir. Bu görünümde JSON'u düzenleyebilir, doğrulayabilir ve anahtar/değer/yol kopyalayabilirsiniz.
+- **Takvim Etkinliği Algılama:** "Yarın 14:00'te toplantı" gibi bir metin kopyalandığında, bunu algılayıp tek tıkla takvime etkinlik ekleme önerisi sunar.
+- **Şifreleme (Encryption):** Hassas verilerinizi sağ tık menüsünden tek tıkla şifreleyin. Şifreli öğelerin içeriği, siz tekrar şifresini çözene kadar gizli kalır.
+
+### ⚙️ Özelleştirme ve Ayarlar
 
 - **Özelleştirilebilir Kısayollar:** Hem uygulamayı açma hem de "Hepsini Yapıştır" işlevi için kendi klavye kısayollarınızı belirleyin.
 - **Dil Desteği:** Uygulamayı Türkçe veya İngilizce olarak kullanın.
@@ -67,14 +78,14 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 - **Modern Ayarlar Penceresi:** Ayarlar, "Genel", "Kısayollar" ve "Gelişmiş" sekmeleri altında gruplanarak daha düzenli ve kullanıcı dostu bir hale getirildi.
 - **Uyku Modu Desteği:** Bilgisayarınız uyku modundan çıktıktan sonra, Clippy'nin tüm özellikleri (pano izleme, kısayollar, anahtar kelime genişletme) otomatik olarak yeniden başlatılır ve sorunsuz bir şekilde çalışmaya devam eder.
 
-### Resim Düzenleyici
+### 🎨 Resim Düzenleyici
 
 - Panonuza kopyaladığınız ekran görüntülerini veya resimleri, uygulamadan ayrılmadan hızlıca düzenleyin.
 - **Çizim Araçları:** Ok, dörtgen ve metin araçlarıyla resimlerinize kolayca notlar alın veya önemli yerleri işaretleyin.
 - **Renk Seçenekleri:** Çizimleriniz için çeşitli renkler arasından seçim yapın.
 - **Geri Al (Undo):** Yaptığınız son işlemi `Cmd+Z` kısayoluyla veya butonla kolayca geri alın.
 
-### Anahtar Kelime ile Yapıştırma (Snippet Genişletme)
+### ⌨️ Anahtar Kelime ile Yapıştırma (Snippet Genişletme)
 
 Bu özellik, üretkenliğinizi bir üst seviyeye taşır. Sık kullandığınız metin parçacıklarına (imza, adres, e-posta şablonu, kod bloğu vb.) bir anahtar kelime atayın ve bu anahtar kelimeyi herhangi bir uygulamada yazarak ilgili metnin otomatik olarak yapıştırılmasını sağlayın.
 
@@ -138,6 +149,17 @@ Clippy'nin diğer uygulamalara metin yapıştırabilmesi için **Erişilebilirli
 Uygulama, bu izne ihtiyaç duyduğunda size otomatik olarak bir sistem penceresi gösterecektir. Bu penceredeki **"Sistem Ayarlarını Aç"** butonuna tıklayarak doğrudan ilgili ayar menüsüne gidebilir ve Clippy için izni etkinleştirebilirsiniz.
 
 > **Gizlilik:** Clippy, pano verilerinizi asla internete göndermez. Tüm verileriniz, bilgisayarınızdaki `~/Library/Application Support/Clippy/` klasöründe, **Core Data** veritabanı (`Clippy.sqlite`) içinde güvenli bir şekilde saklanır.
+
+## 💖 Destek Olun & Katkıda Bulunun
+
+Clippy'yi severek kullanıyor musunuz? Projenin gelişimine destek olmak için birkaç yol var:
+
+- **⭐ Yıldız Verin:** Projeyi GitHub'da yıldızlayarak daha fazla kişiye ulaşmasına yardımcı olabilirsiniz.
+- **🐞 Hata Bildirin:** Bir hatayla karşılaşırsanız veya bir özelliğin daha iyi çalışabileceğini düşünüyorsanız, lütfen bir Issue açın.
+- **💡 Fikirlerinizi Paylaşın:** Yeni özellik önerilerinizi ve fikirlerinizi duymaktan mutluluk duyarım!
+- **☕ Kahve Ismarlayın:** Eğer uygulama işinize yarıyorsa ve gelişimini desteklemek isterseniz, bana bir kahve ısmarlayabilirsiniz.
+
+Her türlü destek, projenin daha iyi bir hale gelmesi için büyük bir motivasyon kaynağıdır!
 
 ---
 

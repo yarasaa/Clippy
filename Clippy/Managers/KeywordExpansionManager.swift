@@ -47,7 +47,11 @@ class KeywordExpansionManager {
     }
 
     func toggleMonitoring() {
-        if isEnabled {
+        let shouldBeEnabled = SettingsManager.shared.isKeywordExpansionEnabled
+        
+        // Eğer durum zaten doğruysa bir şey yapma
+        guard shouldBeEnabled != isEnabled else { return }
+        if shouldBeEnabled {
             stopMonitoring()
         } else {
             startMonitoring()

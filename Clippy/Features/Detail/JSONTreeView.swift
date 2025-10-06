@@ -12,6 +12,7 @@ struct JSONTreeView: View {
     let value: JSONValue
     let currentPath: String
     private var fullPath: String
+    @EnvironmentObject var settings: SettingsManager
     
     @State private var isExpanded: Bool = true
 
@@ -76,20 +77,20 @@ struct JSONTreeView: View {
                 Button(action: {
                     copyToClipboard(key)
                 }) {
-                    Label(String(format: "Copy Key \"%@\"", key), systemImage: "key.fill")
+                    Label(String(format: L("Copy Key \"%@\"", settings: settings), key), systemImage: "key.fill")
                 }
             }
             if !fullPath.isEmpty {
                 Button(action: {
                     copyToClipboard(fullPath)
                 }) {
-                    Label("Copy Path", systemImage: "link")
+                    Label(L("Copy Path", settings: settings), systemImage: "link")
                 }
             }
             Button(action: {
                 copyToClipboard(value.stringValue)
             }) {
-                Label("Copy Value", systemImage: "doc.on.doc")
+                Label(L("Copy Value", settings: settings), systemImage: "doc.on.doc")
             }
         }
     }

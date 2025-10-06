@@ -25,7 +25,7 @@ class StatusBarController: NSObject, NSPopoverDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         popover = NSPopover()
         super.init()
-        popover.behavior = .transient
+        popover.behavior = .semitransient
         popover.contentSize = NSSize(width: 360, height: 420)
 
 
@@ -91,10 +91,6 @@ class StatusBarController: NSObject, NSPopoverDelegate {
 
     func popoverDidClose(_ notification: Notification) {
         clipboardMonitor.navigationPath = NavigationPath()
-    }
-
-    func popoverDidResignKey(_ notification: Notification) {
-        popover.performClose(nil)
     }
 
     func closePopoverAfterDrag() {

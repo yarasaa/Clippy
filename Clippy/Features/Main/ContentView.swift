@@ -27,7 +27,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationStack(path: $monitor.navigationPath) {
+        VStack {
             ClipboardListView(
                 items: items,
                 monitor: monitor,
@@ -86,7 +86,7 @@ struct ContentView: View {
                     HStack {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.secondary)
-                        TextField(L("Search...", settings: settings), text: $searchText)
+                        TextField(L("Search in clipboard history...", settings: settings), text: $searchText)
                             .textFieldStyle(.plain)
                             .padding(.vertical, 4)
                         if !searchText.isEmpty {
@@ -104,19 +104,11 @@ struct ContentView: View {
                 }
                 .background(.bar)
             }
-            .navigationTitle("Clippy")
-            .navigationDestination(for: ClipboardItemEntity.self) { item in
-                ClipboardDetailView(item: item, monitor: monitor)
-            }
         }
         .safeAreaInset(edge: .bottom) {
             bottomBar
         }
         .id(settings.appLanguage)
-        .sheet(item: $comparisonData) { data in
-            DiffView(oldText: data.oldItem.content, newText: data.newItem.content)
-                .environmentObject(settings)
-        }
         .onChange(of: selectedTab, perform: updatePredicate)
         .onChange(of: searchText, perform: updatePredicate)
         .onAppear { updatePredicate(searchText) }
@@ -159,13 +151,24 @@ struct ContentView: View {
                 Spacer()
                 
                 if monitor.selectedItemIDs.count > 1 {
-                    Button(L("Add to Sequential Queue", settings: settings)) { monitor.addSelectionToSequentialQueue() }
+                    Button {
+                        monitor.addSelectionToSequentialQueue()
+                    } label: {
+                        Label(L("Add to Sequential Queue", settings: settings), systemImage: "text.badge.plus")
+                    }
                 }
                 
-                Button(L("Clear Selection", settings: settings)) { monitor.clearSelection() }
-                Button(L("Paste All", settings: settings)) {
+                Button {
+                    monitor.clearSelection()
+                } label: {
+                    Label(L("Clear Selection", settings: settings), systemImage: "xmark.circle")
+                }
+
+                Button {
                     monitor.copySelectionToClipboard()
                     PasteManager.shared.performPaste(completion: monitor.clearSelection)
+                } label: {
+                    Label(L("Paste All", settings: settings), systemImage: "list.clipboard.fill")
                 }
                 .buttonStyle(.borderedProminent)
 
@@ -270,14 +273,25 @@ struct ClipboardRowView: View {
 
             HStack(spacing: 0) {
                 if item.contentType == "text" {
+                    if item.toClipboardItem().isURL, let content = item.content, let url = URL(string: content) {
+                        Button { NSWorkspace.shared.open(url) } label: {
+                            Image(systemName: "safari")
+                        }
+                        .buttonStyle(.borderless)
+                        .help(L("Open URL in Browser", settings: settings))
+                    }
+                    if item.detectedDate != nil {
+                        Button { monitor.createCalendarEvent(for: item) } label: {
+                            Image(systemName: "calendar.badge.plus")
+                        }
+                        .buttonStyle(.borderless)
+                        .help(L("Add to Calendar", settings: settings))
+                    }
                     transformationMenu(for: item)
                 }
                 pasteButton
             }
         }
-        .help(
-            item.contentType == "text" ? item.content ?? "" : ""
-        )
         .padding(.vertical, 4)
         .id(item.id)
         .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear) 
@@ -287,7 +301,8 @@ struct ClipboardRowView: View {
             if NSEvent.modifierFlags.contains(.command) {
                 monitor.toggleSelection(for: item.id ?? UUID())
             } else {
-                monitor.navigationPath.append(item)
+                // Detay penceresini AppDelegate üzerinden aç
+                monitor.appDelegate?.showDetailWindow(for: item)
             }
         }
         .contextMenu { contextMenuItems }
@@ -396,10 +411,10 @@ struct ClipboardRowView: View {
 
         if let compareItems = getItemsToCompare() {
             Button {
-                self.comparisonData = ComparisonData(oldItem: compareItems.0.toClipboardItem(), newItem: compareItems.1.toClipboardItem())
+                monitor.appDelegate?.showDiffWindow(oldText: compareItems.0.content ?? "", newText: compareItems.1.content ?? "")
                 monitor.clearSelection()
             } label: {
-                Label(L("Compare", settings: settings), systemImage: "square.split.2x1")
+                Label(L("Compare...", settings: settings), systemImage: "square.split.2x1")
             }
         } else if monitor.selectedItemIDs.count > 0 {
             Label(L("Compare (select 2 text items)", settings: settings), systemImage: "square.split.2x1").disabled(true)
@@ -412,28 +427,47 @@ struct ClipboardRowView: View {
                   systemImage: item.isEncrypted ? "lock.open" : "lock")
         }
 
-        if item.contentType == "text" || item.toClipboardItem().isURL || item.detectedDate != nil {
-            Divider()
+        Divider()
+        Menu(L("Combine Images", settings: settings)) {
+            Button {
+                monitor.combineSelectedImagesAsNewItem(orientation: .vertical)
+                monitor.clearSelection()
+            } label: { Label(L("Combine Vertically", settings: settings), systemImage: "arrow.down.to.line.compact") }
+            
+            Button {
+                monitor.combineSelectedImagesAsNewItem(orientation: .horizontal)
+                monitor.clearSelection()
+            } label: { Label(L("Combine Horizontally", settings: settings), systemImage: "arrow.right.to.line.compact") }
         }
-
-        if item.toClipboardItem().isURL, let content = item.content, let url = URL(string: content) {
-            Button { NSWorkspace.shared.open(url) } label: {
-                Label(L("Open URL in Browser", settings: settings), systemImage: "safari")
-            }
-        }
-
-        if item.detectedDate != nil {
-            Button { monitor.createCalendarEvent(for: item) } label: {
-                Label(L("Add to Calendar", settings: settings), systemImage: "calendar.badge.plus")
-            }
-        }
+        .disabled(!hasMultipleImagesSelected())
 
         Divider()
 
         Button(role: .destructive) {
-            monitor.delete(item: item)
+            if monitor.selectedItemIDs.count > 1 && monitor.selectedItemIDs.contains(item.id ?? UUID()) {
+                monitor.deleteSelectedItems()
+            } else {
+                monitor.delete(item: item)
+            }
         } label: {
-            Label(L("Delete", settings: settings), systemImage: "trash")
+            let isMultiDelete = monitor.selectedItemIDs.count > 1 && monitor.selectedItemIDs.contains(item.id ?? UUID())
+            let labelText = isMultiDelete ? String(format: L("Delete %d Items", settings: settings), monitor.selectedItemIDs.count) : L("Delete", settings: settings)
+            Label(labelText, systemImage: "trash")
+        }
+    }
+    
+    /// Seçili öğeler arasında birden fazla resim olup olmadığını kontrol eder.
+    private func hasMultipleImagesSelected() -> Bool {
+        guard monitor.selectedItemIDs.count > 1 else { return false }
+        
+        let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id IN %@ AND contentType == 'image'", monitor.selectedItemIDs)
+        
+        do {
+            let count = try item.managedObjectContext?.count(for: fetchRequest) ?? 0
+            return count > 1
+        } catch {
+            return false
         }
     }
 

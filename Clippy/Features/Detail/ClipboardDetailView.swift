@@ -22,7 +22,7 @@ struct ClipboardDetailView: View {
     @State private var editedKeyword: String?
     
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
             Group {
                 if item.toClipboardItem().isJSON, let content = item.content {
                     JSONDetailView(
@@ -34,7 +34,7 @@ struct ClipboardDetailView: View {
                         }
                     )
                 } else if item.contentType == "text" {
-                    VStack {
+                    VStack(spacing: 0) {
                         // Başlık Giriş Alanı
                         TextField(L("Enter a title... (optional)", settings: settings), text: Binding(
                             get: { editedTitle ?? item.title ?? "" },
@@ -42,7 +42,7 @@ struct ClipboardDetailView: View {
                         ))
                         .textFieldStyle(.plain)
                         .font(.title2.weight(.semibold))
-                        .padding()
+                        .padding([.horizontal, .top])
                         
                         Divider()
                         
@@ -51,6 +51,7 @@ struct ClipboardDetailView: View {
                             set: { editedText = $0 }
                         ))
                         .font(.body)
+                        .padding(5)
                         
                         TextStatsView(text: editedText ?? item.content ?? "")
                     }
@@ -66,26 +67,22 @@ struct ClipboardDetailView: View {
                         .textFieldStyle(.roundedBorder)
                         .help(L("Type this keyword in any app to paste the content.", settings: settings))
                     }
-                    .padding(.horizontal)
+                    .padding()
                     .padding(.bottom, 8)
                 } else if item.contentType == "image", let path = item.content {
-                    ScrollView {
-                        if let image = monitor.loadImage(from: path) {
-                            Image(nsImage: image)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .padding()
-                        }
+                    if let image = monitor.loadImage(from: path) {
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .padding()
                     }
+                    Spacer() // Resmin üstte kalmasını sağlar
                 }
             }
 
-            Spacer()
-            
             HStack {
-                Button { dismiss() } label: {
-                    Label(L("Back", settings: settings), systemImage: "arrow.left")
-                }
+                // "Back" butonu kaldırıldı, çünkü artık ayrı bir pencere.
+                Spacer()
                 
                 if item.contentType == "image" {
                     Button {
@@ -98,17 +95,17 @@ struct ClipboardDetailView: View {
                         if isScanning {
                             ProgressView().scaleEffect(0.5)
                         } else {
-                            Label("Scan Text", systemImage: "text.viewfinder")
+                            Label(L("Scan Text", settings: settings), systemImage: "text.viewfinder")
                         }
                     }
-                    .help("Recognize text in this image")
+                    .help(L("Recognize text in this image", settings: settings))
                     .disabled(isScanning)
                 }
                 if item.contentType == "image" {
                     Button {
                         showImageEditor = true
                     } label: {
-                        Label("Edit Image", systemImage: "pencil.and.scribble")
+                        Label(L("Edit Image", settings: settings), systemImage: "pencil.and.scribble")
                     }
                     .help("Annotate or edit this image")
                 }
@@ -116,14 +113,7 @@ struct ClipboardDetailView: View {
                 Spacer()
                 
                 Button {
-                    if let newText = editedText {
-                        item.content = newText
-                        monitor.scheduleSave()
-                        editedText = nil
-                        monitor.copyToClipboard(item: item.toClipboardItem())
-                    } else {
-                        monitor.copyToClipboard(item: item.toClipboardItem())
-                    }
+                    monitor.copyToClipboard(item: item.toClipboardItem())
                     withAnimation { didCopy = true }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                         withAnimation { didCopy = false }
@@ -138,7 +128,7 @@ struct ClipboardDetailView: View {
                 }
                 .help(L("Copy", settings: settings))
                 
-                if editedText != nil {
+                if editedText != nil || editedTitle != nil || editedKeyword != nil {
                     Button(L("Save", settings: settings)) {
                         if let newText = editedText {
                             item.content = newText
@@ -158,8 +148,8 @@ struct ClipboardDetailView: View {
 
             }
             .padding()
+            .background(.bar)
         }
-        .navigationTitle(L("Detail", settings: settings))
         .onAppear {
             if item.contentType == "text" {
                 if editedTitle == nil { editedTitle = item.title }
@@ -178,6 +168,7 @@ struct ClipboardDetailView: View {
                 .environmentObject(settings)
             }
         }
+        .frame(minWidth: 450, idealWidth: 600, maxWidth: .infinity, minHeight: 350, idealHeight: 500, maxHeight: .infinity) // Pencerenin yeniden boyutlandırılabilir olmasını sağlar.
     }
     
 }

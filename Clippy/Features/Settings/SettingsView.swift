@@ -100,6 +100,7 @@ struct SettingsView: View {
 struct HotkeySettingsView: View {
     @Binding var hotkeyKey: String
     @Binding var hotkeyModifiers: UInt
+    @EnvironmentObject var settings: SettingsManager
 
     var body: some View {
         HStack {
@@ -109,7 +110,7 @@ struct HotkeySettingsView: View {
             modifierToggle(label: "⌥", flag: .option)
             modifierToggle(label: "⌃", flag: .control)
 
-            TextField("Tuş", text: $hotkeyKey)
+            TextField(L("Key", settings: settings), text: $hotkeyKey)
                 .frame(width: 80)
                 .multilineTextAlignment(.center)
                 .textFieldStyle(.roundedBorder) // Metnin görünür olmasını sağlamak için stil ekle.

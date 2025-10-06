@@ -15,10 +15,16 @@ extension Notification.Name {
     static let keywordsDidChange = Notification.Name("com.yarasa.Clippy.keywordsDidChange")
 }
 
+/// Resimlerin birleştirilme yönünü belirtir.
+enum ImageOrientation {
+    case vertical, horizontal
+}
+
 @MainActor
 class ClipboardMonitor: ObservableObject {
     @Published var navigationPath = NavigationPath()
     @Published var selectedItemIDs: [UUID] = []
+    weak var appDelegate: AppDelegate? // Bu satır eksik.
     @Published var sequentialPasteQueueIDs: [UUID] = []
     
     private var sequentialPasteIndex: Int = 0
@@ -176,7 +182,7 @@ class ClipboardMonitor: ObservableObject {
         try? VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
     }
     
-    private func addNewItem(_ item: ClipboardItem) {
+    func addNewItem(_ item: ClipboardItem) {
         if self.shouldAddToSequentialQueue && self.isPastingFromQueue {
             self.sequentialPasteQueueIDs.removeAll()
             self.isPastingFromQueue = false
@@ -359,6 +365,43 @@ class ClipboardMonitor: ObservableObject {
         return NSItemProvider(object: combinedText as NSString)
     }
 
+    /// Çoklu seçimdeki resim öğelerini belirtilen yönde birleştirir ve yeni bir öğe olarak geçmişe ekler.
+    func combineSelectedImagesAsNewItem(orientation: ImageOrientation) {
+        let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id IN %@", selectedItemIDs)
+        
+        guard let selectedItems = try? viewContext.fetch(fetchRequest) else { return }
+
+        // Resimleri, kullanıcının seçtiği sırayla yükle.
+        let images = selectedItemIDs.compactMap { id -> (image: NSImage, sourceApp: String?)? in
+            guard let item = selectedItems.first(where: { $0.id == id }),
+                  item.contentType == "image",
+                  let path = item.content,
+                  let image = loadImage(from: path) else {
+                return nil
+            }
+            return (image, item.sourceAppName)
+        }
+
+        guard images.count > 1 else { return }
+        
+        let imageList = images.map { $0.image }
+        let combinedImage: NSImage?
+
+        switch orientation {
+        case .vertical:
+            combinedImage = combineImagesVertically(imageList)
+        case .horizontal:
+            combinedImage = combineImagesHorizontally(imageList)
+        }
+
+        if let finalImage = combinedImage, let newImagePath = saveImage(finalImage) {
+            let newItem = ClipboardItem(contentType: .image(imagePath: newImagePath), date: Date(), sourceAppName: L("Clippy Combiner", settings: SettingsManager.shared), sourceAppBundleIdentifier: "com.yarasa.Clippy.Combiner")
+            addNewItem(newItem)
+            print("✅ \(images.count) resim (\(orientation)) birleştirildi ve yeni öğe olarak geçmişe eklendi.")
+        }
+    }
+
     func toggleFavorite(for itemID: UUID) {
         guard let entity = findEntity(for: itemID) else { return }
         entity.isFavorite.toggle()
@@ -378,6 +421,27 @@ class ClipboardMonitor: ObservableObject {
         scheduleSave()
     }
 
+    /// Seçili olan tüm öğeleri siler.
+    func deleteSelectedItems() {
+        let idsToDelete = selectedItemIDs
+        
+        let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id IN %@", idsToDelete)
+        
+        do {
+            let itemsToDelete = try viewContext.fetch(fetchRequest)
+            for item in itemsToDelete {
+                // `delete(item:)` içindeki mantığı yeniden kullanıyoruz.
+                delete(item: item, shouldSave: false)
+            }
+            clearSelection()
+            scheduleSave() // Tüm silme işlemleri bittikten sonra bir kez kaydet.
+            print("🗑️ \(itemsToDelete.count) öğe silindi.")
+        } catch {
+            print("❌ Çoklu silme için öğeleri getirme hatası: \(error)")
+        }
+    }
+
     func delete(item: ClipboardItemEntity) {
         if item.contentType == "image" {
             if let path = item.content {
@@ -389,7 +453,19 @@ class ClipboardMonitor: ObservableObject {
         }
         
         viewContext.delete(item)
-        scheduleSave()
+        scheduleSave() // Tekli silme için hemen kaydet.
+    }
+
+    /// Öğeyi siler ve isteğe bağlı olarak kaydetme işlemini zamanlar.
+    private func delete(item: ClipboardItemEntity, shouldSave: Bool) {
+        if item.contentType == "image" {
+            if let path = item.content { imageCache.removeObject(forKey: path as NSString) }
+            Task(priority: .background) { deleteImageFile(for: item) }
+        }
+        viewContext.delete(item)
+        if shouldSave {
+            scheduleSave()
+        }
     }
 
     func clear(tab: ContentView.Tab) {
@@ -735,6 +811,26 @@ class ClipboardMonitor: ObservableObject {
         return compositeImage
     }
     
+    private func combineImagesHorizontally(_ images: [NSImage]) -> NSImage? {
+        guard !images.isEmpty else { return nil }
+
+        let totalWidth = images.reduce(0) { $0 + $1.size.width }
+        let maxHeight = images.reduce(0) { max($0, $1.size.height) }
+
+        let compositeImage = NSImage(size: NSSize(width: totalWidth, height: maxHeight))
+        compositeImage.lockFocus()
+
+        var currentX: CGFloat = 0
+        for image in images {
+            let drawPoint = NSPoint(x: currentX, y: (maxHeight - image.size.height) / 2)
+            image.draw(at: drawPoint, from: .zero, operation: .sourceOver, fraction: 1.0)
+            currentX += image.size.width
+        }
+
+        compositeImage.unlockFocus()
+        return compositeImage
+    }
+    
     private func saveImage(_ image: NSImage) -> String? {
         guard let imageData = image.tiffRepresentation,
               let imageRep = NSBitmapImageRep(data: imageData),
@@ -757,7 +853,7 @@ class ClipboardMonitor: ObservableObject {
     }
 
 
-    private func isLikelyCode(_ text: String) -> Bool {
+    func isLikelyCode(_ text: String) -> Bool {
         let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if let url = URL(string: content),

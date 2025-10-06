@@ -24,10 +24,10 @@ Clippy is a powerful macOS menu bar application designed for developers and powe
 
 ## ✨ Features
 
-### Core Clipboard Management
+### 📋 Core Clipboard Management
 
 - **History Recording:** Automatically saves all text and images you copy.
-- **Quick Access:** Instantly access your clipboard history by clicking the menu bar icon or using a keyboard shortcut.
+- **Quick Access & Interface:** Instantly access your clipboard history by clicking the menu bar icon or using a keyboard shortcut.
 - **Search:** Instantly search through your entire history.
 - **Favorites:** Star your frequently used items to prevent them from being deleted and find them quickly.
 - **Code Detection:** Automatically detects if copied text is code and organizes it in a separate "Code" tab.
@@ -61,7 +61,14 @@ Clippy is a powerful macOS menu bar application designed for developers and powe
   - **JSON String Encode/Decode:** Convert a raw string into a valid JSON string literal (`"text"`) for pasting into a JSON file, or reverse the process.
 - **Tools Menu:** Generate test data (UUID, Lorem Ipsum) or delete all items in the active tab from a single menu.
 
-### Customization and Settings
+### 🛠️ Smart Tools & Developer Features
+
+- **Diff Viewer:** Compare two selected text items side-by-side with character-level highlighting of differences.
+- **JSON Viewer:** Automatically detects copied JSON text and displays it in a hierarchical tree structure in the detail view. You can edit, validate, and copy keys/values/paths from this view.
+- **Calendar Event Detection:** When you copy text like "Meeting tomorrow at 2 PM," Clippy detects it and offers to add it to your calendar with one click.
+- **Encryption:** Encrypt sensitive data with a single click from the context menu. The content of encrypted items remains hidden until you decrypt them.
+
+### ⚙️ Customization and Settings
 
 - **Customizable Shortcuts:** Set your own keyboard shortcuts for both toggling the app and the "Paste All" function.
 - **Language Support:** Use the app in English or Turkish.
@@ -71,14 +78,14 @@ Clippy is a powerful macOS menu bar application designed for developers and powe
 - **Modern Settings Window:** Settings are grouped under "General," "Shortcuts," and "Advanced" tabs for a cleaner and more user-friendly experience.
 - **Sleep Mode Support:** After your computer wakes from sleep, all of Clippy's features (clipboard monitoring, shortcuts, keyword expansion) are automatically restarted and continue to work seamlessly.
 
-### Image Editor
+### 🎨 Image Editor
 
 - Quickly edit screenshots or images you've copied without leaving the app.
 - **Drawing Tools:** Easily add notes or highlight important areas on your images with arrow, rectangle, and text tools.
 - **Color Options:** Choose from a variety of colors for your annotations.
 - **Undo:** Easily undo your last action with the `Cmd+Z` shortcut or the undo button.
 
-### Keyword Expansion (Snippet Expansion)
+### ⌨️ Keyword Expansion (Snippet Expansion)
 
 This feature takes your productivity to the next level. Assign a keyword to your frequently used text snippets (signature, address, email template, code block, etc.) and have the text automatically pasted by typing the keyword in any application.
 
@@ -142,6 +149,17 @@ Clippy needs **Accessibility** permission to paste text into other applications.
 The app will automatically show you a system prompt when it needs this permission. You can click the **"Open System Settings"** button in the prompt to go directly to the relevant settings menu and enable permission for Clippy.
 
 > **Privacy:** Clippy never sends your clipboard data to the internet. All your data is stored securely on your computer in the `~/Library/Application Support/Clippy/` folder, within a **Core Data** database (`Clippy.sqlite`).
+
+## 💖 Support & Contribute
+
+Do you enjoy using Clippy? There are several ways you can support the project's development:
+
+- **⭐ Give it a Star:** Starring the project on GitHub helps it reach more people.
+- **🐞 Report Bugs:** If you encounter a bug or think a feature could work better, please open an Issue.
+- **💡 Share Your Ideas:** I'd love to hear your suggestions for new features!
+- **☕ Buy Me a Coffee:** If the app is useful to you and you want to support its development, you can buy me a coffee.
+
+Every bit of support is a huge motivation to make the project even better!
 
 ---
 

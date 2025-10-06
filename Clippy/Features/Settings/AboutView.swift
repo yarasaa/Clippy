@@ -45,7 +45,7 @@ struct AboutView: View {
                         NSWorkspace.shared.open(url)
                     }
                 }) {
-                    Label("GitHub Repository", systemImage: "link")
+                    Label(L("GitHub Repository", settings: settings), systemImage: "link")
                 }
                 .buttonStyle(.link)
                 

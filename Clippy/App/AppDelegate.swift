@@ -14,6 +14,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var statusBarController: StatusBarController?
     var settingsWindow: NSWindow?
     var aboutWindow: NSWindow?
+    var detailWindow: NSWindow?
+    var diffWindow: NSWindow?
     var clipboardMonitor: ClipboardMonitor?
     var keywordManager: KeywordExpansionManager?
     var editorWindow: NSWindow?
@@ -34,6 +36,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         clipboardMonitor?.startMonitoring()
 
         statusBarController = StatusBarController(clipboardMonitor: clipboardMonitor!)
+        clipboardMonitor?.appDelegate = self
 
         PasteManager.shared.statusBarController = statusBarController
         PasteManager.shared.clipboardMonitor = clipboardMonitor
@@ -54,14 +57,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settings.objectWillChange
             .receive(on: DispatchQueue.main)
             .debounce(for: .milliseconds(100), scheduler: RunLoop.main)
-            .sink { [weak self] _ in
+            .sink { [weak self] in
                 self?.updateAllHotkeys()
-                
-                if settings.isKeywordExpansionEnabled {
-                    self?.keywordManager?.startMonitoring()
-                } else {
-                    self?.keywordManager?.stopMonitoring()
-                }
+                self?.keywordManager?.toggleMonitoring()
+                self?.recreateUIForLanguageChange()
             }
             .store(in: &cancellables)
 
@@ -69,6 +68,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateAllHotkeys()
     }
 
+    @objc private func recreateUIForLanguageChange() {
+        createMenu()
+    }
+    
     private func updateAllHotkeys() {
         updateHotkey()
         updatePasteAllHotkey()
@@ -216,14 +219,14 @@ extension AppDelegate {
         menu.addItem(NSMenuItem.separator())
         
         // Ayarlar menü öğesi
-        let settingsItem = NSMenuItem(title: L("Settings...", settings: SettingsManager.shared), action: #selector(openSettings), keyEquivalent: ",")
+        let settingsItem = NSMenuItem(title: L("Settings", settings: SettingsManager.shared), action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
 
         menu.addItem(NSMenuItem.separator())
 
         // Anahtar Kelime Genişletme'yi Duraklat/Başlat menü öğesi
-        let toggleKeywordExpansionItem = NSMenuItem(title: "Toggle Keyword Expansion", action: #selector(toggleKeywordExpansion), keyEquivalent: "")
+        let toggleKeywordExpansionItem = NSMenuItem(title: L("Toggle Keyword Expansion", settings: SettingsManager.shared), action: #selector(toggleKeywordExpansion), keyEquivalent: "")
         toggleKeywordExpansionItem.target = self
         menu.addItem(toggleKeywordExpansionItem)
         
@@ -245,7 +248,7 @@ extension AppDelegate {
         if settingsWindow == nil {
             let settingsView = SettingsView()
                 .environmentObject(SettingsManager.shared)
-            settingsWindow = NSWindow(contentViewController: NSHostingController(rootView: settingsView))
+            settingsWindow = NSWindow(contentViewController: NSHostingController(rootView: settingsView.environmentObject(SettingsManager.shared)))
             settingsWindow?.title = L("Clippy Settings", settings: SettingsManager.shared)
             settingsWindow?.styleMask = [.titled, .closable, .resizable]
             settingsWindow?.setContentSize(NSSize(width: 500, height: 380))
@@ -259,7 +262,7 @@ extension AppDelegate {
         if aboutWindow == nil {
             let aboutView = AboutView()
                 .environmentObject(SettingsManager.shared)
-            aboutWindow = NSWindow(contentViewController: NSHostingController(rootView: aboutView))
+            aboutWindow = NSWindow(contentViewController: NSHostingController(rootView: aboutView.environmentObject(SettingsManager.shared)))
             aboutWindow?.title = L("About Clippy", settings: SettingsManager.shared)
             aboutWindow?.styleMask = [.titled, .closable]
             aboutWindow?.setContentSize(NSSize(width: 320, height: 280))
@@ -275,6 +278,67 @@ extension AppDelegate {
 
     @objc func toggleKeywordExpansion() {
         keywordManager?.toggleMonitoring()
+    }
+    
+    func showDetailWindow(for item: ClipboardItemEntity) {
+        // Mevcut bir detay penceresi varsa kapat.
+        detailWindow?.close()
+        detailWindow = nil
+
+        let detailView = ClipboardDetailView(item: item, monitor: clipboardMonitor!)
+            .environmentObject(SettingsManager.shared)
+
+        let hostingController = NSHostingController(rootView: detailView)
+        let window = NSWindow(contentViewController: hostingController)
+        
+        // Ana popover penceresini al
+        guard let mainPopoverWindow = statusBarController?.popover.contentViewController?.view.window else {
+            print("❌ Ana popover penceresi bulunamadı.")
+            return
+        }
+
+        // Detay penceresini ana pencerenin bir alt penceresi yap.
+        mainPopoverWindow.addChildWindow(window, ordered: .above)
+
+        window.title = L("Detail", settings: SettingsManager.shared)
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        window.delegate = self
+        window.center()
+        
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true) // Pencerenin öne gelmesini garantiler.
+        
+        self.detailWindow = window
+    }
+
+    func showDiffWindow(oldText: String, newText: String) {
+        // Mevcut bir diff penceresi varsa kapat.
+        diffWindow?.close()
+        diffWindow = nil
+
+        let diffView = DiffView(oldText: oldText, newText: newText)
+            .environmentObject(SettingsManager.shared)
+            .environmentObject(clipboardMonitor!)
+
+        let hostingController = NSHostingController(rootView: diffView)
+        let window = NSWindow(contentViewController: hostingController)
+        
+        // Ana popover penceresini al
+        guard let mainPopoverWindow = statusBarController?.popover.contentViewController?.view.window else {
+            print("❌ Ana popover penceresi bulunamadı.")
+            return
+        }
+
+        // Diff penceresini ana pencerenin bir alt penceresi yap.
+        mainPopoverWindow.addChildWindow(window, ordered: .above)
+
+        window.title = L("Compare Differences", settings: SettingsManager.shared)
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        window.delegate = self
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        self.diffWindow = window
     }
 
     func showImageEditor(with image: NSImage) {
@@ -294,7 +358,7 @@ extension AppDelegate {
         let hostingController = NSHostingController(rootView: editorView)
         let window = NSWindow(contentViewController: hostingController)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.title = "Edit Image"
+        window.title = L("Edit Image", settings: SettingsManager.shared)
         window.center()
         window.makeKeyAndOrderFront(nil)
 
@@ -305,8 +369,30 @@ extension AppDelegate {
 
 extension AppDelegate: NSWindowDelegate, NSMenuItemValidation {
     func windowWillClose(_ notification: Notification) {
+        if (notification.object as? NSWindow) == settingsWindow {
+            settingsWindow = nil
+        }
+        if (notification.object as? NSWindow) == aboutWindow {
+            aboutWindow = nil
+        }
         if (notification.object as? NSWindow) == editorWindow {
             editorWindow = nil
+        }
+        if (notification.object as? NSWindow) == detailWindow {
+            detailWindow = nil
+            // Child pencere kapandığında, ana pencere ile olan ilişkisini kes.
+            if let parentWindow = statusBarController?.popover.contentViewController?.view.window,
+               let childWindow = notification.object as? NSWindow {
+                parentWindow.removeChildWindow(childWindow)
+            }
+        }
+        if (notification.object as? NSWindow) == diffWindow {
+            diffWindow = nil
+            // Child pencere kapandığında, ana pencere ile olan ilişkisini kes.
+            if let parentWindow = statusBarController?.popover.contentViewController?.view.window,
+               let childWindow = notification.object as? NSWindow {
+                parentWindow.removeChildWindow(childWindow)
+            }
         }
     }
 
