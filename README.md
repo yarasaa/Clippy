@@ -43,13 +43,16 @@ Clippy is a powerful macOS menu bar application designed for developers and powe
 - **Drag & Drop:** Drag a single item or multiple selected text items from the list and drop them into any application.
 - **Sequential Paste:**
   - **With Shortcut:** Copy multiple items in sequence with `Cmd+Shift+C`. Then, paste them one by one in the same order using `Cmd+Shift+B`.
-  - **With Visual Selection:** Select your desired items from the list with `Cmd` and press the **"Add to Queue"** button at the bottom. This selection directly creates your sequential paste queue.
+  - **With Visual Selection:** Select your desired items from the list with `Cmd` and press the **"Add to Queue"** button at the bottom. This selection creates your sequential paste queue.
+- **Combine Images:** Select multiple images with `Cmd`, right-click, and combine them into a single new image, either vertically or horizontally.
 - **Direct Paste:** Paste directly into the active application using the "Paste" button next to each item.
 - **Quick Text Preview:** Hover over a text item to see its full content in the system's standard help tooltip.
 - **Encryption:** Encrypt sensitive data with a single click from the context menu. The content of encrypted items remains hidden until you decrypt them.
 - **Smart Detection:**
   - **Calendar Event:** When you copy text like "Meeting tomorrow at 2 PM," Clippy detects it and offers to add it to your calendar with one click.
   - **JSON Viewer:** Automatically detects copied JSON text and displays it in a hierarchical tree structure in the detail view. You can edit, validate, and copy keys/values/paths from this view.
+  - **Text Recognition from Images (OCR):** In the detail view of an image, recognize the text within it and add it as a new, copyable text item.
+  - **URL & Color Detection:** If copied text is a URL, a button to open it in the browser appears. If it's a color code (hex/rgb), a color swatch is displayed.
 - **Text Transformations:** Instantly transform text by clicking the `✨` icon:
   - All Uppercase
   - All Lowercase
@@ -60,6 +63,7 @@ Clippy is a powerful macOS menu bar application designed for developers and powe
   - Join All Lines
   - **JSON String Encode/Decode:** Convert a raw string into a valid JSON string literal (`"text"`) for pasting into a JSON file, or reverse the process.
 - **Tools Menu:** Generate test data (UUID, Lorem Ipsum) or delete all items in the active tab from a single menu.
+- **Detailed Text Statistics:** View live character, word, and line counts in the detail screen for any text item.
 
 ### 🛠️ Smart Tools & Developer Features
 

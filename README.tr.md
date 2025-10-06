@@ -43,13 +43,16 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 - **Sürükle & Bırak:** Listeden tek bir öğeyi veya `Cmd` ile seçtiğiniz birden fazla metin öğesini sürükleyip herhangi bir uygulamaya bırakın.
 - **Sıralı Yapıştırma:**
   - **Kısayolla:** `Cmd+Shift+C` ile birden fazla öğeyi sırayla kopyalayın. Ardından `Cmd+Shift+B` ile bu öğeleri kopyaladığınız sırayla farklı yerlere tek tek yapıştırın.
-  - **Görsel Seçimle:** Listeden `Cmd` ile istediğiniz öğeleri seçin ve alttaki **"Sıraya Ekle"** butonuna basın. Bu seçim, doğrudan sıralı yapıştırma kuyruğunuzu oluşturur.
+  - **Görsel Seçimle:** Listeden `Cmd` ile istediğiniz öğeleri seçin ve alttaki **"Sıraya Ekle"** butonuna basın. Bu seçim, sıralı yapıştırma kuyruğunuzu oluşturur.
+- **Resimleri Birleştirme:** Çoklu seçimle (`Cmd`) seçtiğiniz birden fazla resmi, sağ tık menüsünden tek bir resim olarak dikey veya yatay şekilde birleştirin.
 - **Doğrudan Yapıştırma:** Her öğenin yanındaki "Yapıştır" butonu ile doğrudan aktif uygulamaya yapıştırın.
 - **Hızlı Metin Önizleme:** Fareyi bir metin öğesinin üzerine getirerek, sistemin standart yardım balonuyla içeriğin tamamını görün.
 - **Şifreleme (Encryption):** Hassas verilerinizi sağ tık menüsünden tek tıkla şifreleyin. Şifreli öğelerin içeriği, siz tekrar şifresini çözene kadar gizli kalır.
 - **Akıllı Algılama:**
   - **Takvim Etkinliği:** "Yarın 14:00'te toplantı" gibi bir metin kopyalandığında, bunu algılayıp tek tıkla takvime etkinlik ekleme önerisi sunar.
   - **JSON Görüntüleyici:** Kopyalanan bir JSON metnini otomatik olarak algılar ve detay görünümünde hiyerarşik bir ağaç yapısında gösterir. Bu görünümde JSON'u düzenleyebilir, doğrulayabilir ve anahtar/değer/yol kopyalayabilirsiniz.
+  - **Resimden Metin Çıkarma (OCR):** Bir resmin detay ekranında, resimdeki metinleri tanıyıp panoya kopyalanabilir yeni bir metin öğesi olarak ekleyin.
+  - **URL ve Renk Algılama:** Kopyalanan metin bir URL ise yanında tarayıcıda açma butonu, bir renk kodu (hex/rgb) ise yanında renk örneği gösterir.
 - **Metin Dönüştürme:** Öğelerin üzerine gelip `✨` simgesine tıklayarak metinleri anında dönüştürün:
   - Tümü Büyük Harf
   - Tümü Küçük Harf
@@ -60,6 +63,7 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
   - Tüm Satırları Tek Satırda Birleştirme
   - **JSON String Encode/Decode:** Ham bir metni, bir JSON dosyasına yapıştırmak için geçerli bir string literaline (`"metin"`) dönüştürün veya bu işlemi geri alın.
 - **Araçlar Menüsü:** Tek bir menüden test verileri (UUID, Lorem Ipsum) oluşturun veya aktif sekmedeki tüm öğeleri silin.
+- **Detaylı Metin İstatistikleri:** Bir metin öğesinin detay ekranında karakter, kelime ve satır sayılarını anlık olarak görün.
 
 ### 🛠️ Akıllı Araçlar & Geliştirici Özellikleri
 
