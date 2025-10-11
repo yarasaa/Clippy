@@ -245,31 +245,49 @@ extension AppDelegate {
     }
     
     @objc func openSettings() {
-        if settingsWindow == nil {
-            let settingsView = SettingsView()
-                .environmentObject(SettingsManager.shared)
-            settingsWindow = NSWindow(contentViewController: NSHostingController(rootView: settingsView.environmentObject(SettingsManager.shared)))
-            settingsWindow?.title = L("Clippy Settings", settings: SettingsManager.shared)
-            settingsWindow?.styleMask = [.titled, .closable, .resizable]
-            settingsWindow?.setContentSize(NSSize(width: 500, height: 380))
+        // Eğer pencere zaten varsa, öne getir ve uygulamayı aktive et.
+        if let window = settingsWindow {
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
         }
-        settingsWindow?.center()
-        settingsWindow?.makeKeyAndOrderFront(nil)
+
+        // Yoksa yeni bir pencere oluştur.
+        let settingsView = SettingsView()
+            .environmentObject(SettingsManager.shared)
+        let window = NSWindow(contentViewController: NSHostingController(rootView: settingsView))
+        window.title = L("Clippy Settings", settings: SettingsManager.shared)
+        window.styleMask = [.titled, .closable, .resizable]
+        window.delegate = self
+        window.setContentSize(NSSize(width: 500, height: 380))
+        window.center()
+        window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        self.settingsWindow = window
     }
     
     @objc func openAbout() {
-        if aboutWindow == nil {
-            let aboutView = AboutView()
-                .environmentObject(SettingsManager.shared)
-            aboutWindow = NSWindow(contentViewController: NSHostingController(rootView: aboutView.environmentObject(SettingsManager.shared)))
-            aboutWindow?.title = L("About Clippy", settings: SettingsManager.shared)
-            aboutWindow?.styleMask = [.titled, .closable]
-            aboutWindow?.setContentSize(NSSize(width: 320, height: 280))
+        // Eğer pencere zaten varsa, öne getir ve uygulamayı aktive et.
+        if let window = aboutWindow {
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
         }
-        aboutWindow?.center()
-        aboutWindow?.makeKeyAndOrderFront(nil)
+
+        // Yoksa yeni bir pencere oluştur.
+        let aboutView = AboutView()
+            .environmentObject(SettingsManager.shared)
+        let window = NSWindow(contentViewController: NSHostingController(rootView: aboutView))
+        window.title = L("About Clippy", settings: SettingsManager.shared)
+        window.styleMask = [.titled, .closable]
+        window.delegate = self
+        window.setContentSize(NSSize(width: 320, height: 280))
+        window.center()
+        window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        self.aboutWindow = window
     }
     
     @objc func clearSequentialQueue() {
