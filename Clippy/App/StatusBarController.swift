@@ -18,6 +18,7 @@ class StatusBarController: NSObject, NSPopoverDelegate {
     var popover: NSPopover
     private var clipboardMonitor: ClipboardMonitor
     var rightClickMenu: NSMenu?
+    private var cancellables = Set<AnyCancellable>()
     private var eventMonitor: Any?
 
     init(clipboardMonitor: ClipboardMonitor) {
@@ -61,6 +62,27 @@ class StatusBarController: NSObject, NSPopoverDelegate {
                 }
             }
         }
+        
+        // ClipboardMonitor'daki değişiklikleri dinle ve ikonu güncelle.
+        setupBindings()
+    }
+    
+    private func setupBindings() {
+        clipboardMonitor.$isPastingFromQueue
+            .combineLatest(clipboardMonitor.$sequentialPasteIndex, clipboardMonitor.$sequentialPasteQueueIDs)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _, _, _ in
+                self?.updateStatusItem()
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func updateStatusItem() {
+        guard let button = statusItem.button else { return }
+        
+        let isPasting = clipboardMonitor.isPastingFromQueue
+        button.image = NSImage(systemSymbolName: isPasting ? "list.clipboard.fill" : "doc.on.clipboard", accessibilityDescription: "Clippy")
+        button.title = isPasting ? " \(clipboardMonitor.sequentialPasteIndex)/\(clipboardMonitor.sequentialPasteQueueIDs.count)" : ""
     }
     
     @objc func togglePopover(_ sender: AnyObject?) {

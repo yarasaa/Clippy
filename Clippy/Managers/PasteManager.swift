@@ -18,23 +18,23 @@ class PasteManager {
 
     private init() {}
 
-    func pasteText(_ text: String, completion: (() -> Void)? = nil) {
+    func pasteText(_ text: String, into targetApp: NSRunningApplication? = nil, completion: (() -> Void)? = nil) {
         paste(using: {
             let pb = NSPasteboard.general
             pb.clearContents()
             pb.setString(text, forType: .string)
-        }, completion: completion)
+        }, targetApp: targetApp, completion: completion)
     }
 
-    func pasteImage(_ image: NSImage, completion: (() -> Void)? = nil) {
+    func pasteImage(_ image: NSImage, into targetApp: NSRunningApplication? = nil, completion: (() -> Void)? = nil) {
         paste(using: {
             let pb = NSPasteboard.general
             pb.clearContents()
             pb.writeObjects([image])
-        }, completion: completion)
+        }, targetApp: targetApp, completion: completion)
     }
 
-    func pasteItem(_ item: ClipboardItem, completion: (() -> Void)? = nil) {
+    func pasteItem(_ item: ClipboardItem, into targetApp: NSRunningApplication? = nil, completion: (() -> Void)? = nil) {
         paste(using: {
             let pb = NSPasteboard.general
             pb.clearContents()
@@ -46,7 +46,7 @@ class PasteManager {
                     pb.writeObjects([image])
                 }
             }
-        }, completion: completion)
+        }, targetApp: targetApp, completion: completion)
     }
 
     func deleteBackward(times: Int, completion: (() -> Void)? = nil) {
@@ -62,16 +62,19 @@ class PasteManager {
     }
 
     func performPaste(completion: (() -> Void)? = nil) {
-        paste(using: { /* Panoyu değiştirme, sadece yapıştır */ }, completion: completion)
+        paste(using: { /* Panoyu değiştirme, sadece yapıştır */ }, targetApp: nil, completion: completion)
     }
 
     // Ortak yapıştırma mantığı
-    private func paste(using pasteBlock: @escaping () -> Void, completion: (() -> Void)? = nil) {
+    private func paste(using pasteBlock: @escaping () -> Void, targetApp: NSRunningApplication?, completion: (() -> Void)? = nil) {
         guard AXIsProcessTrusted() else {
             print("Erişilebilirlik izni yok. Yapıştırma işlemi engellendi.")
             (NSApp.delegate as? AppDelegate)?.checkAccessibilityPermissions()
             return
         }
+
+        // Eğer özel bir hedef uygulama belirtilmediyse, o anki aktif uygulamayı kullan.
+        let appToActivate = targetApp ?? NSWorkspace.shared.frontmostApplication
 
         statusBarController?.closePopover(sender: nil)
         
@@ -80,6 +83,9 @@ class PasteManager {
             
             let generalPasteboard = NSPasteboard.general
             generalPasteboard.addTypes([PasteManager.pasteFromClippyType], owner: nil)
+            
+            // Yapıştırmadan hemen önce, asıl uygulamayı tekrar öne getir.
+            appToActivate?.activate(options: .activateIgnoringOtherApps)
             
             let vKeyCode: CGKeyCode = 9
             let source = CGEventSource(stateID: .hidSystemState)

@@ -1,125 +1,95 @@
 //
 //  ImageEditorView.swift
 //  Clippy
-//
-//  Created by Mehmet Akbaba on 28.09.2025.
-//
 
 import SwiftUI
 
+/// Bir resimden renk seçmek için kullanılan özel görünüm.
 struct ImageEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var settings: SettingsManager
 
     let image: NSImage
-    let onSave: (NSImage) -> Void
-
-    @State private var shapes: [DrawableShape] = []
-    @State private var selectedTool: Tool = .arrow
-    @State private var selectedColor: Color = .red
     
-    private static let availableColors: [Color] = [
-        .red,
-        .orange,
-        .yellow,
-        .green,
-        .blue,
-        .purple,
-        .black,
-        .white
-    ]
-    enum Tool {
-        case arrow, rectangle, text
-    }
+    @State private var zoomScale: CGFloat = 1.0
+    @State private var viewOffset: CGVector = .zero
+    
+    @State private var showCopiedBanner = false
+    @State private var copiedColorHex: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
-            editorToolbar
-                .padding()
-                .background(.bar)
-
-            DrawingCanvas(image: image, shapes: $shapes, selectedTool: $selectedTool, selectedColor: $selectedColor) { text, rect in
-                let newTextShape = TextShape(text: text, rect: rect, color: NSColor(selectedColor))
-                shapes.append(newTextShape)
+            ZStack(alignment: .bottom) {
+                DrawingCanvas(
+                    image: image,
+                    zoomScale: $zoomScale,
+                    viewOffset: $viewOffset,
+                    onColorPick: { color in
+                        copyColorToClipboard(color)
+                    }
+                )
+                
+                if showCopiedBanner {
+                    Text(String(format: L("Saved %@ to History", settings: settings), copiedColorHex))
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(.bar)
+                        .cornerRadius(8)
+                        .shadow(radius: 5)
+                        .padding(.bottom)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .onAppear {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                                withAnimation {
+                                    showCopiedBanner = false
+                                }
+                            }
+                        }
+                }
             }
+        }
+        .overlay(alignment: .bottomLeading) {
+            Button {
+                zoomScale = 1.0
+                viewOffset = .zero
+            } label: {
+                Image(systemName: "arrow.up.left.and.down.right.magnifyingglass")
+            }
+            .help(L("Reset View", settings: settings))
+            .padding()
+            .opacity(zoomScale == 1.0 && viewOffset == .zero ? 0 : 1)
+        }
+        .overlay(alignment: .topTrailing) {
+            Button(action: { dismiss() }) {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.plain)
+            .padding()
         }
         .frame(minWidth: 600, idealWidth: max(600, image.size.width),
                minHeight: 400, idealHeight: max(400, image.size.height + 100))
     }
 
-    private var editorToolbar: some View {
-        HStack {
-            Picker("Tool", selection: $selectedTool) {
-                Image(systemName: "arrow.up.right").tag(Tool.arrow)
-                Image(systemName: "square").tag(Tool.rectangle)
-                Image(systemName: "textformat").tag(Tool.text)
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 160)
+    private func copyColorToClipboard(_ color: NSColor) {
+        guard let rgbColor = color.usingColorSpace(.sRGB) else { return }
+        let red = Int(round(rgbColor.redComponent * 255))
+        let green = Int(round(rgbColor.greenComponent * 255))
+        let blue = Int(round(rgbColor.blueComponent * 255))
 
-            Button {
-                undoLastAction()
-            } label: {
-                Image(systemName: "arrow.uturn.backward")
-            }
-            .disabled(shapes.isEmpty)
-            .keyboardShortcut("z", modifiers: .command)
-            .help(L("Undo last action", settings: settings))
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(ImageEditorView.availableColors, id: \.self) { color in
-                        Button {
-                            selectedColor = color
-                        } label: {
-                            Circle()
-                                .fill(color)
-                                .frame(width: 24, height: 24)
-                                .overlay(
-                                    Circle().stroke(selectedColor == color ? Color.accentColor : Color.gray, lineWidth: selectedColor == color ? 2 : 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            
-            Spacer()
-
-            Button(L("Cancel", settings: settings)) {
-                dismiss()
-            }
-            .keyboardShortcut(.escape, modifiers: [])
-
-            Button(L("Save", settings: settings)) {
-                saveImage()
-            }
-            .buttonStyle(.borderedProminent)
+        let hexString = String(format: "#%02X%02X%02X", red, green, blue)
+        
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(hexString, forType: .string)
+        
+        // Yeni bir pano öğesi oluştur ve geçmişe ekle.
+        let newItem = ClipboardItem(contentType: .text(hexString), date: Date(), sourceAppName: L("Color Picker", settings: settings), sourceAppBundleIdentifier: "com.yarasa.Clippy.ColorPicker")
+        PasteManager.shared.clipboardMonitor?.addNewItem(newItem)
+        
+        copiedColorHex = hexString
+        withAnimation {
+            showCopiedBanner = true
         }
-    }
-
-    private func undoLastAction() {
-        if !shapes.isEmpty {
-            _ = shapes.popLast()
-        }
-    }
-
-    private func saveImage() {
-        let finalImage = renderImage()
-        onSave(finalImage)
-        dismiss()
-    }
-
-    private func renderImage() -> NSImage {
-        let newImage = NSImage(size: image.size, flipped: false) { rect in
-            self.image.draw(in: rect)
-
-            for shape in self.shapes {
-                shape.draw(in: rect)
-            }
-            return true
-        }
-        return newImage
     }
 }
 
@@ -127,102 +97,44 @@ struct ImageEditorView: View {
 
 struct DrawingCanvas: NSViewRepresentable {
     let image: NSImage
-    @Binding var shapes: [DrawableShape]
-    @Binding var selectedTool: ImageEditorView.Tool
-    @Binding var selectedColor: Color
-    let onAddText: (String, CGRect) -> Void
+    @Binding var zoomScale: CGFloat
+    @Binding var viewOffset: CGVector
+    let onColorPick: (NSColor) -> Void
 
     func makeNSView(context: Context) -> DrawingNSView {
         let view = DrawingNSView(image: image)
+        view.zoomScale = zoomScale
+        view.viewOffset = viewOffset
         view.delegate = context.coordinator
-        context.coordinator.onAddText = onAddText
+        context.coordinator.onColorPick = onColorPick
         return view
+        
     }
 
     func updateNSView(_ nsView: DrawingNSView, context: Context) {
-        nsView.shapes = shapes
-        nsView.selectedTool = selectedTool
-        nsView.selectedColor = NSColor(selectedColor)
+        if nsView.zoomScale != zoomScale { nsView.zoomScale = zoomScale }
+        if nsView.viewOffset != viewOffset { nsView.viewOffset = viewOffset }
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
     }
 
-    // MARK: - Coordinator
     class Coordinator: NSObject, DrawingNSViewDelegate {
         var parent: DrawingCanvas
-        var onAddText: ((String, CGRect) -> Void)?
+        var onColorPick: ((NSColor) -> Void)?
 
         init(parent: DrawingCanvas) {
             self.parent = parent
         }
-
-        func didAddShape(_ shape: DrawableShape) {
-            parent.shapes.append(shape)
+        
+        func didPickColor(_ color: NSColor) {
+            onColorPick?(color)
         }
-    }
-}
-
-// MARK: - Shape Definitions
-
-protocol DrawableShape {
-    func draw(in rect: CGRect)
-}
-
-struct Arrow: DrawableShape {
-    let start: CGPoint
-    let end: CGPoint
-    let color: NSColor
-
-    func draw(in rect: CGRect) {
-        let path = NSBezierPath()
-        path.move(to: start)
-        path.line(to: end)
-
-        let angle = atan2(start.y - end.y, start.x - end.x)
-        let arrowLength: CGFloat = 15
-        let arrowAngle = CGFloat.pi / 6
-
-        let p1 = CGPoint(x: end.x + arrowLength * cos(angle + arrowAngle), y: end.y + arrowLength * sin(angle + arrowAngle))
-        let p2 = CGPoint(x: end.x + arrowLength * cos(angle - arrowAngle), y: end.y + arrowLength * sin(angle - arrowAngle))
-
-        path.move(to: p1)
-        path.line(to: end)
-        path.line(to: p2)
-
-        color.setStroke()
-        path.lineWidth = 2
-        path.stroke()
-    }
-}
-struct TextShape: DrawableShape {
-    let text: String
-    let rect: CGRect
-    let color: NSColor
-
-    func draw(in contextRect: CGRect) {
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.paragraphSpacing = 0
-        paragraphStyle.lineSpacing = 0
-               let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 24, weight: .bold),
-            .foregroundColor: color,
-            .paragraphStyle: paragraphStyle
-        ]
-        let attributedString = NSAttributedString(string: text, attributes: attributes)
-        attributedString.draw(with: rect, options: .usesLineFragmentOrigin)
-    }
-}
-
-struct Rectangle: DrawableShape {
-    let rect: CGRect
-    let color: NSColor
-
-    func draw(in contextRect: CGRect) {
-        let path = NSBezierPath(rect: rect)
-        color.setStroke()
-        path.lineWidth = 2
-        path.stroke()
+        
+        func didUpdateZoom(scale: CGFloat, offset: CGVector) {
+            parent.zoomScale = scale
+            parent.viewOffset = offset
+        }
     }
 }

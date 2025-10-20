@@ -13,13 +13,16 @@ struct ClipboardDetailView: View {
     @ObservedObject var monitor: ClipboardMonitor
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.dismiss) var dismiss
+    
     @State private var didCopy = false
     @State private var isScanning = false
-    @State private var showImageEditor = false
+    @State private var showAppPicker = false
 
+    // Değişiklikleri yerel state'te tutarak performansı artır
     @State private var editedText: String?
     @State private var editedTitle: String?
     @State private var editedKeyword: String?
+    @State private var editedAppRules: String?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -45,15 +48,28 @@ struct ClipboardDetailView: View {
                         .padding([.horizontal, .top])
                         
                         Divider()
-                        
-                        TextEditor(text: Binding(
-                            get: { editedText ?? item.content ?? "" },
-                            set: { editedText = $0 }
-                        ))
-                        .font(.body)
-                        .padding(5)
-                        
-                        TextStatsView(text: editedText ?? item.content ?? "")
+
+                        ZStack(alignment: .bottomTrailing) {
+                            TextEditor(text: Binding(
+                                get: { editedText ?? item.content ?? "" },
+                                set: { editedText = $0 }
+                            ))
+                            .font(.body)
+                            .padding(5)
+                            
+                            if let color = item.toClipboardItem().color {
+                                color
+                                    .frame(width: 80, height: 80)
+                                    .cornerRadius(12)
+                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.secondary.opacity(0.5), lineWidth: 1))
+                                    .shadow(radius: 5)
+                                    .padding()
+                            }
+                        }
+
+                        if !item.toClipboardItem().isHexColor {
+                            TextStatsView(text: editedText ?? item.content ?? "")
+                        }
                     }
                     
                     // Anahtar Kelime Giriş Alanı
@@ -69,6 +85,41 @@ struct ClipboardDetailView: View {
                     }
                     .padding()
                     .padding(.bottom, 8)
+                    
+                    // Uygulama Kuralları Giriş Alanı
+                    Group {
+                        Divider()
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(L("Application Rules (Optional)", settings: settings))
+                                .font(.headline)
+                            
+                            HStack {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack {
+                                        let identifiers = (editedAppRules ?? item.applicationRules ?? "").split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                                        if identifiers.isEmpty {
+                                            Text(L("Works in all applications", settings: settings))
+                                                .foregroundColor(.secondary)
+                                                .padding(.horizontal, 5)
+                                        } else {
+                                            ForEach(identifiers, id: \.self) { id in
+                                                IconView(bundleIdentifier: id, monitor: monitor)
+                                            }
+                                        }
+                                    }
+                                }
+                                Spacer()
+                                Button(L("Select Apps...", settings: settings)) {
+                                    showAppPicker = true
+                                }
+                            }
+                        }
+                        .padding(8)
+                        .background(Color(nsColor: .controlBackgroundColor))
+                        .cornerRadius(8)
+                    }
+                    .padding([.horizontal, .bottom])
+                    .background(.bar)
                 } else if item.contentType == "image", let path = item.content {
                     if let image = monitor.loadImage(from: path) {
                         Image(nsImage: image)
@@ -76,14 +127,11 @@ struct ClipboardDetailView: View {
                             .aspectRatio(contentMode: .fit)
                             .padding()
                     }
-                    Spacer() // Resmin üstte kalmasını sağlar
+                    Spacer()
                 }
             }
 
             HStack {
-                // "Back" butonu kaldırıldı, çünkü artık ayrı bir pencere.
-                Spacer()
-                
                 if item.contentType == "image" {
                     Button {
                         isScanning = true
@@ -101,16 +149,6 @@ struct ClipboardDetailView: View {
                     .help(L("Recognize text in this image", settings: settings))
                     .disabled(isScanning)
                 }
-                if item.contentType == "image" {
-                    Button {
-                        showImageEditor = true
-                    } label: {
-                        Label(L("Edit Image", settings: settings), systemImage: "pencil.and.scribble")
-                    }
-                    .help("Annotate or edit this image")
-                }
-                
-                Spacer()
                 
                 Button {
                     monitor.copyToClipboard(item: item.toClipboardItem())
@@ -128,20 +166,21 @@ struct ClipboardDetailView: View {
                 }
                 .help(L("Copy", settings: settings))
                 
-                if editedText != nil || editedTitle != nil || editedKeyword != nil {
+                if editedText != nil || editedTitle != nil || editedKeyword != nil || editedAppRules != nil {
                     Button(L("Save", settings: settings)) {
-                        if let newText = editedText {
-                            item.content = newText
-                            monitor.scheduleSave()
-                        }
-                        if let newTitle = editedTitle {
-                            item.title = newTitle.isEmpty ? nil : newTitle
-                            monitor.scheduleSave()
-                        }
-                        if let newKeyword = editedKeyword {
-                            item.keyword = newKeyword.isEmpty ? nil : newKeyword
-                            monitor.scheduleSave()
-                        }
+                        // Sadece değişen alanları kaydet
+                        if let newText = editedText, newText != item.content { item.content = newText }
+                        
+                        let newTitle = editedTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if newTitle != item.title { item.title = (newTitle?.isEmpty ?? true) ? nil : newTitle }
+                        
+                        let newKeyword = editedKeyword?.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if newKeyword != item.keyword { item.keyword = (newKeyword?.isEmpty ?? true) ? nil : newKeyword }
+                        
+                        let newRules = editedAppRules?.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if newRules != item.applicationRules { item.applicationRules = (newRules?.isEmpty ?? true) ? nil : newRules }
+                        
+                        monitor.scheduleSave()
                         dismiss()
                     }.keyboardShortcut("s", modifiers: .command)
                 }
@@ -151,22 +190,26 @@ struct ClipboardDetailView: View {
             .background(.bar)
         }
         .onAppear {
-            if item.contentType == "text" {
-                if editedTitle == nil { editedTitle = item.title }
-                if editedText == nil { editedText = item.content }
-                if editedKeyword == nil {
-                    editedKeyword = item.keyword?.trimmingCharacters(in: .whitespaces) ?? ""
+            // State'i sadece bir kez, görünüm ilk açıldığında doldur.
+            editedTitle = item.title
+            editedText = item.content
+            editedKeyword = item.keyword
+            editedAppRules = item.applicationRules
+            if item.contentType == "image" {
+                // Resim detay ekranı açıldığında renkleri otomatik olarak çıkar.
+                Task {
+                    if let imagePath = item.content, let _ = monitor.loadImage(from: imagePath) {
+                        // self.extractedColors = await monitor.extractDominantColors(from: image) // Bu satır kaldırıldı
+                    }
                 }
             }
         }
-        .sheet(isPresented: $showImageEditor) {
-            if let imagePath = item.content, let image = monitor.loadImage(from: imagePath) {
-                ImageEditorView(image: image) { editedImage in
-                    monitor.saveEditedImage(editedImage, from: item)
-                    dismiss()
-                }
-                .environmentObject(settings)
-            }
+        .sheet(isPresented: $showAppPicker) {
+            AppPickerView(selectedIdentifiers: Binding(
+                get: { Set((editedAppRules ?? "").split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }) },
+                set: { newIdentifiers in editedAppRules = newIdentifiers.sorted().joined(separator: ",") }
+            ))
+            .environmentObject(settings)
         }
         .frame(minWidth: 450, idealWidth: 600, maxWidth: .infinity, minHeight: 350, idealHeight: 500, maxHeight: .infinity) // Pencerenin yeniden boyutlandırılabilir olmasını sağlar.
     }
@@ -216,6 +259,29 @@ struct StatItem: View {
             Text(label)
                 .font(.caption)
                 .foregroundColor(.secondary)
+        }
+    }
+}
+
+struct IconView: View {
+    let bundleIdentifier: String
+    @ObservedObject var monitor: ClipboardMonitor
+    var size: CGFloat = 24
+    @State private var icon: NSImage?
+
+    var body: some View {
+        Group {
+            if let icon = icon {
+                Image(nsImage: icon)
+                    .resizable()
+            } else {
+                ProgressView()
+                    .scaleEffect(0.5)
+            }
+        }
+        .frame(width: size, height: size)
+        .onAppear {
+            monitor.loadIcon(for: bundleIdentifier) { loadedIcon in self.icon = loadedIcon }
         }
     }
 }

@@ -11,7 +11,7 @@ struct ContentView: View {
     @State private var comparisonData: ComparisonData?
     
     @FetchRequest private var items: FetchedResults<ClipboardItemEntity>
-
+    
     init() {
         _items = FetchRequest<ClipboardItemEntity>(sortDescriptors: [
             NSSortDescriptor(keyPath: \ClipboardItemEntity.isPinned, ascending: false),
@@ -23,7 +23,7 @@ struct ContentView: View {
     @EnvironmentObject var settings: SettingsManager
 
     enum Tab {
-        case history, code, images, favorites
+        case history, code, images, snippets, favorites
     }
 
     var body: some View {
@@ -45,6 +45,9 @@ struct ContentView: View {
                                 }
                                 if settings.showImagesTab {
                                     Text(L("Images", settings: settings)).tag(Tab.images)
+                                }
+                                if settings.showSnippetsTab {
+                                    Text(L("Snippets", settings: settings)).tag(Tab.snippets)
                                 }
                                 if settings.showFavoritesTab {
                                     Text(L("Favorites", settings: settings)).tag(Tab.favorites)
@@ -119,17 +122,22 @@ struct ContentView: View {
 
         switch selectedTab {
         case .history:
+            predicates.append(NSPredicate(format: "(keyword == nil OR keyword == '')"))
             predicates.append(NSPredicate(format: "isFavorite == NO"))
             predicates.append(NSPredicate(format: "contentType == 'text'"))
             if settings.showCodeTab {
                 predicates.append(NSPredicate(format: "isCode == NO"))
             }
         case .images:
+            predicates.append(NSPredicate(format: "(keyword == nil OR keyword == '')"))
             predicates.append(NSPredicate(format: "isFavorite == NO"))
             predicates.append(NSPredicate(format: "contentType == 'image'"))
         case .code:
+            predicates.append(NSPredicate(format: "(keyword == nil OR keyword == '')"))
             predicates.append(NSPredicate(format: "isFavorite == NO"))
             predicates.append(NSPredicate(format: "isCode == YES"))
+        case .snippets:
+            predicates.append(NSPredicate(format: "keyword != nil AND keyword != ''"))
         case .favorites:
             predicates.append(NSPredicate(format: "isFavorite == YES"))
         }
@@ -330,11 +338,22 @@ struct ClipboardRowView: View {
         }
         .buttonStyle(.plain)
         .overlay(alignment: .topTrailing) {
-            if let id = item.id, let selectionIndex = monitor.selectedItemIDs.firstIndex(of: id) {
+            if monitor.isPastingFromQueue, let id = item.id, let queueIndex = monitor.sequentialPasteQueueIDs.firstIndex(of: id) {
+                let isNext = (queueIndex == monitor.sequentialPasteIndex % monitor.sequentialPasteQueueIDs.count)
+                
+                Text("\(queueIndex + 1)")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(4)
+                    .background(Circle().fill(isNext ? .green : .orange))
+                    .offset(x: 8, y: -8)
+                    .help(isNext ? L("Next to Paste", settings: settings) : "")
+            }
+            else if !monitor.selectedItemIDs.isEmpty, let id = item.id, let selectionIndex = monitor.selectedItemIDs.firstIndex(of: id) {
                 Text("\(selectionIndex + 1)")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.white)
-                    .padding(3)
+                    .padding(4)
                     .background(Circle().fill(Color.accentColor))
                     .offset(x: 8, y: -8)
             }
@@ -389,12 +408,8 @@ struct ClipboardRowView: View {
             }
             
             HStack(spacing: 4) {
-                if let bundleId = item.sourceAppBundleIdentifier, let appIcon = monitor.loadIcon(for: bundleId) {
-                    Image(nsImage: appIcon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 14, height: 14)
-                        .help(item.sourceAppName ?? bundleId)
+                if let bundleId = item.sourceAppBundleIdentifier {
+                    IconView(bundleIdentifier: bundleId, monitor: monitor, size: 14)
                 }
                 
                 Text(item.date ?? Date(), style: .time)

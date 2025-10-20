@@ -1,142 +1,194 @@
 //
 //  DrawingNSView.swift
 //  Clippy
-//
-//  Created by Mehmet Akbaba on 28.09.2025.
-//
 
 import AppKit
 protocol DrawingNSViewDelegate: AnyObject {
-    func didAddShape(_ shape: DrawableShape)
+    func didPickColor(_ color: NSColor)
+    func didUpdateZoom(scale: CGFloat, offset: CGVector)
 }
 
 class DrawingNSView: NSView {
     weak var delegate: DrawingNSViewDelegate?
     let image: NSImage
-    var shapes: [DrawableShape] = [] {
-        didSet { needsDisplay = true }
-    }
-    var selectedTool: ImageEditorView.Tool = .arrow
-    var selectedColor: NSColor = .red
-    var cropRect: CGRect?
-    private var startPoint: CGPoint?
-    private var currentShape: DrawableShape?
-    private var activeTextView: NSTextView?
+    var zoomScale: CGFloat = 1.0
+    var viewOffset: CGVector = .zero
+    
+    private var trackingArea: NSTrackingArea?
+    private var currentMouseLocation: NSPoint?
 
     init(image: NSImage) {
         self.image = image
         super.init(frame: .zero)
+        self.wantsLayer = true
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea = self.trackingArea {
+            removeTrackingArea(trackingArea)
+        }
+        let options: NSTrackingArea.Options = [.mouseMoved, .activeInKeyWindow, .mouseEnteredAndExited]
+        trackingArea = NSTrackingArea(rect: self.bounds, options: options, owner: self, userInfo: nil)
+        if let trackingArea = trackingArea {
+            addTrackingArea(trackingArea)
+        }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        resetViewToFit()
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        image.draw(in: bounds)
+        NSGraphicsContext.saveGraphicsState()
+        
+        NSBezierPath(rect: self.bounds).addClip()
+        
+        NSGraphicsContext.current?.imageInterpolation = .high
 
-        for shape in shapes {
-            shape.draw(in: bounds)
+        let transform = NSAffineTransform()
+        transform.translateX(by: viewOffset.dx, yBy: viewOffset.dy)
+        transform.scale(by: zoomScale)
+        transform.concat()
+
+        image.draw(in: CGRect(origin: .zero, size: image.size))
+
+        NSGraphicsContext.restoreGraphicsState()
+
+        // Renk seçici büyütecini transformasyondan sonra çiz, böylece hep aynı boyutta kalır.
+        if let location = currentMouseLocation, let color = getColor(at: location) {
+            drawColorPickerLoupe(at: location, color: color, hex: colorToHex(color))
         }
-
-        currentShape?.draw(in: bounds)
-
     }
 
     // MARK: - Mouse Events
 
     override func mouseDown(with event: NSEvent) {
-        startPoint = convert(event.locationInWindow, from: nil)
-        
-        if selectedTool == .text && activeTextView != nil {
-            self.window?.makeFirstResponder(self)
+        let viewPoint = convert(event.locationInWindow, from: nil)
+        if let color = getColor(at: viewPoint) {
+            delegate?.didPickColor(color)
         }
-
     }
 
-    override func mouseDragged(with event: NSEvent) {
-        guard let startPoint = startPoint else { return }
-        let currentPoint = convert(event.locationInWindow, from: nil)
-
-        switch selectedTool {
-        case .arrow:
-            currentShape = Arrow(start: startPoint, end: currentPoint, color: selectedColor)
-        case .rectangle:
-            let rect = CGRect(x: min(startPoint.x, currentPoint.x),
-                              y: min(startPoint.y, currentPoint.y),
-                              width: abs(currentPoint.x - startPoint.x),
-                              height: abs(currentPoint.y - startPoint.y))
-            currentShape = Rectangle(rect: rect, color: selectedColor)
-        case .text:
-            let rect = CGRect(x: min(startPoint.x, currentPoint.x),
-                              y: min(startPoint.y, currentPoint.y),
-                              width: abs(currentPoint.x - startPoint.x),
-                              height: abs(currentPoint.y - startPoint.y))
-            currentShape = Rectangle(rect: rect, color: .gray)
-        }
+    override func mouseMoved(with event: NSEvent) {
+        currentMouseLocation = convert(event.locationInWindow, from: nil)
         needsDisplay = true
     }
 
-    override func mouseUp(with event: NSEvent) {
-        guard let startPoint = self.startPoint else { return }
-        let endPoint = convert(event.locationInWindow, from: nil)
+    override func mouseExited(with event: NSEvent) {
+        currentMouseLocation = nil
+        needsDisplay = true
+    }
 
-        if selectedTool == .text {
-
-            let rect = CGRect(x: min(startPoint.x, endPoint.x),
-                              y: min(startPoint.y, endPoint.y),
-                              width: abs(endPoint.x - startPoint.x),
-                              height: abs(endPoint.y - startPoint.y))
-
-            guard rect.width > 10 && rect.height > 10 else {
-                self.startPoint = nil
-                self.currentShape = nil
-                needsDisplay = true
-                return
-            }
-
-            let textView = NSTextView(frame: rect)
-            textView.font = .systemFont(ofSize: 24, weight: .bold)
-            textView.textColor = selectedColor
-            textView.drawsBackground = false
-            textView.isEditable = true
-            textView.isSelectable = true
+    override func scrollWheel(with event: NSEvent) {
+        if event.modifierFlags.contains(.command) { // Zoom
+            let zoomFactor: CGFloat = 0.1
+            let zoomDelta = event.scrollingDeltaY * zoomFactor
+            let newScale = max(0.2, min(10.0, zoomScale + zoomDelta))
             
-            textView.textContainerInset = .zero
-            textView.textContainer?.lineFragmentPadding = 0
+            let mouseLocationInView = convert(event.locationInWindow, from: nil)
             
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.paragraphSpacing = 0
-            paragraphStyle.lineSpacing = 0
-            textView.defaultParagraphStyle = paragraphStyle
+            let pointToZoom = CGPoint(x: mouseLocationInView.x - viewOffset.dx, y: mouseLocationInView.y - viewOffset.dy)
             
-            var observer: NSObjectProtocol?
-            observer = NotificationCenter.default.addObserver(forName: NSText.didEndEditingNotification, object: textView, queue: .main) { [weak self] notification in
-                guard let self = self, let tv = notification.object as? NSTextView, !tv.string.isEmpty else {
-                    if let obs = observer { NotificationCenter.default.removeObserver(obs) }
-                    return }
-
-                (self.delegate as? DrawingCanvas.Coordinator)?.onAddText?(tv.string, tv.frame)
-                self.currentShape = nil
-                tv.removeFromSuperview()
-                self.activeTextView = nil
-                
-                if let obs = observer { NotificationCenter.default.removeObserver(obs) }
-                observer = nil
-
-                self.needsDisplay = true
-            }
+            viewOffset.dx = mouseLocationInView.x - pointToZoom.x * (newScale / zoomScale)
+            viewOffset.dy = mouseLocationInView.y - pointToZoom.y * (newScale / zoomScale)
             
-            self.addSubview(textView)
-            self.window?.makeFirstResponder(textView)
-            self.activeTextView = textView
-        } else if let finalShape = currentShape {
-            delegate?.didAddShape(finalShape)
+            zoomScale = newScale
+            
+        } else { // Pan
+            viewOffset.dx += event.scrollingDeltaX
+            viewOffset.dy -= event.scrollingDeltaY
         }
+        needsDisplay = true
+        delegate?.didUpdateZoom(scale: zoomScale, offset: viewOffset)
+    }
 
-        self.startPoint = nil
-        self.currentShape = nil
+    private func drawColorPickerLoupe(at location: NSPoint, color: NSColor, hex: String) {        
+        let loupeSize: CGFloat = 100
+        let yOffset: CGFloat = 25
+        let loupeRect = CGRect(x: location.x - (loupeSize / 2), y: location.y + yOffset, width: loupeSize, height: loupeSize)
+        
+        // Dış çerçeve ve arka plan
+        let path = NSBezierPath(roundedRect: loupeRect, xRadius: 8, yRadius: 8)
+        NSColor.black.withAlphaComponent(0.6).setFill()
+        path.fill()
+        
+        // Renk kutusu
+        let colorBoxRect = CGRect(x: loupeRect.minX + 10, y: loupeRect.minY + 35, width: loupeSize - 20, height: loupeSize - 45)
+        color.drawSwatch(in: colorBoxRect)
+        NSColor.white.withAlphaComponent(0.5).setStroke()
+        NSBezierPath(rect: colorBoxRect).stroke()
+        
+        // HEX kodu
+        let textRect = CGRect(x: loupeRect.minX, y: loupeRect.minY + 10, width: loupeSize, height: 20)
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 14, weight: .bold),
+            .foregroundColor: NSColor.white,
+            .paragraphStyle: paragraphStyle
+        ]
+        hex.draw(in: textRect, withAttributes: attributes)
+    }
+
+    private func getColor(at point: NSPoint) -> NSColor? {
+        let modelPoint = convertToModelPoint(point)
+        
+        let imageBounds = CGRect(origin: .zero, size: image.size)
+        guard imageBounds.contains(modelPoint) else { return nil }
+        
+        var imageRect = CGRect(origin: .zero, size: image.size)
+        guard let cgImage = image.cgImage(forProposedRect: &imageRect, context: nil, hints: nil) else { return nil }
+        
+        let bitmapRep = NSBitmapImageRep(cgImage: cgImage)
+    
+        // AppKit'in (0,0 sol alt) koordinat sistemini, resim verisinin (0,0 sol üst) sistemine çevir.
+        // `colorAt` metodu, sol üst köşeden başlayan koordinatlar bekler.
+        let invertedY = image.size.height - modelPoint.y
+        
+        return bitmapRep.colorAt(x: Int(modelPoint.x), y: Int(invertedY))
+    }
+    
+    private func colorToHex(_ color: NSColor) -> String {
+        guard let rgbColor = color.usingColorSpace(.sRGB) else { return "N/A" }
+        let red = Int(round(rgbColor.redComponent * 255))
+        let green = Int(round(rgbColor.greenComponent * 255))
+        let blue = Int(round(rgbColor.blueComponent * 255))
+
+        return String(format: "#%02X%02X%02X", red, green, blue)
+    }
+
+    private func convertToModelPoint(_ viewPoint: NSPoint) -> NSPoint {
+        let x = (viewPoint.x - viewOffset.dx) / zoomScale
+        let y = (viewPoint.y - viewOffset.dy) / zoomScale
+        
+        return NSPoint(x: x, y: y)
+    }
+
+    private func updateCursor() {
+        NSCursor.crosshair.set()
+    }
+    
+    private func resetViewToFit() {
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        
+        let viewSize = bounds.size
+        let imageSize = image.size
+        
+        let scaleX = viewSize.width / imageSize.width
+        let scaleY = viewSize.height / imageSize.height
+        zoomScale = min(scaleX, scaleY)
+        
+        viewOffset = CGVector(dx: (viewSize.width - imageSize.width * zoomScale) / 2, dy: (viewSize.height - imageSize.height * zoomScale) / 2)
+        
+        needsDisplay = true
+        delegate?.didUpdateZoom(scale: zoomScale, offset: viewOffset)
     }
 }

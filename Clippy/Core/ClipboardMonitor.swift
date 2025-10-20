@@ -24,11 +24,11 @@ enum ImageOrientation {
 class ClipboardMonitor: ObservableObject {
     @Published var navigationPath = NavigationPath()
     @Published var selectedItemIDs: [UUID] = []
-    weak var appDelegate: AppDelegate? // Bu satır eksik.
+    weak var appDelegate: AppDelegate?
     @Published var sequentialPasteQueueIDs: [UUID] = []
     
-    private var sequentialPasteIndex: Int = 0
-    private var isPastingFromQueue: Bool = false
+    @Published var sequentialPasteIndex: Int = 1
+    @Published var isPastingFromQueue: Bool = false
     private var shouldAddToSequentialQueue = false
 
     private let imageCache = NSCache<NSString, NSImage>()
@@ -176,8 +176,17 @@ class ClipboardMonitor: ObservableObject {
             self.addNewItem(ocrItem)
             print("✅ OCR: Metin tanındı ve geçmişe eklendi.")
         }
+        
+        var languages: [String] = []
+        let currentLanguageCode = SettingsManager.shared.appLanguage
+        if currentLanguageCode == "tr" {
+            languages.append("tr-TR")
+        }
+        languages.append("en-US")
+        
         request.recognitionLevel = .accurate
-        request.recognitionLanguages = ["tr-TR", "en-US"]
+        request.recognitionLanguages = languages
+        print("ℹ️ OCR dilleri ayarlandı: \(languages)")
         
         try? VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
     }
@@ -279,14 +288,21 @@ class ClipboardMonitor: ObservableObject {
     func pasteNextInSequence(completion: @escaping () -> Void) {
         guard !sequentialPasteQueueIDs.isEmpty else { return }
         
-        // İlk yapıştırma işlemiyle birlikte "yapıştırma moduna" geç.
         isPastingFromQueue = true
         
-        let itemID = sequentialPasteQueueIDs[sequentialPasteIndex % sequentialPasteQueueIDs.count]
+        let itemID = sequentialPasteQueueIDs[sequentialPasteIndex]
         guard let itemToPaste = findEntity(for: itemID)?.toClipboardItem() else { return }
 
-        PasteManager.shared.pasteItem(itemToPaste, completion: completion)
-        sequentialPasteIndex += 1
+        PasteManager.shared.pasteItem(itemToPaste) { [weak self] in
+            guard let self = self else { return }
+            
+            if self.sequentialPasteIndex + 1 >= self.sequentialPasteQueueIDs.count {
+                self.clearSequentialPasteQueue()
+            } else {
+                self.sequentialPasteIndex += 1
+            }
+            completion()
+        }
     }
 
     /// Sıralı yapıştırma kuyruğunu ve ilgili durumları temizler.
@@ -473,15 +489,18 @@ class ClipboardMonitor: ObservableObject {
 
         switch tab {
         case .history:
+            predicates.append(NSPredicate(format: "(keyword == nil OR keyword == '')"))
             predicates.append(NSPredicate(format: "isFavorite == NO"))
             predicates.append(NSPredicate(format: "contentType == 'text'"))
             if SettingsManager.shared.showCodeTab {
                 predicates.append(NSPredicate(format: "isCode == NO"))
             }
         case .code:
+            predicates.append(NSPredicate(format: "(keyword == nil OR keyword == '')"))
             predicates.append(NSPredicate(format: "isFavorite == NO"))
             predicates.append(NSPredicate(format: "isCode == YES"))
         case .images:
+            predicates.append(NSPredicate(format: "(keyword == nil OR keyword == '')"))
             predicates.append(NSPredicate(format: "isFavorite == NO"))
             predicates.append(NSPredicate(format: "contentType == 'image'"))
             // Resim dosyalarını da diskten sil
@@ -490,6 +509,8 @@ class ClipboardMonitor: ObservableObject {
             if let imagesToRemove = try? viewContext.fetch(imagesFetchRequest) {
                 imagesToRemove.forEach { deleteImageFile(for: $0) }
             }
+        case .snippets:
+            predicates.append(NSPredicate(format: "keyword != nil AND keyword != ''"))
             
         case .favorites:
             let favFetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
@@ -570,31 +591,30 @@ class ClipboardMonitor: ObservableObject {
         return nil
     }
 
-    func loadIcon(for bundleIdentifier: String) -> NSImage? {
+    func loadIcon(for bundleIdentifier: String, completion: @escaping (NSImage?) -> Void) {
         if let cachedIcon = appIconCache.object(forKey: bundleIdentifier as NSString) {
-            return cachedIcon
+            completion(cachedIcon)
+            return
         }
 
-        var icon: NSImage?
-        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
-            icon = NSWorkspace.shared.icon(forFile: appURL.path)
-        }
-        
-        if bundleIdentifier == "com.yarasa.Clippy.OCR" {
-            icon = NSImage(systemSymbolName: "text.viewfinder", accessibilityDescription: "OCR")
-        }
+        Task(priority: .userInitiated) {
+            var icon: NSImage?
+            if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+                icon = NSWorkspace.shared.icon(forFile: appURL.path)
+            }
+            
+            if bundleIdentifier == "com.yarasa.Clippy.OCR" {
+                icon = NSImage(systemSymbolName: "text.viewfinder", accessibilityDescription: "OCR")
+            }
 
-        if bundleIdentifier == "com.yarasa.Clippy.Editor" {
-            icon = NSImage(systemSymbolName: "pencil.and.scribble", accessibilityDescription: "Editor")
-        }
-
-        if let finalIcon = icon {
-            appIconCache.setObject(finalIcon, forKey: bundleIdentifier as NSString)
-            return finalIcon
-        } else { 
-            let genericIcon = NSImage(systemSymbolName: "questionmark.app.dashed", accessibilityDescription: "Unknown App")!
-            appIconCache.setObject(genericIcon, forKey: bundleIdentifier as NSString)
-            return genericIcon
+            if let finalIcon = icon {
+                self.appIconCache.setObject(finalIcon, forKey: bundleIdentifier as NSString)
+                await MainActor.run { completion(finalIcon) }
+            } else {
+                let genericIcon = NSImage(systemSymbolName: "questionmark.app.dashed", accessibilityDescription: "Unknown App")!
+                self.appIconCache.setObject(genericIcon, forKey: bundleIdentifier as NSString)
+                await MainActor.run { completion(genericIcon) }
+            }
         }
     }
 

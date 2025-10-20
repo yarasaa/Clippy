@@ -51,6 +51,7 @@ struct SettingsView: View {
             Section(header: Text(L("Tab Visibility", settings: settings))) {
                 Toggle(L("Show Code Tab", settings: settings), isOn: $settings.showCodeTab)
                 Toggle(L("Show Images Tab", settings: settings), isOn: $settings.showImagesTab)
+                Toggle(L("Show Snippets Tab", settings: settings), isOn: $settings.showSnippetsTab)
                 Toggle(L("Show Favorites Tab", settings: settings), isOn: $settings.showFavoritesTab)
             }
 

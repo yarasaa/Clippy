@@ -43,7 +43,7 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 - **Sürükle & Bırak:** Listeden tek bir öğeyi veya `Cmd` ile seçtiğiniz birden fazla metin öğesini sürükleyip herhangi bir uygulamaya bırakın.
 - **Sıralı Yapıştırma:**
   - **Kısayolla:** `Cmd+Shift+C` ile birden fazla öğeyi sırayla kopyalayın. Ardından `Cmd+Shift+B` ile bu öğeleri kopyaladığınız sırayla farklı yerlere tek tek yapıştırın.
-  - **Görsel Seçimle:** Listeden `Cmd` ile istediğiniz öğeleri seçin ve alttaki **"Sıraya Ekle"** butonuna basın. Bu seçim, sıralı yapıştırma kuyruğunuzu oluşturur.
+  - **Görsel Seçimle:** Listeden `Cmd` ile istediğiniz öğeleri seçin ve alttaki **"Sıraya Ekle"** butonuna basın. Menü çubuğu ikonu, kuyruk durumunu gösterecek şekilde güncellenir (örn: "1/5").
 - **Resimleri Birleştirme:** Çoklu seçimle (`Cmd`) seçtiğiniz birden fazla resmi, sağ tık menüsünden tek bir resim olarak dikey veya yatay şekilde birleştirin.
 - **Doğrudan Yapıştırma:** Her öğenin yanındaki "Yapıştır" butonu ile doğrudan aktif uygulamaya yapıştırın.
 - **Hızlı Metin Önizleme:** Fareyi bir metin öğesinin üzerine getirerek, sistemin standart yardım balonuyla içeriğin tamamını görün.
@@ -76,29 +76,56 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 
 - **Özelleştirilebilir Kısayollar:** Hem uygulamayı açma hem de "Hepsini Yapıştır" işlevi için kendi klavye kısayollarınızı belirleyin.
 - **Dil Desteği:** Uygulamayı Türkçe veya İngilizce olarak kullanın.
-- **Sekme Yönetimi:** İhtiyaç duymadığınız "Kod" veya "Favoriler" sekmelerini gizleyin.
+- **Sekme Yönetimi:** İhtiyaç duymadığınız "Kod", "Resimler", "Snippet'lar" veya "Favoriler" sekmelerini gizleyin.
 - **Limit Ayarları:** Geçmişte ve favorilerde tutulacak maksimum öğe sayısını belirleyin.
 - **Oturumda Başlatma:** Mac'iniz açıldığında Clippy'nin otomatik olarak başlamasını sağlayın.
 - **Modern Ayarlar Penceresi:** Ayarlar, "Genel", "Kısayollar" ve "Gelişmiş" sekmeleri altında gruplanarak daha düzenli ve kullanıcı dostu bir hale getirildi.
 - **Uyku Modu Desteği:** Bilgisayarınız uyku modundan çıktıktan sonra, Clippy'nin tüm özellikleri (pano izleme, kısayollar, anahtar kelime genişletme) otomatik olarak yeniden başlatılır ve sorunsuz bir şekilde çalışmaya devam eder.
 
-### 🎨 Resim Düzenleyici
-
-- Panonuza kopyaladığınız ekran görüntülerini veya resimleri, uygulamadan ayrılmadan hızlıca düzenleyin.
-- **Çizim Araçları:** Ok, dörtgen ve metin araçlarıyla resimlerinize kolayca notlar alın veya önemli yerleri işaretleyin.
-- **Renk Seçenekleri:** Çizimleriniz için çeşitli renkler arasından seçim yapın.
-- **Geri Al (Undo):** Yaptığınız son işlemi `Cmd+Z` kısayoluyla veya butonla kolayca geri alın.
-
 ### ⌨️ Anahtar Kelime ile Yapıştırma (Snippet Genişletme)
 
-Bu özellik, üretkenliğinizi bir üst seviyeye taşır. Sık kullandığınız metin parçacıklarına (imza, adres, e-posta şablonu, kod bloğu vb.) bir anahtar kelime atayın ve bu anahtar kelimeyi herhangi bir uygulamada yazarak ilgili metnin otomatik olarak yapıştırılmasını sağlayın.
+Bu özellik, statik metin parçacıklarınızı dinamik, interaktif ve bağlama duyarlı şablonlara dönüştürerek üretkenliğinizi bir üst seviyeye taşır. Snippet'lar artık kendilerine özel **"Snippet'lar"** sekmesinde düzenlenerek kolay erişim ve yönetim sağlar.
 
-- **Kolay Kullanım:** Herhangi bir metin öğesinin detay ekranına gidin ve `;imza` veya `;adres` gibi bir anahtar kelime atayın.
-- **Sistem Genelinde Çalışma:** Atadığınız anahtar kelimeyi herhangi bir metin alanında yazdığınızda, Clippy bunu algılayıp içeriği sizin için yapıştırır.
-- **Performans Odaklı:**
-  - **Akıllı Tetikleme:** Özellik, sadece tetikleyici karakter (`;`) ile başlayan ve bir sonlandırıcı karakter (boşluk, enter, nokta vb.) ile biten girişleri kontrol eder.
-  - **Önbellekleme (Caching):** Tüm anahtar kelimeler bellekte tutularak, her tuş vuruşunda veritabanına erişim engellenir ve anlık bir performans sağlanır.
-  - **Kontrol Sizde:** Bu özelliği Ayarlar menüsünden tamamen kapatabilir veya menü çubuğu ikonuna sağ tıklayarak geçici olarak duraklatıp yeniden başlatabilirsiniz.
+#### 1. Dinamik İçerik: Anlık Verilerle Snippet'lar
+
+Snippet'larınızın içine "sihirli kelimeler" ekleyerek, her seferinde güncel bilgilerin otomatik olarak doldurulmasını sağlayın.
+
+- **Tarih Ekleme:**
+
+  - **Anahtar Kelime:** `;bugün`
+  - **İçerik:** `Rapor Tarihi: {{DATE}}`
+  - **Sonuç:** `Rapor Tarihi: 2025-10-05`
+
+- **Benzersiz ID (UUID) Oluşturma:**
+  - **Anahtar Kelime:** `;guid`
+  - **İçerik:** `Yeni Kullanıcı ID: {{UUID}}`
+  - **Sonuç:** `Yeni Kullanıcı ID: A9A4E42D-3C6F-4E8B-9F3C-1A2B3C4D5E6F`
+
+#### 2. Parametreli Genişletme: İnteraktif Snippet'lar
+
+Snippet'larınıza `{değişken}` formatında parametreler ekleyin. Anahtar kelimeyi yazdığınızda, Clippy size bu değişkenleri doldurmanız için bir pencere açar.
+
+- **Toplantı Daveti Şablonu:**
+  - **Anahtar Kelime:** `;toplantı`
+  - **İçerik:** `Merhaba ekip, "{konu}" konulu bir toplantı planlıyorum. {tarih} günü, {saat} için uygunluğunuzu bildirir misiniz?`
+  - **Nasıl Çalışır:** `;toplantı` yazdığınızda, "konu", "tarih" ve "saat" alanlarını soran bir pencere açılır. Tarih ve saat alanları, otomatik olarak bir tarih/saat seçici gösterecektir.
+
+#### 3. Bağlamsal Genişletme: Uygulamaya Özel Snippet'lar
+
+Snippet'larınızın sadece belirli uygulamalarda çalışmasını sağlayarak karışıklığı önleyin.
+
+- **Kod Editörüne Özel Snippet:**
+  - **Anahtar Kelime:** `;log`
+  - **İçerik:** `console.log('{değişken}', {değişken});`
+  - **Uygulama Kuralı:** Snippet'ın detay ekranındaki "Uygulama Kuralları" alanına `com.microsoft.VSCode` yazın.
+  - **Sonuç:** Artık `;log` anahtar kelimesi sadece VS Code'da çalışacaktır.
+
+#### Nasıl Çalışır?
+
+- **Kolay Kullanım:** Herhangi bir metin öğesinin detay ekranına gidin ve bir anahtar kelime (örn: `;imza`) atayın. Öğe, otomatik olarak "Snippet'lar" sekmesine taşınacaktır.
+- **Sistem Genelinde Çalışma:** Atadığınız anahtar kelimeyi herhangi bir metin alanında yazdığınızda, Clippy içeriği sizin için yapıştırır.
+- **Performans Odaklı:** Tüm anahtar kelimeler, anlık performans için bellekte önbelleğe alınır.
+- **Kontrol Sizde:** Bu özelliği Ayarlar menüsünden tamamen kapatabilir veya menü çubuğu ikonuna sağ tıklayarak geçici olarak duraklatıp yeniden başlatabilirsiniz.
 
 ## 🚀 Kullanım
 

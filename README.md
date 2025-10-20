@@ -43,7 +43,7 @@ Clippy is a powerful macOS menu bar application designed for developers and powe
 - **Drag & Drop:** Drag a single item or multiple selected text items from the list and drop them into any application.
 - **Sequential Paste:**
   - **With Shortcut:** Copy multiple items in sequence with `Cmd+Shift+C`. Then, paste them one by one in the same order using `Cmd+Shift+B`.
-  - **With Visual Selection:** Select your desired items from the list with `Cmd` and press the **"Add to Queue"** button at the bottom. This selection creates your sequential paste queue.
+  - **With Visual Selection:** Select your desired items from the list with `Cmd` and press the **"Add to Queue"** button at the bottom. The menu bar icon will update to show the queue status (e.g., "1/5").
 - **Combine Images:** Select multiple images with `Cmd`, right-click, and combine them into a single new image, either vertically or horizontally.
 - **Direct Paste:** Paste directly into the active application using the "Paste" button next to each item.
 - **Quick Text Preview:** Hover over a text item to see its full content in the system's standard help tooltip.
@@ -76,29 +76,56 @@ Clippy is a powerful macOS menu bar application designed for developers and powe
 
 - **Customizable Shortcuts:** Set your own keyboard shortcuts for both toggling the app and the "Paste All" function.
 - **Language Support:** Use the app in English or Turkish.
-- **Tab Management:** Hide the "Code" or "Favorites" tabs if you don't need them.
+- **Tab Management:** Hide the "Code," "Images," "Snippets," or "Favorites" tabs if you don't need them.
 - **Limit Settings:** Define the maximum number of items to keep in your history and favorites.
 - **Launch at Login:** Have Clippy start automatically when you log in to your Mac.
 - **Modern Settings Window:** Settings are grouped under "General," "Shortcuts," and "Advanced" tabs for a cleaner and more user-friendly experience.
 - **Sleep Mode Support:** After your computer wakes from sleep, all of Clippy's features (clipboard monitoring, shortcuts, keyword expansion) are automatically restarted and continue to work seamlessly.
 
-### 🎨 Image Editor
-
-- Quickly edit screenshots or images you've copied without leaving the app.
-- **Drawing Tools:** Easily add notes or highlight important areas on your images with arrow, rectangle, and text tools.
-- **Color Options:** Choose from a variety of colors for your annotations.
-- **Undo:** Easily undo your last action with the `Cmd+Z` shortcut or the undo button.
-
 ### ⌨️ Keyword Expansion (Snippet Expansion)
 
-This feature takes your productivity to the next level. Assign a keyword to your frequently used text snippets (signature, address, email template, code block, etc.) and have the text automatically pasted by typing the keyword in any application.
+This feature takes your productivity to the next level by turning static text snippets into dynamic, interactive, and context-aware templates. Snippets are now organized in their own dedicated **"Snippets"** tab for easy access and management.
 
-- **Easy to Use:** Go to the detail screen of any text item and assign a keyword like `;sig` or `;address`.
-- **System-Wide:** Type your assigned keyword in any text field, and Clippy will detect it and paste the content for you.
-- **Performance-Focused:**
-  - **Smart Triggering:** The feature only checks inputs that start with the trigger character (`;`) and end with a terminator (space, enter, period, etc.).
-  - **Caching:** All keywords are kept in memory, preventing database access on every keystroke and ensuring instant performance.
-  - **You're in Control:** You can disable this feature entirely in the Settings menu or temporarily pause and resume it by right-clicking the menu bar icon.
+#### 1. Dynamic Content: Snippets with Live Data
+
+Embed "magic words" into your snippets to have them automatically filled with up-to-date information.
+
+- **Add the Current Date:**
+
+  - **Keyword:** `;today`
+  - **Content:** `Report Date: {{DATE}}`
+  - **Result:** `Report Date: 2025-10-05`
+
+- **Generate a Unique ID (UUID):**
+  - **Keyword:** `;guid`
+  - **Content:** `New User ID: {{UUID}}`
+  - **Result:** `New User ID: A9A4E42D-3C6F-4E8B-9F3C-1A2B3C4D5E6F`
+
+#### 2. Parameterized Expansion: Interactive Snippets
+
+Add parameters like `{variable}` to your snippets. When you type the keyword, Clippy will open a dialog asking you to fill in the values.
+
+- **Meeting Invite Template:**
+  - **Keyword:** `;meet`
+  - **Content:** `Hi team, I'm scheduling a meeting about "{topic}". Please let me know your availability for {date} at {time}.`
+  - **How it works:** When you type `;meet`, a window will pop up asking for "topic", "date", and "time". The date and time fields will automatically show a date/time picker.
+
+#### 3. Contextual Expansion: App-Specific Snippets
+
+Make your snippets work only in specific applications to avoid conflicts.
+
+- **Code-Editor-Only Snippet:**
+  - **Keyword:** `;log`
+  - **Content:** `console.log('{variable}', {variable});`
+  - **Application Rule:** In the snippet's detail screen, enter `com.microsoft.VSCode` in the "Application Rules" field.
+  - **Result:** The `;log` keyword will now only work in Visual Studio Code.
+
+#### How It Works
+
+- **Easy to Use:** Go to the detail screen of any text item and assign a keyword (e.g., `;sig`). The item will automatically move to the "Snippets" tab.
+- **System-Wide:** Type your assigned keyword in any text field, and Clippy will expand it.
+- **Performance-Focused:** All keywords are cached in memory for instant performance.
+- **You're in Control:** You can disable this feature entirely in the Settings menu or temporarily pause/resume it by right-clicking the menu bar icon.
 
 ## 🚀 How to Use
 

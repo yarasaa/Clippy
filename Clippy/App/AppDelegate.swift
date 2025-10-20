@@ -17,6 +17,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var detailWindow: NSWindow?
     var diffWindow: NSWindow?
     var clipboardMonitor: ClipboardMonitor?
+    var parameterWindow: NSWindow?
     var keywordManager: KeywordExpansionManager?
     var editorWindow: NSWindow?
     var pasteAllHotKey: HotKey?
@@ -29,6 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         clipboardMonitor = ClipboardMonitor()
         keywordManager = KeywordExpansionManager()
+        keywordManager?.appDelegate = self
         
         if SettingsManager.shared.isKeywordExpansionEnabled {
             keywordManager?.startMonitoring()
@@ -365,13 +367,8 @@ extension AppDelegate {
             return
         }
 
-        let editorView = ImageEditorView(image: image) { editedImage in
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.writeObjects([editedImage])
-            self.editorWindow?.close()
-        }
-        .environmentObject(SettingsManager.shared)
+        let editorView = ImageEditorView(image: image)
+            .environmentObject(SettingsManager.shared)
 
         let hostingController = NSHostingController(rootView: editorView)
         let window = NSWindow(contentViewController: hostingController)
@@ -383,6 +380,32 @@ extension AppDelegate {
         window.delegate = self
         self.editorWindow = window
     }
+    
+    func showParameterInputDialog(parameters: [String], completion: @escaping ([String: String]?) -> Void) {
+        parameterWindow?.close()
+
+        let parameterView = ParameterInputView(
+            parameters: parameters,
+            onConfirm: { values in
+                self.parameterWindow?.close()
+                completion(values)
+            },
+            onCancel: {
+                self.parameterWindow?.close()
+                completion(nil)
+            }
+        )
+        .environmentObject(SettingsManager.shared)
+
+        let window = NSWindow(contentViewController: NSHostingController(rootView: parameterView))
+        window.title = L("Enter Snippet Values", settings: SettingsManager.shared)
+        window.styleMask = [.titled, .closable]
+        window.delegate = self
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        self.parameterWindow = window
+    }
 }
 
 extension AppDelegate: NSWindowDelegate, NSMenuItemValidation {
@@ -392,6 +415,9 @@ extension AppDelegate: NSWindowDelegate, NSMenuItemValidation {
         }
         if (notification.object as? NSWindow) == aboutWindow {
             aboutWindow = nil
+        }
+        if (notification.object as? NSWindow) == parameterWindow {
+            parameterWindow = nil
         }
         if (notification.object as? NSWindow) == editorWindow {
             editorWindow = nil
