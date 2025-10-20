@@ -66,60 +66,7 @@ struct ClipboardDetailView: View {
                                     .padding()
                             }
                         }
-
-                        if !item.toClipboardItem().isHexColor {
-                            TextStatsView(text: editedText ?? item.content ?? "")
-                        }
                     }
-                    
-                    // Anahtar Kelime Giriş Alanı
-                    HStack {
-                        Text(L("Keyword:", settings: settings))
-                            .font(.headline)
-                        TextField(L("e.g., ;imza", settings: settings), text: Binding(
-                            get: { editedKeyword ?? item.keyword ?? "" },
-                            set: { editedKeyword = $0 }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                        .help(L("Type this keyword in any app to paste the content.", settings: settings))
-                    }
-                    .padding()
-                    .padding(.bottom, 8)
-                    
-                    // Uygulama Kuralları Giriş Alanı
-                    Group {
-                        Divider()
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(L("Application Rules (Optional)", settings: settings))
-                                .font(.headline)
-                            
-                            HStack {
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack {
-                                        let identifiers = (editedAppRules ?? item.applicationRules ?? "").split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-                                        if identifiers.isEmpty {
-                                            Text(L("Works in all applications", settings: settings))
-                                                .foregroundColor(.secondary)
-                                                .padding(.horizontal, 5)
-                                        } else {
-                                            ForEach(identifiers, id: \.self) { id in
-                                                IconView(bundleIdentifier: id, monitor: monitor)
-                                            }
-                                        }
-                                    }
-                                }
-                                Spacer()
-                                Button(L("Select Apps...", settings: settings)) {
-                                    showAppPicker = true
-                                }
-                            }
-                        }
-                        .padding(8)
-                        .background(Color(nsColor: .controlBackgroundColor))
-                        .cornerRadius(8)
-                    }
-                    .padding([.horizontal, .bottom])
-                    .background(.bar)
                 } else if item.contentType == "image", let path = item.content {
                     if let image = monitor.loadImage(from: path) {
                         Image(nsImage: image)
@@ -127,11 +74,46 @@ struct ClipboardDetailView: View {
                             .aspectRatio(contentMode: .fit)
                             .padding()
                     }
-                    Spacer()
                 }
             }
 
             HStack {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Anahtar Kelime
+                    HStack {
+                        Label(L("Keyword", settings: settings), systemImage: "keyboard")
+                        TextField("", text: Binding(
+                            get: { editedKeyword ?? item.keyword ?? "" },
+                            set: { editedKeyword = $0 }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                    }
+                    
+                    // Uygulama Kuralları
+                    HStack {
+                        Label(L("Apps", settings: settings), systemImage: "app.dashed")
+                        
+                        let identifiers = (editedAppRules ?? item.applicationRules ?? "").split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                        
+                        if identifiers.isEmpty {
+                            Text(L("All Apps", settings: settings)).foregroundColor(.secondary).padding(.horizontal, 4)
+                        } else {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack {
+                                    ForEach(identifiers, id: \.self) { id in
+                                        IconView(bundleIdentifier: id, monitor: monitor, size: 18)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Button(L("Select...", settings: settings)) {
+                            showAppPicker = true
+                        }
+                        .help(L("Set Application Rules", settings: settings))
+                    }
+                }
+
                 if item.contentType == "image" {
                     Button {
                         isScanning = true

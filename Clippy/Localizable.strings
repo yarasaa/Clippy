@@ -129,3 +129,12 @@
 "Version %@ (%@)" = "Sürüm %@ (%@)";
 "When enabled, typing a keyword (e.g., ;sig) will automatically replace it with the corresponding content." = "Etkinleştirildiğinde, bir anahtar kelime (örn: ;imza) yazmak, onu otomatik olarak ilgili içerikle değiştirir.";
 "Words" = "Kelime";
+"Select Applications" = "Uygulama Seç";
+"Select the applications where this snippet will be active. If no app is selected, it will work in all apps." = "Bu snippet'in aktif olacağı uygulamaları seçin. Hiçbir uygulama seçilmezse, tüm uygulamalarda çalışır.";
+"Done" = "Bitti";
+"Apps" = "Uygulamalar";
+"All Apps" = "Tüm Uygulamalar";
+"Select..." = "Seç...";
+"Set Application Rules" = "Uygulama Kurallarını Ayarla";
+"Enter Snippet Values" = "Snippet Değerlerini Girin";
+"Fill in the Parameters" = "Parametreleri Doldurun";

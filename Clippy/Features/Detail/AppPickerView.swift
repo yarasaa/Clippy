@@ -16,12 +16,17 @@ struct AppPickerView: View {
 
     var body: some View {
         VStack {
-            Text(L("Select Applications", settings: settings))
-                .font(.title2)
-                .padding()
+            VStack(spacing: 4) {
+                Text(L("Select Applications", settings: settings))
+                    .font(.title2.bold())
+                Text(L("Select the applications where this snippet will be active. If no app is selected, it will work in all apps.", settings: settings))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding()
 
-            ScrollView {
-                VStack(alignment: .leading) {
+            List {
                     ForEach(runningApps, id: \.bundleIdentifier) { app in
                         if let bundleID = app.bundleIdentifier, let appName = app.localizedName, let icon = app.icon {
                             Toggle(isOn: Binding(
@@ -45,18 +50,14 @@ struct AppPickerView: View {
                             .toggleStyle(.checkbox)
                         }
                     }
-                }
-                .padding(.horizontal)
             }
 
             HStack {
                 Button(L("Cancel", settings: settings)) {
-                    // Değişiklikleri kaydetmeden kapat
                     dismiss()
                 }
                 Spacer()
                 Button(L("Done", settings: settings)) {
-                    // Seçimleri onayla ve kapat
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
