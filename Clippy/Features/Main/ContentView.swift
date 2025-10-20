@@ -11,13 +11,6 @@ struct ContentView: View {
     @State private var comparisonData: ComparisonData?
     
     @FetchRequest private var items: FetchedResults<ClipboardItemEntity>
-    
-    init() {
-        _items = FetchRequest<ClipboardItemEntity>(sortDescriptors: [
-            NSSortDescriptor(keyPath: \ClipboardItemEntity.isPinned, ascending: false),
-            NSSortDescriptor(keyPath: \ClipboardItemEntity.date, ascending: false)
-        ], predicate: NSPredicate(value: true))
-    }
 
 
     @EnvironmentObject var settings: SettingsManager
@@ -25,6 +18,17 @@ struct ContentView: View {
     enum Tab {
         case history, code, images, snippets, favorites
     }
+    
+    init() {
+        let request = NSFetchRequest<ClipboardItemEntity>(entityName: "ClipboardItemEntity")
+        request.sortDescriptors = [
+            NSSortDescriptor(keyPath: \ClipboardItemEntity.date, ascending: false)
+        ]
+        request.predicate = NSPredicate(value: true)
+        request.fetchBatchSize = 20 // Performans optimizasyonu: Tek seferde 20 öğe yükle.
+        _items = FetchRequest(fetchRequest: request)
+    }
+
 
     var body: some View {
         VStack {
@@ -111,6 +115,7 @@ struct ContentView: View {
         .safeAreaInset(edge: .bottom) {
             bottomBar
         }
+        .preferredColorScheme(colorScheme)
         .id(settings.appLanguage)
         .onChange(of: selectedTab, perform: updatePredicate)
         .onChange(of: searchText, perform: updatePredicate)
@@ -147,6 +152,17 @@ struct ContentView: View {
         }
 
         items.nsPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+    }
+    
+    private var colorScheme: ColorScheme? {
+        switch settings.appTheme {
+        case "light":
+            return .light
+        case "dark":
+            return .dark
+        default:
+            return nil // Sistem varsayılanını kullan
+        }
     }
     
     @ViewBuilder
@@ -265,15 +281,6 @@ struct ClipboardRowView: View {
 
         return HStack(spacing: 12) {
             favoriteButton(for: item)
-
-            Button(action: {
-                monitor.togglePin(for: item.id ?? UUID())
-            }) {
-                Image(systemName: item.isPinned ? "pin.fill" : "pin")
-                    .foregroundColor(item.isPinned ? .accentColor : .secondary)
-                    .rotationEffect(.degrees(item.isPinned ? 0 : -45))
-            }
-            .buttonStyle(.plain)
 
             contentView(for: item)
 

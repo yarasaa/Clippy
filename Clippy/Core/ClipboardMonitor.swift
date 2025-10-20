@@ -32,6 +32,7 @@ class ClipboardMonitor: ObservableObject {
     private var shouldAddToSequentialQueue = false
 
     private let imageCache = NSCache<NSString, NSImage>()
+    private let thumbnailCache = NSCache<NSString, NSImage>()
     private let appIconCache = NSCache<NSString, NSImage>()
 
     private var changeCount: Int
@@ -589,6 +590,32 @@ class ClipboardMonitor: ObservableObject {
             return image
         }
         return nil
+    }
+
+    /// Bir resmin küçük boyutlu versiyonunu (thumbnail) yükler. Önce önbelleği kontrol eder.
+    func loadThumbnail(from path: String) -> NSImage? {
+        if let cachedThumbnail = thumbnailCache.object(forKey: path as NSString) {
+            return cachedThumbnail
+        }
+
+        // Eğer thumbnail önbellekte yoksa, orijinal resmi yükle.
+        guard let originalImage = loadImage(from: path) else {
+            return nil
+        }
+
+        // Orijinal resimden bir thumbnail oluştur.
+        let thumbnailSize = NSSize(width: 80, height: 80) // Thumbnail boyutu
+        let thumbnail = NSImage(size: thumbnailSize)
+        thumbnail.lockFocus()
+        originalImage.draw(in: NSRect(origin: .zero, size: thumbnailSize),
+                           from: NSRect(origin: .zero, size: originalImage.size),
+                           operation: .sourceOver,
+                           fraction: 1.0)
+        thumbnail.unlockFocus()
+
+        // Oluşturulan thumbnail'i önbelleğe al ve döndür.
+        thumbnailCache.setObject(thumbnail, forKey: path as NSString)
+        return thumbnail
     }
 
     func loadIcon(for bundleIdentifier: String, completion: @escaping (NSImage?) -> Void) {

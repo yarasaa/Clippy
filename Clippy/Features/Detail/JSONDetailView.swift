@@ -48,6 +48,7 @@ struct JSONDetailView: View {
                 }
             }
         }
+        .preferredColorScheme(colorScheme)
         .onAppear(perform: parseJSON)
         .onChange(of: editedText, perform: { _ in parseJSON() })
     }
@@ -79,6 +80,17 @@ struct JSONDetailView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(parseError != nil)
+        }
+    }
+
+    private var colorScheme: ColorScheme? {
+        switch settings.appTheme {
+        case "light":
+            return .light
+        case "dark":
+            return .dark
+        default:
+            return nil
         }
     }
 

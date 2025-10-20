@@ -64,11 +64,23 @@ struct AppPickerView: View {
             }
             .padding()
         }
+        .preferredColorScheme(colorScheme)
         .frame(width: 350, height: 450)
         .onAppear {
             runningApps = NSWorkspace.shared.runningApplications.filter {
                 $0.activationPolicy == .regular && !$0.isHidden && $0.bundleIdentifier != nil
             }.sorted { $0.localizedName ?? "" < $1.localizedName ?? "" }
+        }
+    }
+
+    private var colorScheme: ColorScheme? {
+        switch settings.appTheme {
+        case "light":
+            return .light
+        case "dark":
+            return .dark
+        default:
+            return nil
         }
     }
 }

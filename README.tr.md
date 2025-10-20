@@ -1,7 +1,7 @@
 # Clippy for macOS
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/yarasaa" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+  <a href="https://buymeacoffee.com/12hrsofficp" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 </p>
 
 Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin kullananlar için tasarlanmış güçlü bir macOS menü çubuğu uygulamasıdır. Kopyaladığınız her şeyi saklar, onlara hızlıca erişmenizi, düzenlemenizi ve kullanmanızı sağlar.
@@ -74,6 +74,7 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 
 ### ⚙️ Özelleştirme ve Ayarlar
 
+- **Arayüz Özelleştirme:** Ana pencerenin genişliğini ve yüksekliğini ayarlayın. Tüm uygulama genelinde kişiselleştirilmiş bir görünüm için tercih ettiğiniz temayı (Açık, Koyu veya Sistem Varsayılanı) seçin.
 - **Özelleştirilebilir Kısayollar:** Hem uygulamayı açma hem de "Hepsini Yapıştır" işlevi için kendi klavye kısayollarınızı belirleyin.
 - **Dil Desteği:** Uygulamayı Türkçe veya İngilizce olarak kullanın.
 - **Sekme Yönetimi:** İhtiyaç duymadığınız "Kod", "Resimler", "Snippet'lar" veya "Favoriler" sekmelerini gizleyin.
@@ -81,6 +82,10 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 - **Oturumda Başlatma:** Mac'iniz açıldığında Clippy'nin otomatik olarak başlamasını sağlayın.
 - **Modern Ayarlar Penceresi:** Ayarlar, "Genel", "Kısayollar" ve "Gelişmiş" sekmeleri altında gruplanarak daha düzenli ve kullanıcı dostu bir hale getirildi.
 - **Uyku Modu Desteği:** Bilgisayarınız uyku modundan çıktıktan sonra, Clippy'nin tüm özellikleri (pano izleme, kısayollar, anahtar kelime genişletme) otomatik olarak yeniden başlatılır ve sorunsuz bir şekilde çalışmaya devam eder.
+
+### ⚡️ Performans & Optimizasyon
+
+- **Verimli Yükleme:** Core Data toplu getirme (batch fetching) ve küçük resim önbellekleme (thumbnail caching) sayesinde, uygulama artık uzun öğe listelerini, özellikle de resimleri, çok daha hızlı ve önemli ölçüde daha az bellek kullanarak yükler ve kaydırır.
 
 ### ⌨️ Anahtar Kelime ile Yapıştırma (Snippet Genişletme)
 

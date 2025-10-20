@@ -25,9 +25,7 @@ class StatusBarController: NSObject, NSPopoverDelegate {
         self.clipboardMonitor = clipboardMonitor
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         popover = NSPopover()
-        super.init()
-        popover.behavior = .semitransient
-        popover.contentSize = NSSize(width: 360, height: 420)
+        super.init()        
 
 
         let hostingController = NSHostingController(rootView:
@@ -37,6 +35,10 @@ class StatusBarController: NSObject, NSPopoverDelegate {
                 .environmentObject(SettingsManager.shared)
         )
         popover.contentViewController = hostingController
+        popover.behavior = .semitransient
+        
+        let settings = SettingsManager.shared
+        popover.contentSize = NSSize(width: settings.popoverWidth, height: settings.popoverHeight)
 
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: "Clippy")
@@ -75,6 +77,12 @@ class StatusBarController: NSObject, NSPopoverDelegate {
                 self?.updateStatusItem()
             }
             .store(in: &cancellables)
+        
+        SettingsManager.shared.objectWillChange.receive(on: DispatchQueue.main).sink { [weak self] _ in
+            self?.updatePopoverSize()
+                self?.updateStatusItem()
+            }
+            .store(in: &cancellables)
     }
     
     private func updateStatusItem() {
@@ -83,6 +91,11 @@ class StatusBarController: NSObject, NSPopoverDelegate {
         let isPasting = clipboardMonitor.isPastingFromQueue
         button.image = NSImage(systemSymbolName: isPasting ? "list.clipboard.fill" : "doc.on.clipboard", accessibilityDescription: "Clippy")
         button.title = isPasting ? " \(clipboardMonitor.sequentialPasteIndex)/\(clipboardMonitor.sequentialPasteQueueIDs.count)" : ""
+    }
+
+    private func updatePopoverSize() {
+        let settings = SettingsManager.shared
+        popover.contentSize = NSSize(width: settings.popoverWidth, height: settings.popoverHeight)
     }
     
     @objc func togglePopover(_ sender: AnyObject?) {

@@ -59,6 +59,7 @@ struct ImageEditorView: View {
             .padding()
             .opacity(zoomScale == 1.0 && viewOffset == .zero ? 0 : 1)
         }
+        .preferredColorScheme(colorScheme)
         .overlay(alignment: .topTrailing) {
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
@@ -89,6 +90,17 @@ struct ImageEditorView: View {
         copiedColorHex = hexString
         withAnimation {
             showCopiedBanner = true
+        }
+    }
+
+    private var colorScheme: ColorScheme? {
+        switch settings.appTheme {
+        case "light":
+            return .light
+        case "dark":
+            return .dark
+        default:
+            return nil
         }
     }
 }

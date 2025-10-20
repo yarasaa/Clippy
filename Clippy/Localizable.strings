@@ -138,3 +138,10 @@
 "Set Application Rules" = "Uygulama Kurallarını Ayarla";
 "Enter Snippet Values" = "Snippet Değerlerini Girin";
 "Fill in the Parameters" = "Parametreleri Doldurun";
+"Appearance" = "Görünüm";
+"Theme" = "Tema";
+"Light" = "Açık";
+"Dark" = "Koyu";
+"Popover Width: %d" = "Pencere Genişliği: %d";
+"Popover Height: %d" = "Pencere Yüksekliği: %d";
+"Snippets" = "Snippet'lar";

@@ -63,6 +63,7 @@ struct ParameterInputView: View {
             }
             .padding(.top)
         }
+        .preferredColorScheme(colorScheme)
         .padding(20)
         .frame(minWidth: 300)
         .onAppear {
@@ -106,6 +107,17 @@ struct ParameterInputView: View {
                     .textFieldStyle(.roundedBorder)
                     .focused($focusedField, equals: index)
             }
+        }
+    }
+
+    private var colorScheme: ColorScheme? {
+        switch settings.appTheme {
+        case "light":
+            return .light
+        case "dark":
+            return .dark
+        default:
+            return nil
         }
     }
 

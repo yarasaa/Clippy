@@ -171,6 +171,7 @@ struct ClipboardDetailView: View {
             .padding()
             .background(.bar)
         }
+        .preferredColorScheme(colorScheme)
         .onAppear {
             // State'i sadece bir kez, görünüm ilk açıldığında doldur.
             editedTitle = item.title
@@ -194,6 +195,17 @@ struct ClipboardDetailView: View {
             .environmentObject(settings)
         }
         .frame(minWidth: 450, idealWidth: 600, maxWidth: .infinity, minHeight: 350, idealHeight: 500, maxHeight: .infinity) // Pencerenin yeniden boyutlandırılabilir olmasını sağlar.
+    }
+    
+    private var colorScheme: ColorScheme? {
+        switch settings.appTheme {
+        case "light":
+            return .light
+        case "dark":
+            return .dark
+        default:
+            return nil
+        }
     }
     
 }

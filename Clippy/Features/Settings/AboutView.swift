@@ -60,7 +60,7 @@ struct AboutView: View {
                 .padding(.top, -5) // Butonlar arası boşluğu azaltmak için
                 
                 Button(action: {
-                    if let url = URL(string: "https://www.buymeacoffee.com/yarasaa") {
+                    if let url = URL(string: "https://buymeacoffee.com/12hrsofficp") {
                         NSWorkspace.shared.open(url)
                     }
                 }) {
@@ -71,7 +71,19 @@ struct AboutView: View {
                 .tint(Color(red: 1.0, green: 0.87, blue: 0.0)) // BuyMeACoffee sarısı
             }
         }
+        .preferredColorScheme(colorScheme)
         .padding(20)
         .frame(width: 320, height: 310)
+    }
+
+    private var colorScheme: ColorScheme? {
+        switch settings.appTheme {
+        case "light":
+            return .light
+        case "dark":
+            return .dark
+        default:
+            return nil
+        }
     }
 }

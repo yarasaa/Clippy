@@ -32,6 +32,15 @@ class SettingsManager: ObservableObject {
     @Published var imagesLimit: Int {
         didSet { UserDefaults.standard.set(imagesLimit, forKey: "imagesLimit") }
     }
+    @Published var popoverWidth: Int {
+        didSet { UserDefaults.standard.set(popoverWidth, forKey: "popoverWidth") }
+    }
+    @Published var popoverHeight: Int {
+        didSet { UserDefaults.standard.set(popoverHeight, forKey: "popoverHeight") }
+    }
+    @Published var appTheme: String {
+        didSet { UserDefaults.standard.set(appTheme, forKey: "appTheme") }
+    }
     @Published var hotkeyKey: String {
         didSet { UserDefaults.standard.set(hotkeyKey, forKey: "hotkeyKey") }
     }
@@ -84,6 +93,11 @@ class SettingsManager: ObservableObject {
         self.favoritesLimit = UserDefaults.standard.object(forKey: "favoritesLimit") as? Int ?? 50
         // Varsayılan resim limiti 5'tir.
         self.imagesLimit = UserDefaults.standard.object(forKey: "imagesLimit") as? Int ?? 5
+        // Varsayılan popover boyutu
+        self.popoverWidth = UserDefaults.standard.object(forKey: "popoverWidth") as? Int ?? 380
+        self.popoverHeight = UserDefaults.standard.object(forKey: "popoverHeight") as? Int ?? 450
+        // Varsayılan tema: Sistem
+        self.appTheme = UserDefaults.standard.string(forKey: "appTheme") ?? "system"
         // Varsayılan kısayol: Cmd+Shift+V
         self.hotkeyKey = UserDefaults.standard.string(forKey: "hotkeyKey") ?? "v"
         // NSEvent.ModifierFlags'ın rawValue'larını kullanıyoruz. Cmd+Shift = 131072 + 256 = 131328

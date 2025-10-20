@@ -21,9 +21,11 @@ struct PersistenceController {
         // Otomatik ve hafif veri modeli geçişlerini (migration) etkinleştir.
         // Bu, gelecekte veri modeline yeni bir özellik eklendiğinde, Core Data'nın
         // veritabanını otomatik olarak ve veri kaybı olmadan güncellemesini sağlar.
-        let description = container.persistentStoreDescriptions.first
-        description?.shouldInferMappingModelAutomatically = true
-        description?.shouldMigrateStoreAutomatically = true
+        guard let description = container.persistentStoreDescriptions.first else {
+            fatalError("###< Persistence Error >### Failed to retrieve a persistent store description.")
+        }
+        description.shouldInferMappingModelAutomatically = true
+        description.shouldMigrateStoreAutomatically = true
         
         container.loadPersistentStores(completionHandler: { (storeDescription, error) in
             if let error = error as NSError? {

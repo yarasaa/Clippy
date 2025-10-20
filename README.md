@@ -1,7 +1,7 @@
 # Clippy for macOS
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/yarasaa" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+  <a href="https://buymeacoffee.com/12hrsofficp" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 </p>
 
 Clippy is a powerful macOS menu bar application designed for developers and power users to manage their clipboard history. It saves everything you copy, allowing you to quickly access, organize, and use your clipboard items.
@@ -74,6 +74,7 @@ Clippy is a powerful macOS menu bar application designed for developers and powe
 
 ### ⚙️ Customization and Settings
 
+- **Interface Customization:** Adjust the main window's width and height. Choose your preferred theme (Light, Dark, or System Default) for a personalized look across the entire app.
 - **Customizable Shortcuts:** Set your own keyboard shortcuts for both toggling the app and the "Paste All" function.
 - **Language Support:** Use the app in English or Turkish.
 - **Tab Management:** Hide the "Code," "Images," "Snippets," or "Favorites" tabs if you don't need them.
@@ -81,6 +82,10 @@ Clippy is a powerful macOS menu bar application designed for developers and powe
 - **Launch at Login:** Have Clippy start automatically when you log in to your Mac.
 - **Modern Settings Window:** Settings are grouped under "General," "Shortcuts," and "Advanced" tabs for a cleaner and more user-friendly experience.
 - **Sleep Mode Support:** After your computer wakes from sleep, all of Clippy's features (clipboard monitoring, shortcuts, keyword expansion) are automatically restarted and continue to work seamlessly.
+
+### ⚡️ Performance & Optimization
+
+- **Efficient Loading:** With Core Data batch fetching and thumbnail caching, the app now loads and scrolls through long lists of items, especially images, much faster and with significantly less memory usage.
 
 ### ⌨️ Keyword Expansion (Snippet Expansion)
 

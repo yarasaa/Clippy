@@ -20,6 +20,12 @@ struct SettingsView: View {
                 }
                 .tag("General")
 
+            appearanceSettings
+                .tabItem {
+                    Label(L("Appearance", settings: settings), systemImage: "paintbrush")
+                }
+                .tag("Appearance")
+
             shortcutsSettings
                 .tabItem {
                     Label(L("Shortcuts", settings: settings), systemImage: "keyboard")
@@ -32,6 +38,8 @@ struct SettingsView: View {
                 }
                 .tag("Advanced")
         }
+        .preferredColorScheme(colorScheme)
+        .frame(minWidth: 480, minHeight: 320)
         .padding()
     }
 
@@ -47,7 +55,7 @@ struct SettingsView: View {
                     Text(L("Turkish", settings: settings)).tag("tr")
                 }
             }
-
+            
             Section(header: Text(L("Tab Visibility", settings: settings))) {
                 Toggle(L("Show Code Tab", settings: settings), isOn: $settings.showCodeTab)
                 Toggle(L("Show Images Tab", settings: settings), isOn: $settings.showImagesTab)
@@ -59,6 +67,22 @@ struct SettingsView: View {
                 Stepper(String(format: L("History Limit: %d", settings: settings), settings.historyLimit), value: $settings.historyLimit, in: 10...100, step: 5)
                 Stepper(String(format: L("Favorites Limit: %d", settings: settings), settings.favoritesLimit), value: $settings.favoritesLimit, in: 10...200, step: 10)
                 Stepper(String(format: L("Image Limit: %d", settings: settings), settings.imagesLimit), value: $settings.imagesLimit, in: 5...50, step: 5)
+            }
+        }
+        .padding()
+    }
+
+    private var appearanceSettings: some View {
+        Form {
+            Section {
+                Picker(L("Theme", settings: settings), selection: $settings.appTheme) {
+                    Text(L("System Default", settings: settings)).tag("system")
+                    Text(L("Light", settings: settings)).tag("light")
+                    Text(L("Dark", settings: settings)).tag("dark")
+                }
+                
+                Stepper(String(format: L("Popover Width: %d", settings: settings), settings.popoverWidth), value: $settings.popoverWidth, in: 300...800, step: 10)
+                Stepper(String(format: L("Popover Height: %d", settings: settings), settings.popoverHeight), value: $settings.popoverHeight, in: 300...1000, step: 10)
             }
         }
         .padding()
@@ -89,6 +113,17 @@ struct SettingsView: View {
             }
         }
         .padding()
+    }
+
+    private var colorScheme: ColorScheme? {
+        switch settings.appTheme {
+        case "light":
+            return .light
+        case "dark":
+            return .dark
+        default:
+            return nil // Sistem varsayılanını kullan
+        }
     }
 
     private func shortcutRow(label: String, key: Binding<String>, modifiers: Binding<UInt>) -> some View {
