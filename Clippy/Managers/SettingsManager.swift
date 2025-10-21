@@ -80,6 +80,9 @@ class SettingsManager: ObservableObject {
     @Published var isKeywordExpansionEnabled: Bool {
         didSet { UserDefaults.standard.set(isKeywordExpansionEnabled, forKey: "isKeywordExpansionEnabled") }
     }
+    @Published var snippetTimeoutDuration: Double {
+        didSet { UserDefaults.standard.set(snippetTimeoutDuration, forKey: "snippetTimeoutDuration") }
+    }
 
     private init() {
         // Varsayılan değerleri belirle ve UserDefaults'tan oku
@@ -118,5 +121,7 @@ class SettingsManager: ObservableObject {
         self.clearQueueHotkeyModifiers = UserDefaults.standard.object(forKey: "clearQueueHotkeyModifiers") as? UInt ?? 1179648 // Cmd+Shift
         // Anahtar Kelime Genişletme varsayılan olarak etkin.
         self.isKeywordExpansionEnabled = UserDefaults.standard.object(forKey: "isKeywordExpansionEnabled") as? Bool ?? true
+        // Snippet zaman aşımı varsayılan olarak 3 saniye.
+        self.snippetTimeoutDuration = UserDefaults.standard.object(forKey: "snippetTimeoutDuration") as? Double ?? 3.0
     }
 }

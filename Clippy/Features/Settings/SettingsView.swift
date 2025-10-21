@@ -110,6 +110,11 @@ struct SettingsView: View {
             Section(header: Text(L("Keyword Expansion", settings: settings))) {
                 Toggle(L("Enable Keyword Expansion", settings: settings), isOn: $settings.isKeywordExpansionEnabled)
                     .help(L("When enabled, typing a keyword (e.g., ;sig) will automatically replace it with the corresponding content.", settings: settings))
+                
+                if settings.isKeywordExpansionEnabled {
+                    Stepper(String(format: L("Snippet Timeout: %.1f seconds", settings: settings), settings.snippetTimeoutDuration), value: $settings.snippetTimeoutDuration, in: 1.0...10.0, step: 0.5)
+                        .disabled(!settings.isKeywordExpansionEnabled)
+                }
             }
         }
         .padding()

@@ -40,7 +40,6 @@ class KeywordExpansionManager {
         NotificationCenter.default.addObserver(self, selector: #selector(handleKeywordsChanged), name: .keywordsDidChange, object: nil)
         isEnabled = true
 
-        print("✅ Anahtar Kelime Yöneticisi başlatıldı.")
     }
 
     func stopMonitoring() {
@@ -52,7 +51,6 @@ class KeywordExpansionManager {
         bufferResetTimer?.invalidate()
         bufferResetTimer = nil
         isEnabled = false
-        print("🛑 Anahtar Kelime Yöneticisi durduruldu.")
     }
 
     func toggleMonitoring() {
@@ -61,9 +59,9 @@ class KeywordExpansionManager {
         // Eğer durum zaten doğruysa bir şey yapma
         guard shouldBeEnabled != isEnabled else { return }
         if shouldBeEnabled {
-            stopMonitoring()
-        } else {
             startMonitoring()
+        } else {
+            stopMonitoring()
         }
     }
 
@@ -81,34 +79,27 @@ class KeywordExpansionManager {
 
         guard isBuffering else { return }
 
-        if typedChar.isWhitespace || typedChar.isNewline {
-            checkBufferForKeyword()
+        guard !typedChar.isWhitespace && !typedChar.isNewline else {
             resetBuffer()
             return
         }
-
         currentBuffer.append(typedChar)
-        resetTimer()
-        
         checkBufferForKeyword()
+        resetTimer()
     }
 
     private func checkBufferForKeyword() {
         let keywordToFind = currentBuffer
         
-        // 1. Anahtar kelime önbellekte var mı?
         guard let rawContent = keywordCache[keywordToFind] else { return }
         
-        // 2. Bağlamsal Kural Kontrolü
         if let allowedApps = contextualRulesCache[keywordToFind], !allowedApps.isEmpty {
             guard let frontmostAppId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier, // Mevcut aktif uygulamanın kimliğini al
                   allowedApps.contains(frontmostAppId) else {
-                print("⚠️ Anahtar kelime '\(keywordToFind)' bu uygulama için aktif değil.")
                 return
             }
         }
         
-        // 3. İçerik İşleme (Dinamik ve Parametreli)
         processAndPasteContent(rawContent, keywordLength: keywordToFind.count)
     }
     
@@ -121,8 +112,6 @@ class KeywordExpansionManager {
         if !parameters.isEmpty {
             // Diyalog penceresi açılmadan ÖNCE aktif olan uygulamayı sakla.
             let targetApp = NSWorkspace.shared.frontmostApplication
-            
-            print("✨ Parametreli genişletme algılandı: \(parameters)")
             
             // Silme işlemini yapıp diyalog penceresini göster
             PasteManager.shared.deleteBackward(times: keywordLength) {
@@ -147,7 +136,6 @@ class KeywordExpansionManager {
             }
         } else {
             // Parametre yoksa, doğrudan yapıştır
-            print("✅ Anahtar kelime '\(currentBuffer)' bulundu. İçerik yapıştırılıyor.")
             replaceKeywordWith(content: processedContent, keywordLength: keywordLength)
             resetBuffer()
         }
@@ -213,7 +201,7 @@ class KeywordExpansionManager {
 
     private func resetTimer() {
         bufferResetTimer?.invalidate()
-        bufferResetTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+        bufferResetTimer = Timer.scheduledTimer(withTimeInterval: SettingsManager.shared.snippetTimeoutDuration, repeats: false) { [weak self] _ in
             self?.resetBuffer()
         }
     }
