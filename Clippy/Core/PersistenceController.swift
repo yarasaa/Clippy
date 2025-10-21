@@ -46,6 +46,7 @@ struct PersistenceController {
             newItem.content = "Örnek Metin \(i)"
             newItem.isFavorite = (i % 3 == 0)
             newItem.isCode = (i % 4 == 0)
+            newItem.isPinned = (i == 0)
         }
         do {
             try viewContext.save()

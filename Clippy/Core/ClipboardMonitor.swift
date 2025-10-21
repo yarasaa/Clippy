@@ -209,6 +209,7 @@ class ClipboardMonitor: ObservableObject {
         newItemEntity.date = item.date
         newItemEntity.isFavorite = item.isFavorite
         newItemEntity.isCode = item.isCode
+        newItemEntity.isPinned = item.isPinned
         newItemEntity.isEncrypted = item.isEncrypted
         newItemEntity.sourceAppName = item.sourceAppName
         newItemEntity.sourceAppBundleIdentifier = item.sourceAppBundleIdentifier

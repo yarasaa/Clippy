@@ -22,10 +22,11 @@ struct ContentView: View {
     init() {
         let request = NSFetchRequest<ClipboardItemEntity>(entityName: "ClipboardItemEntity")
         request.sortDescriptors = [
+            NSSortDescriptor(keyPath: \ClipboardItemEntity.isPinned, ascending: false),
             NSSortDescriptor(keyPath: \ClipboardItemEntity.date, ascending: false)
         ]
         request.predicate = NSPredicate(value: true)
-        request.fetchBatchSize = 20 // Performans optimizasyonu: Tek seferde 20 öğe yükle.
+        request.fetchBatchSize = 20
         _items = FetchRequest(fetchRequest: request)
     }
 
@@ -281,6 +282,16 @@ struct ClipboardRowView: View {
 
         return HStack(spacing: 12) {
             favoriteButton(for: item)
+            
+            Button(action: {
+                withAnimation { monitor.togglePin(for: item.id ?? UUID()) }
+            }) {
+                Image(systemName: item.isPinned ? "pin.fill" : "pin")
+                    .foregroundColor(item.isPinned ? .accentColor : .secondary)
+                    .rotationEffect(.degrees(item.isPinned ? 0 : -45))
+            }
+            .buttonStyle(.plain)
+            .help(item.isPinned ? L("Unpin Item", settings: settings) : L("Pin Item", settings: settings))
 
             contentView(for: item)
 

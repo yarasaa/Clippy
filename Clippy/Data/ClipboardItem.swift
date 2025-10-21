@@ -20,6 +20,7 @@ struct ClipboardItem: Identifiable, Equatable, Hashable, Codable {
     var isFavorite: Bool = false
     var isCode: Bool = false
     var title: String?
+    var isPinned: Bool = false
     var isEncrypted: Bool = false
     var keyword: String?
     var sourceAppName: String?
@@ -60,7 +61,7 @@ struct ClipboardItem: Identifiable, Equatable, Hashable, Codable {
         return (try? JSONSerialization.jsonObject(with: data, options: [])) != nil
     }
 
-    init(id: UUID = UUID(), contentType: ContentType, date: Date, isFavorite: Bool = false, isCode: Bool = false, title: String? = nil, isEncrypted: Bool = false, keyword: String? = nil, sourceAppName: String? = nil, sourceAppBundleIdentifier: String? = nil) {
+    init(id: UUID = UUID(), contentType: ContentType, date: Date, isFavorite: Bool = false, isCode: Bool = false, title: String? = nil, isPinned: Bool = false, isEncrypted: Bool = false, keyword: String? = nil, sourceAppName: String? = nil, sourceAppBundleIdentifier: String? = nil) {
         let contentString: String
         if case .text(let string) = contentType {
             contentString = string
@@ -74,6 +75,7 @@ struct ClipboardItem: Identifiable, Equatable, Hashable, Codable {
         self.isFavorite = isFavorite
         self.isCode = isCode
         self.title = title
+        self.isPinned = isPinned
         self.isEncrypted = isEncrypted
         self.keyword = keyword
         self.sourceAppName = sourceAppName
@@ -121,6 +123,7 @@ extension ClipboardItem {
         self.isFavorite = try container.decode(Bool.self, forKey: .isFavorite)
         self.isCode = try container.decodeIfPresent(Bool.self, forKey: .isCode) ?? false
         self.title = nil
+        self.isPinned = false
         self.isEncrypted = false
         self.sourceAppName = try container.decodeIfPresent(String.self, forKey: .sourceAppName)
         self.keyword = nil

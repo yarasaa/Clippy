@@ -24,6 +24,7 @@ extension ClipboardItemEntity {
                              isFavorite: self.isFavorite,
                              isCode: self.isCode,
                              title: self.title,
+                             isPinned: self.isPinned,
                              isEncrypted: self.isEncrypted,
                              keyword: self.keyword,
                              sourceAppName: self.sourceAppName,
