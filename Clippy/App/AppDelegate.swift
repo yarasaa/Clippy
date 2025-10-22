@@ -30,11 +30,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         clipboardMonitor = ClipboardMonitor()
         keywordManager = KeywordExpansionManager()
-        keywordManager?.appDelegate = self
-        
-        if SettingsManager.shared.isKeywordExpansionEnabled {
-            keywordManager?.startMonitoring()
-        }
+        keywordManager?.appDelegate = self        
+        keywordManager?.startMonitoring()
         clipboardMonitor?.startMonitoring()
 
         statusBarController = StatusBarController(clipboardMonitor: clipboardMonitor!)
@@ -61,7 +58,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .debounce(for: .milliseconds(100), scheduler: RunLoop.main)
             .sink { [weak self] in
                 self?.updateAllHotkeys()
-                self?.keywordManager?.toggleMonitoring()
+                self?.toggleKeywordExpansion() // Ayar değiştiğinde durumu kontrol et.
                 self?.recreateUIForLanguageChange()
             }
             .store(in: &cancellables)
@@ -91,11 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         clipboardMonitor?.startMonitoring()
 
         // Anahtar kelime yöneticisini yeniden başlat (eğer ayarlarda açıksa).
-        keywordManager?.stopMonitoring()
-        if SettingsManager.shared.isKeywordExpansionEnabled {
-            keywordManager?.startMonitoring()
-        }
-
+        toggleKeywordExpansion()
         // Tüm klavye kısayollarını yeniden kaydet.
         updateAllHotkeys()
     }
@@ -297,7 +290,9 @@ extension AppDelegate {
     }
 
     @objc func toggleKeywordExpansion() {
-        keywordManager?.toggleMonitoring()
+        // Ayarlardaki değere göre monitörü başlat veya durdur.
+        let settings = SettingsManager.shared
+        settings.isKeywordExpansionEnabled ? keywordManager?.startMonitoring() : keywordManager?.stopMonitoring()
     }
     
     func showDetailWindow(for item: ClipboardItemEntity) {

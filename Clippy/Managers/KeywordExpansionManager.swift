@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import Combine
 import CoreData
 
 class KeywordExpansionManager {
@@ -16,6 +17,7 @@ class KeywordExpansionManager {
     private var isBuffering = false
     weak var appDelegate: AppDelegate?
     private(set) var isEnabled = false
+    private var cancellable: AnyCancellable?
     
     private var keywordCache: [String: String] = [:]
     private var contextualRulesCache: [String: [String]] = [:]
@@ -28,6 +30,19 @@ class KeywordExpansionManager {
         return formatter
     }()
 
+    init() {
+        // Ayarlardaki değişiklikleri dinle ve monitörü otomatik olarak başlat/durdur.
+        cancellable = SettingsManager.shared.$isKeywordExpansionEnabled
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] shouldBeEnabled in
+                guard let self = self, shouldBeEnabled != self.isEnabled else { return }
+                if shouldBeEnabled {
+                    self.startMonitoring()
+                } else {
+                    self.stopMonitoring()
+                }
+            }
+    }
     func startMonitoring() {
         guard eventMonitor == nil else { return }
 
@@ -51,18 +66,6 @@ class KeywordExpansionManager {
         bufferResetTimer?.invalidate()
         bufferResetTimer = nil
         isEnabled = false
-    }
-
-    func toggleMonitoring() {
-        let shouldBeEnabled = SettingsManager.shared.isKeywordExpansionEnabled
-        
-        // Eğer durum zaten doğruysa bir şey yapma
-        guard shouldBeEnabled != isEnabled else { return }
-        if shouldBeEnabled {
-            startMonitoring()
-        } else {
-            stopMonitoring()
-        }
     }
 
     private func handleKeyEvent(_ event: NSEvent) {
