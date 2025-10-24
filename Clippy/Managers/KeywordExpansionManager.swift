@@ -184,11 +184,12 @@ class KeywordExpansionManager {
     /// İçerikteki {parametre} formatındaki yer tutucuları bulur.
     private func findParameters(in content: String) -> [String] {
         do {
-            // Regex'i güncelleyerek sadece basit alfanümerik parametreleri ({param_name}) yakalamasını sağla.
-            let regex = try NSRegularExpression(pattern: "\\{([a-zA-Z0-9_]+)\\}")
+            // Regex'i güncelleyerek `{` ve `}` arasındaki her şeyi yakalamasını sağla.
+            // Bu, {isim:tip=değer:seçenek1,seçenek2} gibi karmaşık yapıları destekler.
+            let regex = try NSRegularExpression(pattern: "\\{([^{}]+)\\}")
             let results = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
             return results.map {
-                String(content[Range($0.range(at: 1), in: content)!])
+                String(content[Range($0.range(at: 1), in: content)!]).trimmingCharacters(in: .whitespaces)
             }
         } catch {
             print("❌ Parametre bulma regex hatası: \(error)")

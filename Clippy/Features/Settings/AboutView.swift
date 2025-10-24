@@ -50,16 +50,6 @@ struct AboutView: View {
                 .buttonStyle(.link)
                 
                 Button(action: {
-                    if let url = URL(string: "https://www.patreon.com/c/yarasaa") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }) {
-                    Label(L("Support on Patreon", settings: settings), systemImage: "heart.fill")
-                }
-                .buttonStyle(.link)
-                .padding(.top, -5) // Butonlar arası boşluğu azaltmak için
-                
-                Button(action: {
                     if let url = URL(string: "https://buymeacoffee.com/12hrsofficp") {
                         NSWorkspace.shared.open(url)
                     }

@@ -82,7 +82,7 @@ struct ClipboardDetailView: View {
                     // Anahtar Kelime
                     HStack {
                         Label(L("Keyword", settings: settings), systemImage: "keyboard")
-                        TextField("", text: Binding(
+                        TextField(L("e.g., ;sig", settings: settings), text: Binding(
                             get: { editedKeyword ?? item.keyword ?? "" },
                             set: { editedKeyword = $0 }
                         ))

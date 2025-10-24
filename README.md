@@ -108,16 +108,37 @@ Embed "magic words" into your snippets to have them automatically filled with up
 
 #### 2. Parameterized Expansion: Interactive Snippets
 
-Add parameters like `{variable}` to your snippets. When you type the keyword, Clippy will open a dialog asking you to fill in the values.
+Create interactive templates by adding parameters like `{parameter}` to your snippets. When you type the keyword, Clippy opens a smart dialog to fill in the variables.
 
-- **Meeting Invite Template:**
-  - **Keyword:** `;meet`
-  - **Content:** `Hi team, I'm scheduling a meeting about "{topic}". Please let me know your availability for {date} at {time}.`
-  - **How it works:** When you type `;meet`, a window will pop up asking for "topic", "date", and "time". The date and time fields will automatically show a date/time picker.
+##### Smart Input Types
+
+Speed up and simplify data entry by assigning types to your parameters.
+
+- **Date/Time Picker:** Use `{due_date:date}` or `{meeting:time}` to open a calendar or time picker.
+- **Dropdown Menu:** Provide predefined options with `{priority:choice:Low,Medium,High}`.
+
+##### Default Values
+
+Save time by assigning default values to your parameters.
+
+- **Example:** With `{subject=Weekly Report}`, the "subject" field will come pre-filled with "Weekly Report".
+
+##### All-in-One: An Advanced Example
+
+- **Bug Report Template:**
+  - **Keyword:** `;bug`
+  - **Content:**
+    ```
+    Bug Report
+    - Description: {description}
+    - Criticality: {criticality:choice:Low,Medium,High=Medium}
+    - Assignee: {assignee=Mehmet Akbaba}
+    ```
+  - **How it works:** Typing `;bug` opens a dialog with a text field for `description`, a dropdown for `criticality` (pre-selected to "Medium"), and a pre-filled text field for `assignee`.
 
 #### 3. Contextual Expansion: App-Specific Snippets
 
-Make your snippets work only in specific applications to avoid conflicts.
+Create specialized tools for different workflows by making your snippets work only in specific applications.
 
 - **Code-Editor-Only Snippet:**
   - **Keyword:** `;log`

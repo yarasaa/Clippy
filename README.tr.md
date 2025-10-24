@@ -108,16 +108,36 @@ Snippet'larınızın içine "sihirli kelimeler" ekleyerek, her seferinde güncel
 
 #### 2. Parametreli Genişletme: İnteraktif Snippet'lar
 
-Snippet'larınıza `{değişken}` formatında parametreler ekleyin. Anahtar kelimeyi yazdığınızda, Clippy size bu değişkenleri doldurmanız için bir pencere açar.
+Snippet'larınıza `{parametre}` formatında değişkenler ekleyerek interaktif şablonlar oluşturun. Anahtar kelimeyi yazdığınızda, Clippy size bu değişkenleri doldurmanız için akıllı bir pencere açar.
 
-- **Toplantı Daveti Şablonu:**
-  - **Anahtar Kelime:** `;toplantı`
-  - **İçerik:** `Merhaba ekip, "{konu}" konulu bir toplantı planlıyorum. {tarih} günü, {saat} için uygunluğunuzu bildirir misiniz?`
-  - **Nasıl Çalışır:** `;toplantı` yazdığınızda, "konu", "tarih" ve "saat" alanlarını soran bir pencere açılır. Tarih ve saat alanları, otomatik olarak bir tarih/saat seçici gösterecektir.
+##### Akıllı Girdi Tipleri
+
+Parametrelerinize tipler atayarak veri girişini hızlandırın ve kolaylaştırın.
+
+- **Tarih/Saat Seçici:** `{teslim:date}` veya `{toplanti:time}` kullanarak takvim veya saat seçici açın.
+- **Açılır Menü:** `{oncelik:choice:Düşük,Orta,Yüksek}` ile önceden tanımlanmış seçenekler sunun.
+
+##### Varsayılan Değerler
+
+Parametrelerinize varsayılan değerler atayarak zaman kazanın.
+
+- **Örnek:** `{konu=Haftalık Rapor}` yazdığınızda, "konu" alanı "Haftalık Rapor" metni ile dolu gelir.
+
+##### Hepsi Bir Arada: Gelişmiş Bir Örnek
+
+- **Anahtar Kelime:** `;hata`
+- **İçerik:**
+  ```
+  Hata Raporu
+  - Açıklama: {aciklama}
+  - Kritiklik: {kritiklik:choice:Düşük,Orta,Yüksek=Orta}
+  - Çözüm Tarihi (Tahmini): {cozum_tarihi:date}
+  ```
+- **Nasıl Çalışır:** `;bugreport` yazdığınızda, `aciklama` için boş bir metin kutusu, `kritiklik` için "Orta" seçeneği seçili bir açılır menü ve `cozum_tarihi` için bir takvim gösteren bir pencere açılır.
 
 #### 3. Bağlamsal Genişletme: Uygulamaya Özel Snippet'lar
 
-Snippet'larınızın sadece belirli uygulamalarda çalışmasını sağlayarak karışıklığı önleyin.
+Snippet'larınızın sadece belirli uygulamalarda çalışmasını sağlayarak farklı iş akışları için özel araçlar oluşturun.
 
 - **Kod Editörüne Özel Snippet:**
   - **Anahtar Kelime:** `;log`
