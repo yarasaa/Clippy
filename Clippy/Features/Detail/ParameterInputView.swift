@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// Parametre string'ini ayrıştırarak adı, tipi, varsayılan değeri ve seçenekleri içeren bir yapı.
-struct ParameterDefinition {
+nonisolated struct ParameterDefinition {
     let rawValue: String
     let name: String
     let type: String
@@ -67,7 +67,8 @@ struct ParameterInputView: View {
         self.onConfirm = onConfirm
         self.onCancel = onCancel
         
-        let defs = parameters.map(ParameterDefinition.init)
+        // Açık bir closure ile, nonisolated initializer’ı çağır.
+        let defs = parameters.map { ParameterDefinition(parameterString: $0) }
         self.definitions = defs
         
         // Varsayılan değerleri ata

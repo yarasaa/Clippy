@@ -19,12 +19,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var clipboardMonitor: ClipboardMonitor?
     var parameterWindow: NSWindow?
     var keywordManager: KeywordExpansionManager?
+    var screenshotEditorWindow: NSWindow?
     var editorWindow: NSWindow?
     var pasteAllHotKey: HotKey?
     var hotKey: HotKey?
     var sequentialCopyHotKey: HotKey?
     var sequentialPasteHotKey: HotKey?
     var clearQueueHotKey: HotKey?
+    var screenshotHotKey: HotKey?
+    
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -77,6 +80,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateSequentialCopyHotkey()
         updateSequentialPasteHotkey()
         updateClearQueueHotkey()
+        updateScreenshotHotkey()
     }
 
     /// Sistem uyku modundan çıktığında çağrılır.
@@ -91,6 +95,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         toggleKeywordExpansion()
         // Tüm klavye kısayollarını yeniden kaydet.
         updateAllHotkeys()
+        
     }
     func applicationWillTerminate(_ notification: Notification) {
         // Arka planda çalışan kaydetme zamanlayıcısını durdur.
@@ -196,15 +201,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         print("✅ 'Sıralı Kuyruğu Temizle' kısayolu güncellendi: \(modifiers) + \(key)")
     }
-}
 
-extension AppDelegate {
-    func checkAccessibilityPermissions() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-        let _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
+    func updateScreenshotHotkey() {
+        let settings = SettingsManager.shared
+        guard !settings.screenshotHotkeyKey.isEmpty, let key = Key(string: settings.screenshotHotkeyKey.lowercased()) else {
+            print("Geçersiz 'Ekran Görüntüsü Al' kısayol tuşu: \(settings.screenshotHotkeyKey)")
+            screenshotHotKey = nil
+            return
+        }
+        let modifiers = NSEvent.ModifierFlags(rawValue: settings.screenshotHotkeyModifiers)
+
+        screenshotHotKey = nil
+        screenshotHotKey = HotKey(key: key, modifiers: modifiers)
+        screenshotHotKey?.keyDownHandler = { [weak self] in
+            self?.takeScreenshot()
+        }
+        print("✅ 'Ekran Görüntüsü Al' kısayolu güncellendi: \(modifiers) + \(key)")
     }
     
-    func createMenu() {
+    private func createMenu() {
         let menu = NSMenu()
         
         // Hakkında menü öğesi
@@ -356,24 +371,9 @@ extension AppDelegate {
         self.diffWindow = window
     }
 
-    func showImageEditor(with image: NSImage) {
-        if let existingWindow = editorWindow, existingWindow.isVisible {
-            existingWindow.makeKeyAndOrderFront(nil)
-            return
-        }
-
-        let editorView = ImageEditorView(image: image)
-            .environmentObject(SettingsManager.shared)
-
-        let hostingController = NSHostingController(rootView: editorView)
-        let window = NSWindow(contentViewController: hostingController)
-        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.title = L("Edit Image", settings: SettingsManager.shared)
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-
-        window.delegate = self
-        self.editorWindow = window
+    func checkAccessibilityPermissions() {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+        let _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
     }
     
     func showParameterInputDialog(parameters: [String], completion: @escaping ([String: String]?) -> Void) {
@@ -401,6 +401,53 @@ extension AppDelegate {
         NSApp.activate(ignoringOtherApps: true)
         self.parameterWindow = window
     }
+    
+    func showScreenshotEditor(with image: NSImage) {
+        if let existingWindow = screenshotEditorWindow, existingWindow.isVisible {
+            existingWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let editorView = ScreenshotEditorView(image: image, clipboardMonitor: self.clipboardMonitor!)
+            .environmentObject(SettingsManager.shared)
+
+        let hostingController = NSHostingController(rootView: editorView)
+        let window = NSWindow(contentViewController: hostingController)
+        
+        // Modern, çerçevesiz bir pencere stili uygula
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        window.isOpaque = true
+        window.backgroundColor = .windowBackgroundColor
+        window.hasShadow = true
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.title = "Screenshot Editor"
+        
+        // Görüntü için makul bir başlangıç boyutu hesapla.
+        let padding: CGFloat = 80 // Kenar boşlukları
+        // Toolbar artık başlık çubuğu alanını kullanacağı için ekstra "+ 60" eklemeye GEREK YOK.
+        var desiredSize = NSSize(width: image.size.width + padding, height: image.size.height + padding)
+
+        // Pencerenin ekran boyutunu aşmamasını sağla.
+        if let screenFrame = NSScreen.main?.visibleFrame {
+            let maxW = screenFrame.width * 0.8
+            let maxH = screenFrame.height * 0.8
+            desiredSize.width = min(desiredSize.width, maxW)
+            desiredSize.height = min(desiredSize.height, maxH)
+        }
+        window.setContentSize(desiredSize)
+        
+        window.center()
+        window.makeKeyAndOrderFront(self)
+        window.delegate = self
+        self.screenshotEditorWindow = window
+    }
+    
+    @objc func takeScreenshot() {
+        ScreenshotManager.shared.captureArea(mode: .interactive) { [weak self] image in
+            self?.showScreenshotEditor(with: image)
+        }
+    }
 }
 
 extension AppDelegate: NSWindowDelegate, NSMenuItemValidation {
@@ -414,8 +461,8 @@ extension AppDelegate: NSWindowDelegate, NSMenuItemValidation {
         if (notification.object as? NSWindow) == parameterWindow {
             parameterWindow = nil
         }
-        if (notification.object as? NSWindow) == editorWindow {
-            editorWindow = nil
+        if (notification.object as? NSWindow) == screenshotEditorWindow {
+            screenshotEditorWindow = nil
         }
         if (notification.object as? NSWindow) == detailWindow {
             detailWindow = nil

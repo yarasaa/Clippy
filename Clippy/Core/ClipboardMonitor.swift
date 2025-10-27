@@ -122,6 +122,15 @@ class ClipboardMonitor: ObservableObject {
         }
     }
     
+    func addImageToHistory(image: NSImage) {
+        guard let newImagePath = saveImage(image) else {
+            print("❌ Görüntü diske kaydedilemedi ve geçmişe eklenemedi.")
+            return
+        }
+        let newItem = ClipboardItem(contentType: .image(imagePath: newImagePath), date: Date(), sourceAppName: "Clippy Editor", sourceAppBundleIdentifier: "com.yarasa.Clippy.Editor")
+        addNewItem(newItem)
+    }
+    
     func saveEditedImage(_ image: NSImage, from originalItem: ClipboardItemEntity) {
         guard let imageData = image.tiffRepresentation,
               let imageRep = NSBitmapImageRep(data: imageData),

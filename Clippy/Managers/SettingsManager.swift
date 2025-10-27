@@ -83,6 +83,18 @@ class SettingsManager: ObservableObject {
     @Published var snippetTimeoutDuration: Double {
         didSet { UserDefaults.standard.set(snippetTimeoutDuration, forKey: "snippetTimeoutDuration") }
     }
+    @Published var screenshotHotkeyKey: String {
+        didSet { UserDefaults.standard.set(screenshotHotkeyKey, forKey: "screenshotHotkeyKey") }
+    }
+    @Published var screenshotHotkeyModifiers: UInt {
+        didSet { UserDefaults.standard.set(screenshotHotkeyModifiers, forKey: "screenshotHotkeyModifiers") }
+    }
+    @Published var scrollingScreenshotHotkeyKey: String {
+        didSet { UserDefaults.standard.set(scrollingScreenshotHotkeyKey, forKey: "scrollingScreenshotHotkeyKey") }
+    }
+    @Published var scrollingScreenshotHotkeyModifiers: UInt {
+        didSet { UserDefaults.standard.set(scrollingScreenshotHotkeyModifiers, forKey: "scrollingScreenshotHotkeyModifiers") }
+    }
 
     private init() {
         // Varsayılan değerleri belirle ve UserDefaults'tan oku
@@ -123,5 +135,11 @@ class SettingsManager: ObservableObject {
         self.isKeywordExpansionEnabled = UserDefaults.standard.object(forKey: "isKeywordExpansionEnabled") as? Bool ?? true
         // Snippet zaman aşımı varsayılan olarak 3 saniye.
         self.snippetTimeoutDuration = UserDefaults.standard.object(forKey: "snippetTimeoutDuration") as? Double ?? 3.0
+        // Varsayılan "Ekran Görüntüsü Al" kısayolu: Cmd+Shift+1
+        self.screenshotHotkeyKey = UserDefaults.standard.string(forKey: "screenshotHotkeyKey") ?? "1"
+        self.screenshotHotkeyModifiers = UserDefaults.standard.object(forKey: "screenshotHotkeyModifiers") as? UInt ?? 1179648 // Cmd+Shift
+        // Varsayılan "Kaydırmalı Ekran Görüntüsü Al" kısayolu: Cmd+Shift+2
+        self.scrollingScreenshotHotkeyKey = UserDefaults.standard.string(forKey: "scrollingScreenshotHotkeyKey") ?? "2"
+        self.scrollingScreenshotHotkeyModifiers = UserDefaults.standard.object(forKey: "scrollingScreenshotHotkeyModifiers") as? UInt ?? 1179648 // Cmd+Shift
     }
 }

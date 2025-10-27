@@ -100,6 +100,9 @@ struct SettingsView: View {
                 shortcutRow(label: L("Sequential Paste", settings: settings), key: $settings.sequentialPasteHotkeyKey, modifiers: $settings.sequentialPasteHotkeyModifiers)
                 shortcutRow(label: L("Clear Sequential Queue", settings: settings), key: $settings.clearQueueHotkeyKey, modifiers: $settings.clearQueueHotkeyModifiers)
             }
+            Divider()
+            shortcutRow(label: L("Take Screenshot", settings: settings), key: $settings.screenshotHotkeyKey, modifiers: $settings.screenshotHotkeyModifiers)
+            shortcutRow(label: L("Scrolling Screenshot", settings: settings), key: $settings.scrollingScreenshotHotkeyKey, modifiers: $settings.scrollingScreenshotHotkeyModifiers)
         }
         .padding()
     }

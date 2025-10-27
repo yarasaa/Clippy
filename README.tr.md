@@ -65,12 +65,18 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 - **Araçlar Menüsü:** Tek bir menüden test verileri (UUID, Lorem Ipsum) oluşturun veya aktif sekmedeki tüm öğeleri silin.
 - **Detaylı Metin İstatistikleri:** Bir metin öğesinin detay ekranında karakter, kelime ve satır sayılarını anlık olarak görün.
 
-### 🛠️ Akıllı Araçlar & Geliştirici Özellikleri
+### 📸 Gelişmiş Ekran Görüntüsü Düzenleyici
 
-- **Diff (Fark) Görüntüleyici:** `Cmd` ile seçilen iki metin öğesi arasındaki farkları yan yana, karakter bazında vurgulanmış şekilde gösteren bir özellik.
-- **JSON Görüntüleyici:** Kopyalanan bir JSON metnini otomatik olarak algılar ve detay görünümünde hiyerarşik bir ağaç yapısında gösterir. Bu görünümde JSON'u düzenleyebilir, doğrulayabilir ve anahtar/değer/yol kopyalayabilirsiniz.
-- **Takvim Etkinliği Algılama:** "Yarın 14:00'te toplantı" gibi bir metin kopyalandığında, bunu algılayıp tek tıkla takvime etkinlik ekleme önerisi sunar.
-- **Şifreleme (Encryption):** Hassas verilerinizi sağ tık menüsünden tek tıkla şifreleyin. Şifreli öğelerin içeriği, siz tekrar şifresini çözene kadar gizli kalır.
+- **Kısayolla Yakalama:** Özelleştirilebilir bir klavye kısayolu ile ekranın istediğiniz bir alanının görüntüsünü alın.
+- **Zengin Çizim Araçları:**
+  - **Ok, Dikdörtgen, Vurgulayıcı (Highlighter):** Önemli alanları işaretleyin.
+  - **Metin:** Görüntünüze açıklamalar ekleyin.
+  - **Bulanıklaştırma (Blur/Pixelate):** Hassas bilgileri kolayca gizleyin.
+- **Görsel Efektler Paneli:**
+  - **Arka Plan:** Ekran görüntünüze düz renk veya gradyan (degrade) arka planlar ekleyin.
+  - **İç Boşluk (Inset):** Görüntü ile arka plan arasında estetik bir boşluk bırakın.
+  - **Gölge & Köşe Yuvarlatma:** Görüntünüze ve arka planınıza derinlik ve modern bir görünüm katın.
+- **Akıcı Gezinme:** `Cmd` + Fare tekerleği ile imlecinizin olduğu noktaya hassas bir şekilde yakınlaşın/uzaklaşın veya fare tekerleği ile görüntüde gezinin.
 
 ### ⚙️ Özelleştirme ve Ayarlar
 
@@ -83,47 +89,70 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 - **Modern Ayarlar Penceresi:** Ayarlar, "Genel", "Kısayollar" ve "Gelişmiş" sekmeleri altında gruplanarak daha düzenli ve kullanıcı dostu bir hale getirildi.
 - **Uyku Modu Desteği:** Bilgisayarınız uyku modundan çıktıktan sonra, Clippy'nin tüm özellikleri (pano izleme, kısayollar, anahtar kelime genişletme) otomatik olarak yeniden başlatılır ve sorunsuz bir şekilde çalışmaya devam eder.
 
+### 🛠️ Akıllı Araçlar & Geliştirici Özellikleri
+
+- **Diff (Fark) Görüntüleyici:** `Cmd` ile seçilen iki metin öğesi arasındaki farkları yan yana, karakter bazında vurgulanmış şekilde gösteren bir özellik.
+- **JSON Görüntüleyici:** Kopyalanan bir JSON metnini otomatik olarak algılar ve detay görünümünde hiyerarşik bir ağaç yapısında gösterir. Bu görünümde JSON'u düzenleyebilir, doğrulayabilir ve anahtar/değer/yol kopyalayabilirsiniz.
+- **Takvim Etkinliği Algılama:** "Yarın 14:00'te toplantı" gibi bir metin kopyalandığında, bunu algılayıp tek tıkla takvime etkinlik ekleme önerisi sunar.
+- **Şifreleme (Encryption):** Hassas verilerinizi sağ tık menüsünden tek tıkla şifreleyin. Şifreli öğelerin içeriği, siz tekrar şifresini çözene kadar gizli kalır.
+- **Araçlar Menüsü:** Tek bir menüden test verileri (UUID, Lorem Ipsum) oluşturun veya aktif sekmedeki tüm öğeleri silin.
+- **Detaylı Metin İstatistikleri:** Bir metin öğesinin detay ekranında karakter, kelime ve satır sayılarını anlık olarak görün.
+
 ### ⚡️ Performans & Optimizasyon
 
 - **Verimli Yükleme:** Core Data toplu getirme (batch fetching) ve küçük resim önbellekleme (thumbnail caching) sayesinde, uygulama artık uzun öğe listelerini, özellikle de resimleri, çok daha hızlı ve önemli ölçüde daha az bellek kullanarak yükler ve kaydırır.
 
 ### ⌨️ Anahtar Kelime ile Yapıştırma (Snippet Genişletme)
 
-Bu özellik, statik metin parçacıklarınızı dinamik, interaktif ve bağlama duyarlı şablonlara dönüştürerek üretkenliğinizi bir üst seviyeye taşır. Snippet'lar artık kendilerine özel **"Snippet'lar"** sekmesinde düzenlenerek kolay erişim ve yönetim sağlar.
+Bu özellik, sık kullandığınız metin parçacıklarını (snippet) bir anahtar kelime ile anında yapıştırmanızı sağlar. Snippet'lar, kendilerine özel **"Snippet'lar"** sekmesinde düzenlenerek kolay erişim ve yönetim sağlar.
 
-#### 1. Dinamik İçerik: Anlık Verilerle Snippet'lar
+#### Temel Kullanım
+
+- **Anahtar Kelime:** `;imza`
+- **İçerik:**
+  ```
+  Saygılarımla,
+  Mehmet Akbaba
+  ```
+- **Sonuç:** Herhangi bir yerde `;imza` yazdığınızda, bu metin otomatik olarak yapıştırılır.
+
+#### Dinamik İçerik: Anlık Verilerle Snippet'lar
 
 Snippet'larınızın içine "sihirli kelimeler" ekleyerek, her seferinde güncel bilgilerin otomatik olarak doldurulmasını sağlayın.
 
-- **Tarih Ekleme:**
+| Sihirli Kelime  | Açıklama                       | Örnek Sonuç                  |
+| --------------- | ------------------------------ | ---------------------------- |
+| `{{DATE}}`      | Geçerli tarihi ekler.          | `2025-10-05`                 |
+| `{{TIME}}`      | Geçerli saati ekler.           | `15:30:25`                   |
+| `{{DATETIME}}`  | Tarih ve saati birlikte ekler. | `2025-10-05 15:30`           |
+| `{{UUID}}`      | Benzersiz bir ID oluşturur.    | `A9A4E42D-3C6F-4E8B-9F3C...` |
+| `{{CLIPBOARD}}` | Panodaki mevcut metni ekler.   | _(Panonuzdaki son metin)_    |
 
-  - **Anahtar Kelime:** `;bugün`
-  - **İçerik:** `Rapor Tarihi: {{DATE}}`
-  - **Sonuç:** `Rapor Tarihi: 2025-10-05`
+**Örnek:**
 
-- **Benzersiz ID (UUID) Oluşturma:**
-  - **Anahtar Kelime:** `;guid`
-  - **İçerik:** `Yeni Kullanıcı ID: {{UUID}}`
-  - **Sonuç:** `Yeni Kullanıcı ID: A9A4E42D-3C6F-4E8B-9F3C-1A2B3C4D5E6F`
+- **Anahtar Kelime:** `;rapor`
+- **İçerik:** `Rapor Tarihi: {{DATE}} - {{TIME}}`
+- **Sonuç:** `Rapor Tarihi: 2025-10-05 - 15:30:25`
 
-#### 2. Parametreli Genişletme: İnteraktif Snippet'lar
+#### Parametreli Genişletme: İnteraktif Snippet'lar
 
 Snippet'larınıza `{parametre}` formatında değişkenler ekleyerek interaktif şablonlar oluşturun. Anahtar kelimeyi yazdığınızda, Clippy size bu değişkenleri doldurmanız için akıllı bir pencere açar.
 
-##### Akıllı Girdi Tipleri
+**Örnek:**
 
-Parametrelerinize tipler atayarak veri girişini hızlandırın ve kolaylaştırın.
+- **Anahtar Kelime:** `;email`
+- **İçerik:** `Merhaba {isim}, nasılsın?`
+- **Nasıl Çalışır:** `;email` yazdığınızda, "isim" parametresini girebileceğiniz bir pencere açılır. "Mehmet" yazıp onaylarsanız, `Merhaba Mehmet, nasılsın?` metni yapıştırılır.
 
-- **Tarih/Saat Seçici:** `{teslim:date}` veya `{toplanti:time}` kullanarak takvim veya saat seçici açın.
-- **Açılır Menü:** `{oncelik:choice:Düşük,Orta,Yüksek}` ile önceden tanımlanmış seçenekler sunun.
+##### Akıllı Girdi Tipleri ve Varsayılan Değerler
 
-##### Varsayılan Değerler
+Parametrelerinize tipler ve varsayılan değerler atayarak veri girişini daha da hızlandırın.
 
-Parametrelerinize varsayılan değerler atayarak zaman kazanın.
+- **Tarih Seçici:** `{teslim_tarihi:date}`
+- **Açılır Menü:** `{oncelik:choice:Düşük,Orta,Yüksek}`
+- **Varsayılan Değerli Açılır Menü:** `{durum:choice:Aktif,Pasif=Aktif}`
 
-- **Örnek:** `{konu=Haftalık Rapor}` yazdığınızda, "konu" alanı "Haftalık Rapor" metni ile dolu gelir.
-
-##### Hepsi Bir Arada: Gelişmiş Bir Örnek
+**Gelişmiş Bir Örnek:**
 
 - **Anahtar Kelime:** `;hata`
 - **İçerik:**
@@ -133,15 +162,15 @@ Parametrelerinize varsayılan değerler atayarak zaman kazanın.
   - Kritiklik: {kritiklik:choice:Düşük,Orta,Yüksek=Orta}
   - Çözüm Tarihi (Tahmini): {cozum_tarihi:date}
   ```
-- **Nasıl Çalışır:** `;bugreport` yazdığınızda, `aciklama` için boş bir metin kutusu, `kritiklik` için "Orta" seçeneği seçili bir açılır menü ve `cozum_tarihi` için bir takvim gösteren bir pencere açılır.
+- **Nasıl Çalışır:** `;hata` yazdığınızda, `aciklama` için boş bir metin kutusu, `kritiklik` için "Orta" seçeneği seçili bir açılır menü ve `cozum_tarihi` için bir takvim gösteren bir pencere açılır.
 
-#### 3. Bağlamsal Genişletme: Uygulamaya Özel Snippet'lar
+#### Bağlamsal Genişletme: Uygulamaya Özel Snippet'lar
 
 Snippet'larınızın sadece belirli uygulamalarda çalışmasını sağlayarak farklı iş akışları için özel araçlar oluşturun.
 
 - **Kod Editörüne Özel Snippet:**
   - **Anahtar Kelime:** `;log`
-  - **İçerik:** `console.log('{değişken}', {değişken});`
+  - **İçerik:** `console.log('{degisken}', {degisken});`
   - **Uygulama Kuralı:** Snippet'ın detay ekranındaki "Uygulama Kuralları" alanına `com.microsoft.VSCode` yazın.
   - **Sonuç:** Artık `;log` anahtar kelimesi sadece VS Code'da çalışacaktır.
 
@@ -187,6 +216,7 @@ Snippet'larınızın sadece belirli uygulamalarda çalışmasını sağlayarak f
 | Sıraya Ekle             | `Cmd (⌘)` + `Shift (⇧)` + `C` |
 | Sıradakini Yapıştır     | `Cmd (⌘)` + `Shift (⇧)` + `B` |
 | Sıralı Kuyruğu Temizle  | `Cmd (⌘)` + `Shift (⇧)` + `K` |
+| Ekran Görüntüsü Al      | `Cmd (⌘)` + `Shift (⇧)` + `1` |
 | Çoklu Öğe Seçimi        | `Cmd (⌘)` + Tıklama           |
 | Ayarları Aç             | `Cmd (⌘)` + `,`               |
 

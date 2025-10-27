@@ -4,7 +4,7 @@
   <a href="https://buymeacoffee.com/12hrsofficp" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 </p>
 
-Clippy is a powerful macOS menu bar application designed for developers and power users to manage their clipboard history. It saves everything you copy, allowing you to quickly access, organize, and use your clipboard items.
+Clippy is a powerful macOS menu bar application designed for developers and heavy text users to manage their clipboard history. It saves everything you copy, allowing you to quickly access, edit, and use your clipboard items.
 
 ![1759521906350](image/README/1759521906350.png)
 
@@ -34,7 +34,7 @@ Clippy is a powerful macOS menu bar application designed for developers and powe
 - **Custom Titles:** Add a custom title to any clipboard item for easier identification. Titles can be edited in the detail view and are prominently displayed above the content in the main list.
 - **Source App Icons:** Easily track where each item was copied from with icons of the source application.
 
-### Advanced Functionality
+### 🚀 Advanced Functionality
 
 - **Pinning:** Pin important items you're working on to the top of the list, keeping them there even as new items are copied.
 - **Multi-Select:** Select multiple items by holding down the `Cmd (⌘)` key.
@@ -65,13 +65,6 @@ Clippy is a powerful macOS menu bar application designed for developers and powe
 - **Tools Menu:** Generate test data (UUID, Lorem Ipsum) or delete all items in the active tab from a single menu.
 - **Detailed Text Statistics:** View live character, word, and line counts in the detail screen for any text item.
 
-### 🛠️ Smart Tools & Developer Features
-
-- **Diff Viewer:** Compare two selected text items side-by-side with character-level highlighting of differences.
-- **JSON Viewer:** Automatically detects copied JSON text and displays it in a hierarchical tree structure in the detail view. You can edit, validate, and copy keys/values/paths from this view.
-- **Calendar Event Detection:** When you copy text like "Meeting tomorrow at 2 PM," Clippy detects it and offers to add it to your calendar with one click.
-- **Encryption:** Encrypt sensitive data with a single click from the context menu. The content of encrypted items remains hidden until you decrypt them.
-
 ### ⚙️ Customization and Settings
 
 - **Interface Customization:** Adjust the main window's width and height. Choose your preferred theme (Light, Dark, or System Default) for a personalized look across the entire app.
@@ -83,68 +76,101 @@ Clippy is a powerful macOS menu bar application designed for developers and powe
 - **Modern Settings Window:** Settings are grouped under "General," "Shortcuts," and "Advanced" tabs for a cleaner and more user-friendly experience.
 - **Sleep Mode Support:** After your computer wakes from sleep, all of Clippy's features (clipboard monitoring, shortcuts, keyword expansion) are automatically restarted and continue to work seamlessly.
 
+### 📸 Advanced Screenshot Editor
+
+- **Capture with a Shortcut:** Take a screenshot of any area of your screen with a customizable keyboard shortcut.
+- **Rich Annotation Tools:**
+  - **Arrow, Rectangle, Highlighter:** Mark important areas.
+  - **Text:** Add descriptions to your image.
+  - **Blur/Pixelate:** Easily hide sensitive information.
+- **Visual Effects Panel:**
+  - **Backdrop:** Add solid color or gradient backdrops to your screenshot.
+  - **Inset:** Create an aesthetic margin between the image and the backdrop.
+  - **Shadow & Corner Radius:** Add depth and a modern look to your image and its backdrop.
+- **Fluent Navigation:** Precisely zoom in/out to your cursor's position with `Cmd` + Mouse Wheel, or pan around the image with the mouse wheel.
+
+### 🛠️ Smart Tools & Developer Features
+
+- **Diff Viewer:** Compare two selected text items side-by-side with character-level highlighting of differences.
+- **JSON Viewer:** Automatically detects copied JSON text and displays it in a hierarchical tree structure in the detail view. You can edit, validate, and copy keys/values/paths from this view.
+- **Calendar Event Detection:** When you copy text like "Meeting tomorrow at 2 PM," Clippy detects it and offers to add it to your calendar with one click.
+- **Encryption:** Encrypt sensitive data with a single click from the context menu. The content of encrypted items remains hidden until you decrypt them.
+
 ### ⚡️ Performance & Optimization
 
 - **Efficient Loading:** With Core Data batch fetching and thumbnail caching, the app now loads and scrolls through long lists of items, especially images, much faster and with significantly less memory usage.
 
 ### ⌨️ Keyword Expansion (Snippet Expansion)
 
-This feature takes your productivity to the next level by turning static text snippets into dynamic, interactive, and context-aware templates. Snippets are now organized in their own dedicated **"Snippets"** tab for easy access and management.
+This feature allows you to instantly paste frequently used text snippets using a keyword. Snippets are organized in their own dedicated **"Snippets"** tab for easy access and management.
 
-#### 1. Dynamic Content: Snippets with Live Data
+#### Basic Usage
 
-Embed "magic words" into your snippets to have them automatically filled with up-to-date information.
+- **Keyword:** `;sig`
+- **Content:**
+  ```
+  Best regards,
+  John Appleseed
+  ```
+- **Result:** Typing `;sig` anywhere will automatically paste the text.
 
-- **Add the Current Date:**
+#### Dynamic Content: Snippets with Live Data
 
-  - **Keyword:** `;today`
-  - **Content:** `Report Date: {{DATE}}`
-  - **Result:** `Report Date: 2025-10-05`
+Add "magic words" to your snippets to have up-to-date information automatically filled in every time.
 
-- **Generate a Unique ID (UUID):**
-  - **Keyword:** `;guid`
-  - **Content:** `New User ID: {{UUID}}`
-  - **Result:** `New User ID: A9A4E42D-3C6F-4E8B-9F3C-1A2B3C4D5E6F`
+| Magic Word      | Description                     | Example Output                      |
+| --------------- | ------------------------------- | ----------------------------------- |
+| `{{DATE}}`      | Inserts the current date.       | `2025-10-05`                        |
+| `{{TIME}}`      | Inserts the current time.       | `15:30:25`                          |
+| `{{DATETIME}}`  | Inserts date and time together. | `2025-10-05 15:30`                  |
+| `{{UUID}}`      | Generates a unique ID.          | `A9A4E42D-3C6F-4E8B-9F3C...`        |
+| `{{CLIPBOARD}}` | Inserts the current clipboard.  | _(The last text on your clipboard)_ |
 
-#### 2. Parameterized Expansion: Interactive Snippets
+**Example:**
 
-Create interactive templates by adding parameters like `{parameter}` to your snippets. When you type the keyword, Clippy opens a smart dialog to fill in the variables.
+- **Keyword:** `;report`
+- **Content:** `Report Date: {{DATE}} - {{TIME}}`
+- **Result:** `Report Date: 2025-10-05 - 15:30:25`
 
-##### Smart Input Types
+#### Parameterized Expansion: Interactive Snippets
 
-Speed up and simplify data entry by assigning types to your parameters.
+Create interactive templates by adding variables in the `{parameter}` format. When you type the keyword, Clippy will open a smart window for you to fill in these variables.
 
-- **Date/Time Picker:** Use `{due_date:date}` or `{meeting:time}` to open a calendar or time picker.
-- **Dropdown Menu:** Provide predefined options with `{priority:choice:Low,Medium,High}`.
+**Example:**
 
-##### Default Values
+- **Keyword:** `;email`
+- **Content:** `Hello {name}, how are you?`
+- **How it works:** When you type `;email`, a window opens for you to enter the "name" parameter. If you type "Mehmet" and confirm, it will paste `Hello Mehmet, how are you?`.
 
-Save time by assigning default values to your parameters.
+##### Smart Input Types and Default Values
 
-- **Example:** With `{subject=Weekly Report}`, the "subject" field will come pre-filled with "Weekly Report".
+Speed up data entry even more by assigning types and default values to your parameters.
 
-##### All-in-One: An Advanced Example
+- **Date Picker:** `{delivery_date:date}`
+- **Dropdown Menu:** `{priority:choice:Low,Medium,High}`
+- **Dropdown with Default:** `{status:choice:Active,Inactive=Active}`
 
-- **Bug Report Template:**
-  - **Keyword:** `;bug`
-  - **Content:**
-    ```
-    Bug Report
-    - Description: {description}
-    - Criticality: {criticality:choice:Low,Medium,High=Medium}
-    - Assignee: {assignee=Mehmet Akbaba}
-    ```
-  - **How it works:** Typing `;bug` opens a dialog with a text field for `description`, a dropdown for `criticality` (pre-selected to "Medium"), and a pre-filled text field for `assignee`.
+**An Advanced Example:**
 
-#### 3. Contextual Expansion: App-Specific Snippets
+- **Keyword:** `;bug`
+- **Content:**
+  ```
+  Bug Report
+  - Description: {description}
+  - Severity: {severity:choice:Low,Medium,High=Medium}
+  - ETA: {eta:date}
+  ```
+- **How it works:** Typing `;bug` opens a window with an empty text box for `description`, a dropdown menu with "Medium" pre-selected for `severity`, and a calendar for `eta`.
 
-Create specialized tools for different workflows by making your snippets work only in specific applications.
+#### Contextual Expansion: App-Specific Snippets
 
-- **Code-Editor-Only Snippet:**
+Make your snippets work only in specific applications to create custom tools for different workflows.
+
+- **Code Editor-Specific Snippet:**
   - **Keyword:** `;log`
   - **Content:** `console.log('{variable}', {variable});`
   - **Application Rule:** In the snippet's detail screen, enter `com.microsoft.VSCode` in the "Application Rules" field.
-  - **Result:** The `;log` keyword will now only work in Visual Studio Code.
+  - **Result:** Now, the `;log` keyword will only work in VS Code.
 
 #### How It Works
 
@@ -155,29 +181,29 @@ Create specialized tools for different workflows by making your snippets work on
 
 ## 🚀 How to Use
 
-1. **Toggling the App:**
+1.  **Opening the App:**
 
-   - Click the Clippy icon in the menu bar.
-   - Or, press the default shortcut `Cmd (⌘) + Shift (⇧) + V`.
+- Click the Clippy icon in the menu bar.
+- Or, press the default shortcut `Cmd (⌘) + Shift (⇧) + V`.
 
-2. **Pasting Items:**
+2.  **Pasting Items:**
 
-   - **Single Item:** Hover over an item and click the "Paste" button.
-   - **Multiple Items:** Hold down `Cmd (⌘)` and click to select the items you want. Click the **"Paste All"** button that appears at the bottom of the window or use its shortcut (`Cmd (⌘) + Shift (⇧) + P`).
+- **Single Item:** Hover over an item and click the "Paste" button.
+- **Multiple Items:** Hold down `Cmd (⌘)` and click to select the items you want. Click the **"Paste All"** button that appears at the bottom of the window or use its shortcut (`Cmd (⌘) + Shift (⇧) + P`).
 
-3. **Other Actions (Context Menu):**
+3.  **Other Actions (Right-Click Menu):**
 
-   - Right-click on an item to access all advanced actions like **Copy, Encrypt/Decrypt, Compare, Delete**, etc.
+- Right-click on an item to access all advanced actions like **Copy, Encrypt/Decrypt, Compare, Delete**, etc.
 
-4. **Favoriting and Pinning:**
+4.  **Favoriting and Pinning:**
 
-   - Click the star (`☆`) icon to the left of any item to add or remove it from your favorites.
-   - Click the pin (`📌`) icon next to the star to pin important items to the top of the list.
+- Click the star (`☆`) icon to the left of any item to add or remove it from your favorites.
+- Click the pin (`📌`) icon next to the star to pin important items to the top of the list.
 
-5. **Settings:**
+5.  **Settings:**
 
-   - **Right-click** the Clippy icon in the menu bar and select "Settings...".
-   - Or, use the standard macOS shortcut `Cmd (⌘) + ,`.
+- **Right-click** the Clippy icon in the menu bar and select "Settings...".
+- Or, use the standard macOS shortcut `Cmd (⌘) + ,`.
 
 ## ⌨️ Default Shortcuts
 
@@ -188,6 +214,7 @@ Create specialized tools for different workflows by making your snippets work on
 | Add to Sequential Queue | `Cmd (⌘)` + `Shift (⇧)` + `C` |
 | Paste Next in Sequence  | `Cmd (⌘)` + `Shift (⇧)` + `B` |
 | Clear Sequential Queue  | `Cmd (⌘)` + `Shift (⇧)` + `K` |
+| Take Screenshot         | `Cmd (⌘)` + `Shift (⇧)` + `1` |
 | Multi-Item Selection    | `Cmd (⌘)` + Click             |
 | Open Settings           | `Cmd (⌘)` + `,`               |
 
