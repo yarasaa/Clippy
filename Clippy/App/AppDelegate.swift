@@ -27,13 +27,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var sequentialPasteHotKey: HotKey?
     var clearQueueHotKey: HotKey?
     var screenshotHotKey: HotKey?
+    var recordGifHotKey: HotKey?
     
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         clipboardMonitor = ClipboardMonitor()
         keywordManager = KeywordExpansionManager()
-        keywordManager?.appDelegate = self        
+        keywordManager?.appDelegate = self
         keywordManager?.startMonitoring()
         clipboardMonitor?.startMonitoring()
 
@@ -42,13 +43,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         PasteManager.shared.statusBarController = statusBarController
         PasteManager.shared.clipboardMonitor = clipboardMonitor
-        
+
+        // Kayıt durumu değişikliklerini dinle
+        ScreenshotManager.shared.onRecordingStateChanged = { [weak self] isRecording in
+            self?.statusBarController?.updateRecordingState(isRecording: isRecording)
+        }
+
         checkAccessibilityPermissions()
-        
+
         createMenu()
-        
+
         setupHotkey()
-        
+
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(systemDidWake), name: NSWorkspace.didWakeNotification, object: nil)
 
     }
@@ -81,6 +87,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateSequentialPasteHotkey()
         updateClearQueueHotkey()
         updateScreenshotHotkey()
+        updateRecordGifHotkey()
     }
 
     /// Sistem uyku modundan çıktığında çağrılır.
@@ -219,6 +226,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         print("✅ 'Ekran Görüntüsü Al' kısayolu güncellendi: \(modifiers) + \(key)")
     }
     
+    func updateRecordGifHotkey() {
+        let settings = SettingsManager.shared
+        guard !settings.recordGifHotkeyKey.isEmpty, let key = Key(string: settings.recordGifHotkeyKey.lowercased()) else {
+            print("Geçersiz 'GIF Kaydet' kısayol tuşu: \(settings.recordGifHotkeyKey)")
+            recordGifHotKey = nil
+            return
+        }
+        let modifiers = NSEvent.ModifierFlags(rawValue: settings.recordGifHotkeyModifiers)
+
+        recordGifHotKey = nil
+        recordGifHotKey = HotKey(key: key, modifiers: modifiers)
+        recordGifHotKey?.keyDownHandler = { [weak self] in
+            self?.recordGIF()
+        }
+        print("✅ 'GIF Kaydet' kısayolu güncellendi: \(modifiers) + \(key)")
+    }
+    
     private func createMenu() {
         let menu = NSMenu()
         
@@ -226,6 +250,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let aboutItem = NSMenuItem(title: L("About Clippy", settings: SettingsManager.shared), action: #selector(openAbout), keyEquivalent: "")
         aboutItem.target = self
         menu.addItem(aboutItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let recordGIFItem = NSMenuItem(title: L("Record GIF or Video...", settings: SettingsManager.shared), action: #selector(recordGIF), keyEquivalent: "")
+        recordGIFItem.target = self
+        menu.addItem(recordGIFItem)
+
         menu.addItem(NSMenuItem.separator())
         
         // Ayarlar menü öğesi
@@ -369,6 +400,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.diffWindow = window
+    }
+
+    @objc func recordGIF() {
+        ScreenshotManager.shared.recordGIF { gifURL in
+            guard let gifURL = gifURL,
+                  let monitor = self.clipboardMonitor,
+                  let imageDir = monitor.getImagesDirectory() else {
+                print("❌ GIF oluşturulamadı veya kaydedilemedi.")
+                return
+            }
+
+            let fileName = "\(UUID().uuidString).gif"
+            let destinationURL = imageDir.appendingPathComponent(fileName)
+
+            try? FileManager.default.copyItem(at: gifURL, to: destinationURL)
+            let newItem = ClipboardItem(contentType: .image(imagePath: fileName), date: Date(), sourceAppName: "Clippy GIF Recorder", sourceAppBundleIdentifier: "com.yarasa.Clippy.GIFRecorder")
+            monitor.addNewItem(newItem)
+        }
     }
 
     func checkAccessibilityPermissions() {

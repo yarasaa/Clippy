@@ -95,6 +95,12 @@ class SettingsManager: ObservableObject {
     @Published var scrollingScreenshotHotkeyModifiers: UInt {
         didSet { UserDefaults.standard.set(scrollingScreenshotHotkeyModifiers, forKey: "scrollingScreenshotHotkeyModifiers") }
     }
+    @Published var recordGifHotkeyKey: String {
+        didSet { UserDefaults.standard.set(recordGifHotkeyKey, forKey: "recordGifHotkeyKey") }
+    }
+    @Published var recordGifHotkeyModifiers: UInt {
+        didSet { UserDefaults.standard.set(recordGifHotkeyModifiers, forKey: "recordGifHotkeyModifiers") }
+    }
 
     private init() {
         // Varsayılan değerleri belirle ve UserDefaults'tan oku
@@ -141,5 +147,8 @@ class SettingsManager: ObservableObject {
         // Varsayılan "Kaydırmalı Ekran Görüntüsü Al" kısayolu: Cmd+Shift+2
         self.scrollingScreenshotHotkeyKey = UserDefaults.standard.string(forKey: "scrollingScreenshotHotkeyKey") ?? "2"
         self.scrollingScreenshotHotkeyModifiers = UserDefaults.standard.object(forKey: "scrollingScreenshotHotkeyModifiers") as? UInt ?? 1179648 // Cmd+Shift
+        // Varsayılan "GIF Kaydet" kısayolu: Cmd+Shift+3
+        self.recordGifHotkeyKey = UserDefaults.standard.string(forKey: "recordGifHotkeyKey") ?? "3"
+        self.recordGifHotkeyModifiers = UserDefaults.standard.object(forKey: "recordGifHotkeyModifiers") as? UInt ?? 1179648 // Cmd+Shift
     }
 }

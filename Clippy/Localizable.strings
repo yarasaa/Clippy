@@ -97,6 +97,8 @@
 "Pause Keyword Expansion" = "Kelime Genişletmeyi Duraklat";
 "Quit Clippy" = "Clippy'den Çık";
 "Recognize text in this image" = "Bu resimdeki metni tanı";
+"Record GIF or Video" = "GIF veya Video Kaydet";
+"Record GIF or Video..." = "GIF veya Video Kaydet...";
 "Remove Duplicate Lines" = "Yinelenen Satırları Sil";
 "Resume Keyword Expansion" = "Kelime Genişletmeye Devam Et";
 "Save" = "Kaydet";
@@ -104,6 +106,7 @@
 "Scan Text" = "Metni Tara";
 "Sequential Copy" = "Sıralı Kopyala";
 "Sequential Paste" = "Sıralı Yapıştır";
+"Select an area to record\nESC to cancel" = "Kaydetmek istediğiniz alanı seçin\nESC ile iptal";
 "Settings" = "Ayarlar";
 "Show Code Tab" = "Kod Sekmesini Göster";
 "Show Favorites Tab" = "Favoriler Sekmesini Göster";

@@ -20,6 +20,7 @@ class StatusBarController: NSObject, NSPopoverDelegate {
     var rightClickMenu: NSMenu?
     private var cancellables = Set<AnyCancellable>()
     private var eventMonitor: Any?
+    private var isRecording = false
 
     init(clipboardMonitor: ClipboardMonitor) {
         self.clipboardMonitor = clipboardMonitor
@@ -87,10 +88,33 @@ class StatusBarController: NSObject, NSPopoverDelegate {
     
     private func updateStatusItem() {
         guard let button = statusItem.button else { return }
-        
-        let isPasting = clipboardMonitor.isPastingFromQueue
-        button.image = NSImage(systemSymbolName: isPasting ? "list.clipboard.fill" : "doc.on.clipboard", accessibilityDescription: "Clippy")
-        button.title = isPasting ? " \(clipboardMonitor.sequentialPasteIndex)/\(clipboardMonitor.sequentialPasteQueueIDs.count)" : ""
+
+        // Öncelik sırası: Kayıt > Yapıştırma > Normal
+        if isRecording {
+            button.image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Recording")
+            button.title = ""
+            // Kırmızı renk uygula
+            if let image = button.image {
+                image.isTemplate = false
+                let tinted = NSImage(size: image.size, flipped: false) { rect in
+                    NSColor.systemRed.setFill()
+                    rect.fill()
+                    image.draw(in: rect)
+                    return true
+                }
+                button.image = tinted
+            }
+        } else {
+            let isPasting = clipboardMonitor.isPastingFromQueue
+            button.image = NSImage(systemSymbolName: isPasting ? "list.clipboard.fill" : "doc.on.clipboard", accessibilityDescription: "Clippy")
+            button.title = isPasting ? " \(clipboardMonitor.sequentialPasteIndex)/\(clipboardMonitor.sequentialPasteQueueIDs.count)" : ""
+        }
+    }
+
+    /// Kayıt durumunu günceller ve ikonu değiştirir
+    func updateRecordingState(isRecording: Bool) {
+        self.isRecording = isRecording
+        updateStatusItem()
     }
 
     private func updatePopoverSize() {
