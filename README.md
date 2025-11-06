@@ -80,6 +80,7 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
 
 - **Capture with a Shortcut:** Take a screenshot of any area of your screen with a customizable keyboard shortcut.
 - **Rich Annotation Tools:**
+
   - **Select & Move:** Universal selection tool - select any annotation to move, edit, or delete it
   - **Arrow & Line:** Draw arrows and lines with customizable colors and thickness
   - **Shapes (Rectangle, Ellipse):** Add shapes with fill, stroke, or both modes, plus adjustable corner radius
@@ -91,29 +92,33 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
   - **Emoji:** Add emoji annotations with adjustable size
   - **Blur/Pixelate:** Easily hide sensitive information
   - **Eraser:** Remove any annotation with a click
+
 - **Universal Annotation Interaction:**
+
   - **Click & Drag:** Click any annotation to select it, then drag to move it anywhere
   - **Double-Click Text:** Double-click text annotations to edit them instantly
   - **Resize Handles:** Most annotations have corner/edge handles for resizing
   - **Right Panel Controls:** Each tool has its own control panel that appears when selected
   - **Auto-Switch to Select:** After creating shapes, automatically switches to select mode for easy editing
+
 - **Visual Effects Panel:**
+
   - **Backdrop:** Add solid color or gradient backdrops to your screenshot
   - **Inset:** Create an aesthetic margin between the image and the backdrop
   - **Shadow & Corner Radius:** Add depth and a modern look to your image and its backdrop
+
 - **Fluent Navigation:**
+
   - Precisely zoom in/out to your cursor's position with `Cmd` + Mouse Wheel
   - Pan around the image with the mouse wheel
   - Hover over any annotation to see the move cursor
+
 - **Smart Text Rendering:**
+
   - Text boxes auto-grow as you type (horizontally and vertically)
   - Multi-line text support with Enter key
   - Font size adjustments automatically resize the text box
   - Background colors with rounded corners for better readability
-- **Recording Features:**
-  - **GIF Recording:** Capture screen area as animated GIF with customizable hotkey
-  - **Video Recording:** Record screen area as video file
-  - **Recording Indicator:** Visual indicator shows when recording is active
 
 ### 🛠️ Smart Tools & Developer Features
 
@@ -207,26 +212,26 @@ Make your snippets work only in specific applications to create custom tools for
 
 ## 🚀 How to Use
 
-1.  **Opening the App:**
+1. **Opening the App:**
 
 - Click the Clippy icon in the menu bar.
 - Or, press the default shortcut `Cmd (⌘) + Shift (⇧) + V`.
 
-2.  **Pasting Items:**
+2. **Pasting Items:**
 
 - **Single Item:** Hover over an item and click the "Paste" button.
 - **Multiple Items:** Hold down `Cmd (⌘)` and click to select the items you want. Click the **"Paste All"** button that appears at the bottom of the window or use its shortcut (`Cmd (⌘) + Shift (⇧) + P`).
 
-3.  **Other Actions (Right-Click Menu):**
+3. **Other Actions (Right-Click Menu):**
 
 - Right-click on an item to access all advanced actions like **Copy, Encrypt/Decrypt, Compare, Delete**, etc.
 
-4.  **Favoriting and Pinning:**
+4. **Favoriting and Pinning:**
 
 - Click the star (`☆`) icon to the left of any item to add or remove it from your favorites.
 - Click the pin (`📌`) icon next to the star to pin important items to the top of the list.
 
-5.  **Settings:**
+5. **Settings:**
 
 - **Right-click** the Clippy icon in the menu bar and select "Settings...".
 - Or, use the standard macOS shortcut `Cmd (⌘) + ,`.

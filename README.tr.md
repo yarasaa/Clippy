@@ -69,14 +69,45 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 
 - **Kısayolla Yakalama:** Özelleştirilebilir bir klavye kısayolu ile ekranın istediğiniz bir alanının görüntüsünü alın.
 - **Zengin Çizim Araçları:**
-  - **Ok, Dikdörtgen, Vurgulayıcı (Highlighter):** Önemli alanları işaretleyin.
-  - **Metin:** Görüntünüze açıklamalar ekleyin.
-  - **Bulanıklaştırma (Blur/Pixelate):** Hassas bilgileri kolayca gizleyin.
+
+  - **Seç & Taşı:** Evrensel seçim aracı - herhangi bir çizimi seçerek taşıyın, düzenleyin veya silin
+  - **Ok & Çizgi:** Özelleştirilebilir renk ve kalınlıkta oklar ve çizgiler çizin
+  - **Şekiller (Dikdörtgen, Elips):** Dolgu, çizgi veya her ikisi modu ile şekiller ekleyin, köşe yuvarlatma ayarlanabilir
+  - **Metin:** Özel arka plan renkleri ve içeriğe göre otomatik boyutlanan yazı tipleri ile zengin metin çizileri ekleyin
+  - **Pin/Numara:** Özelleştirilebilir şekillerde (daire, kare, yuvarlatılmış kare) numaralı işaretçiler ekleyin
+  - **Vurgulayıcı:** Yarı saydam vurgulama ile önemli alanları işaretleyin
+  - **Spotlight:** Seçili alanlar (elips veya dikdörtgen) dışındaki her şeyi karartarak dikkat çekin
+  - **Kalem:** Düz, kesikli veya marker stillerinde serbest çizim
+  - **Emoji:** Boyutu ayarlanabilir emoji çizimleri ekleyin
+  - **Bulanıklaştırma/Pikselleştirme:** Hassas bilgileri kolayca gizleyin
+  - **Silgi:** Herhangi bir çizimi tek tıkla kaldırın
+
+- **Evrensel Çizim Etkileşimi:**
+
+  - **Tıkla & Sürükle:** Herhangi bir çizime tıklayarak seçin, ardından istediğiniz yere sürükleyin
+  - **Çift Tıklama ile Düzenleme:** Metin çizilerine çift tıklayarak anında düzenleyin
+  - **Boyutlandırma Tutamaçları:** Çoğu çizimde boyutlandırmak için köşe/kenar tutamaçları bulunur
+  - **Sağ Panel Kontrolleri:** Her aracın seçildiğinde görünen kendi kontrol paneli vardır
+  - **Otomatik Seçim Moduna Geçiş:** Şekiller oluşturduktan sonra, kolay düzenleme için otomatik olarak seçim moduna geçer
+
 - **Görsel Efektler Paneli:**
-  - **Arka Plan:** Ekran görüntünüze düz renk veya gradyan (degrade) arka planlar ekleyin.
-  - **İç Boşluk (Inset):** Görüntü ile arka plan arasında estetik bir boşluk bırakın.
-  - **Gölge & Köşe Yuvarlatma:** Görüntünüze ve arka planınıza derinlik ve modern bir görünüm katın.
-- **Akıcı Gezinme:** `Cmd` + Fare tekerleği ile imlecinizin olduğu noktaya hassas bir şekilde yakınlaşın/uzaklaşın veya fare tekerleği ile görüntüde gezinin.
+
+  - **Arka Plan:** Ekran görüntünüze düz renk veya gradyan (degrade) arka planlar ekleyin
+  - **İç Boşluk (Inset):** Görüntü ile arka plan arasında estetik bir boşluk bırakın
+  - **Gölge & Köşe Yuvarlatma:** Görüntünüze ve arka planınıza derinlik ve modern bir görünüm katın
+
+- **Akıcı Gezinme:**
+
+  - `Cmd` + Fare tekerleği ile imlecinizin olduğu noktaya hassas bir şekilde yakınlaşın/uzaklaşın
+  - Fare tekerleği ile görüntüde gezinin
+  - Herhangi bir çizimin üzerine gelin ve taşıma imlecini görün
+
+- **Akıllı Metin Oluşturma:**
+
+  - Siz yazarken metin kutuları otomatik olarak büyür (yatay ve dikey)
+  - Enter tuşu ile çok satırlı metin desteği
+  - Yazı tipi boyutu ayarlamaları otomatik olarak metin kutusunu yeniden boyutlandırır
+  - Daha iyi okunabilirlik için yuvarlatılmış köşeli arka plan renkleri
 
 ### ⚙️ Özelleştirme ve Ayarlar
 
