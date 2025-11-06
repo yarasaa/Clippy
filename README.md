@@ -22,7 +22,7 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
 
 ![1759522601059](image/README/1759522601059.png)
 
-## ✨ Features
+![1762463406364](image/README/1762463406364.png)✨ Features
 
 ### 📋 Core Clipboard Management
 
