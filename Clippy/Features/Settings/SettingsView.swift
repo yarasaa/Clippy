@@ -103,7 +103,6 @@ struct SettingsView: View {
             Divider()
             shortcutRow(label: L("Take Screenshot", settings: settings), key: $settings.screenshotHotkeyKey, modifiers: $settings.screenshotHotkeyModifiers)
             shortcutRow(label: L("Scrolling Screenshot", settings: settings), key: $settings.scrollingScreenshotHotkeyKey, modifiers: $settings.scrollingScreenshotHotkeyModifiers)
-            shortcutRow(label: L("Record GIF or Video", settings: settings), key: $settings.recordGifHotkeyKey, modifiers: $settings.recordGifHotkeyModifiers)
         }
         .padding()
     }

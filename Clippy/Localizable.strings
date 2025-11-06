@@ -1,10 +1,10 @@
 /* 
   Localizable.strings
   Clippy
-  
-  Created by Gemini Code Assist on 4.10.2025.
-  
+
+  Created by Mehmet Akbaba on 4.10.2025.
 */
+
 
 "About Clippy" = "Clippy Hakkında";
 "A powerful clipboard manager for macOS." = "macOS için güçlü bir pano yöneticisi.";
@@ -18,6 +18,9 @@
 "Base64 Encode" = "Base64 Kodla";
 "Buy me a coffee" = "Bana bir kahve ısmarla";
 "Cancel" = "İptal";
+"Capture Area" = "Alan Yakala";
+"Capture Screen" = "Ekran Yakala";
+"Capture Window" = "Pencere Yakala";
 "Characters" = "Karakter";
 "Clear items in current tab" = "Geçerli sekmedeki öğeleri temizle";
 "Clear Selection" = "Seçimi Temizle";
@@ -48,6 +51,7 @@
 "Copy Value" = "Değeri Kopyala";
 "Could not encode text to UTF-8." = "Metin UTF-8 olarak kodlanamadı.";
 "Decrypt Item" = "Şifreyi Çöz";
+"Delayed Screenshot (3s)" = "Gecikmeli Ekran Görüntüsü (3s)";
 "Delete" = "Sil";
 "Delete %d Items" = "%d Öğeyi Sil";
 "Detail" = "Detay";
@@ -96,6 +100,18 @@
 "Paste Selected" = "Seçilenleri Yapıştır";
 "Pause Keyword Expansion" = "Kelime Genişletmeyi Duraklat";
 "Quit Clippy" = "Clippy'den Çık";
+"Quality" = "Kalite";
+"Low" = "Düşük";
+"Medium" = "Orta";
+"High" = "Yüksek";
+"Frame Rate (FPS)" = "Kare Hızı (FPS)";
+"Recording" = "Kayıt";
+"Recording Options" = "Kayıt Seçenekleri";
+"Show Mouse Cursor" = "Fare İmlecini Göster";
+"Countdown" = "Geri Sayım";
+"None" = "Yok";
+"3 Seconds" = "3 Saniye";
+"5 Seconds" = "5 Saniye";
 "Recognize text in this image" = "Bu resimdeki metni tanı";
 "Record GIF or Video" = "GIF veya Video Kaydet";
 "Record GIF or Video..." = "GIF veya Video Kaydet...";
@@ -148,3 +164,78 @@
 "Popover Width: %d" = "Pencere Genişliği: %d";
 "Popover Height: %d" = "Pencere Yüksekliği: %d";
 "Snippets" = "Snippet'lar";
+
+/* Screenshot Editor */
+"Shapes" = "Şekiller";
+"Apply" = "Uygula";
+"Apply annotations to image" = "Notları resme uygula";
+"Clear All" = "Tümünü Temizle";
+"Remove all annotations" = "Tüm notları kaldır";
+"Save to a file..." = "Dosyaya kaydet...";
+"Close Editor" = "Düzenleyiciyi Kapat";
+"Copy Text from Image (OCR)" = "Resimden Metin Kopyala (OCR)";
+"Save to Clippy History" = "Clippy Geçmişine Kaydet";
+"Reset Pin" = "Pini Sıfırla";
+"Click to copy Hex code" = "Hex kodunu kopyalamak için tıkla";
+"Line Width" = "Çizgi Kalınlığı";
+"Small" = "İnce";
+"Medium" = "Orta";
+"Large" = "Kalın";
+"Shape" = "Şekil";
+"Color" = "Renk";
+
+/* Effects Panel */
+"Inset" = "İç Boşluk";
+"Shadow" = "Gölge";
+"Outer Radius" = "Dış Yarıçap";
+"Inner Radius" = "İç Yarıçap";
+"Color Type" = "Renk Tipi";
+"Solid" = "Düz Renk";
+"Colormix" = "Renk Karışımı";
+"Image" = "Resim";
+"Custom Color" = "Özel Renk";
+"Presets" = "Hazır Ayarlar";
+"Custom Gradient" = "Özel Degrade";
+"Start" = "Başlangıç";
+"End" = "Bitiş";
+"Direction" = "Yön";
+"Select an image for the backdrop" = "Arka plan için bir resim seçin";
+"Browse..." = "Gözat...";
+"Remove" = "Kaldır";
+"Ok" = "Tamam";
+"Top Left" = "Sol Üst";
+"Top" = "Üst";
+"Top Right" = "Sağ Üst";
+"Left" = "Sol";
+"Center" = "Orta";
+"Right" = "Sağ";
+"Bottom Left" = "Sol Alt";
+"Bottom" = "Alt";
+"Bottom Right" = "Sağ Alt";
+
+/* Fill Modes */
+"Stroke" = "Kenarlık";
+"Fill" = "Dolgu";
+"Both" = "İkisi de";
+
+/* Tools */
+"Pin" = "İğnele";
+"Select" = "Seç";
+"Move" = "Taşı";
+"Arrow" = "Ok";
+"Rectangle" = "Dikdörtgen";
+"Ellipse" = "Elips";
+"Line" = "Çizgi";
+"Text" = "Metin";
+"Pin" = "Pin";
+"Pixelate" = "Bulanıklaştır";
+"Eraser" = "Silgi";
+"Highlighter" = "İşaretleyici";
+"Spotlight" = "Spotlight";
+"Emoji" = "Emoji";
+"Pen" = "Kalem";
+
+/* Brush Styles */
+"Solid" = "Düz";
+"Dashed" = "Kesikli";
+"Marker" = "Marker";

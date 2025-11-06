@@ -27,7 +27,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var sequentialPasteHotKey: HotKey?
     var clearQueueHotKey: HotKey?
     var screenshotHotKey: HotKey?
-    var recordGifHotKey: HotKey?
     
     private var cancellables = Set<AnyCancellable>()
 
@@ -43,11 +42,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         PasteManager.shared.statusBarController = statusBarController
         PasteManager.shared.clipboardMonitor = clipboardMonitor
-
-        // Kayıt durumu değişikliklerini dinle
-        ScreenshotManager.shared.onRecordingStateChanged = { [weak self] isRecording in
-            self?.statusBarController?.updateRecordingState(isRecording: isRecording)
-        }
 
         checkAccessibilityPermissions()
 
@@ -87,7 +81,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateSequentialPasteHotkey()
         updateClearQueueHotkey()
         updateScreenshotHotkey()
-        updateRecordGifHotkey()
     }
 
     /// Sistem uyku modundan çıktığında çağrılır.
@@ -226,23 +219,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         print("✅ 'Ekran Görüntüsü Al' kısayolu güncellendi: \(modifiers) + \(key)")
     }
     
-    func updateRecordGifHotkey() {
-        let settings = SettingsManager.shared
-        guard !settings.recordGifHotkeyKey.isEmpty, let key = Key(string: settings.recordGifHotkeyKey.lowercased()) else {
-            print("Geçersiz 'GIF Kaydet' kısayol tuşu: \(settings.recordGifHotkeyKey)")
-            recordGifHotKey = nil
-            return
-        }
-        let modifiers = NSEvent.ModifierFlags(rawValue: settings.recordGifHotkeyModifiers)
-
-        recordGifHotKey = nil
-        recordGifHotKey = HotKey(key: key, modifiers: modifiers)
-        recordGifHotKey?.keyDownHandler = { [weak self] in
-            self?.recordGIF()
-        }
-        print("✅ 'GIF Kaydet' kısayolu güncellendi: \(modifiers) + \(key)")
-    }
-    
     private func createMenu() {
         let menu = NSMenu()
         
@@ -253,12 +229,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        let recordGIFItem = NSMenuItem(title: L("Record GIF or Video...", settings: SettingsManager.shared), action: #selector(recordGIF), keyEquivalent: "")
-        recordGIFItem.target = self
-        menu.addItem(recordGIFItem)
+        // Screenshot menü öğeleri
+        let captureAreaItem = NSMenuItem(title: L("Capture Area", settings: SettingsManager.shared), action: #selector(captureArea), keyEquivalent: "")
+        captureAreaItem.target = self
+        menu.addItem(captureAreaItem)
+
+        let captureScreenItem = NSMenuItem(title: L("Capture Screen", settings: SettingsManager.shared), action: #selector(captureFullScreen), keyEquivalent: "")
+        captureScreenItem.target = self
+        menu.addItem(captureScreenItem)
+
+        let captureWindowItem = NSMenuItem(title: L("Capture Window", settings: SettingsManager.shared), action: #selector(captureWindow), keyEquivalent: "")
+        captureWindowItem.target = self
+        menu.addItem(captureWindowItem)
+
+        let captureDelayedItem = NSMenuItem(title: L("Delayed Screenshot (3s)", settings: SettingsManager.shared), action: #selector(captureDelayed), keyEquivalent: "")
+        captureDelayedItem.target = self
+        menu.addItem(captureDelayedItem)
 
         menu.addItem(NSMenuItem.separator())
-        
+
         // Ayarlar menü öğesi
         let settingsItem = NSMenuItem(title: L("Settings", settings: SettingsManager.shared), action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
@@ -402,24 +391,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         self.diffWindow = window
     }
 
-    @objc func recordGIF() {
-        ScreenshotManager.shared.recordGIF { gifURL in
-            guard let gifURL = gifURL,
-                  let monitor = self.clipboardMonitor,
-                  let imageDir = monitor.getImagesDirectory() else {
-                print("❌ GIF oluşturulamadı veya kaydedilemedi.")
-                return
-            }
-
-            let fileName = "\(UUID().uuidString).gif"
-            let destinationURL = imageDir.appendingPathComponent(fileName)
-
-            try? FileManager.default.copyItem(at: gifURL, to: destinationURL)
-            let newItem = ClipboardItem(contentType: .image(imagePath: fileName), date: Date(), sourceAppName: "Clippy GIF Recorder", sourceAppBundleIdentifier: "com.yarasa.Clippy.GIFRecorder")
-            monitor.addNewItem(newItem)
-        }
-    }
-
     func checkAccessibilityPermissions() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
         let _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
@@ -464,25 +435,42 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let window = NSWindow(contentViewController: hostingController)
         
         // Modern, çerçevesiz bir pencere stili uygula
-        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        window.styleMask = [NSWindow.StyleMask.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.isOpaque = true
-        window.backgroundColor = .windowBackgroundColor
+        window.backgroundColor = NSColor.windowBackgroundColor
         window.hasShadow = true
         window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
+        window.titleVisibility = NSWindow.TitleVisibility.hidden
         window.title = "Screenshot Editor"
         
         // Görüntü için makul bir başlangıç boyutu hesapla.
         let padding: CGFloat = 80 // Kenar boşlukları
-        // Toolbar artık başlık çubuğu alanını kullanacağı için ekstra "+ 60" eklemeye GEREK YOK.
-        var desiredSize = NSSize(width: image.size.width + padding, height: image.size.height + padding)
+        let toolbarHeight: CGFloat = 60 // Toolbar yüksekliği
 
-        // Pencerenin ekran boyutunu aşmamasını sağla.
+        // Ekran boyutunu al
+        var desiredSize = NSSize(width: image.size.width + padding, height: image.size.height + padding + toolbarHeight)
+
+        // Pencerenin ekran boyutunu aşmamasını sağla ve aspect ratio'yu koru
         if let screenFrame = NSScreen.main?.visibleFrame {
-            let maxW = screenFrame.width * 0.8
-            let maxH = screenFrame.height * 0.8
-            desiredSize.width = min(desiredSize.width, maxW)
-            desiredSize.height = min(desiredSize.height, maxH)
+            let maxW = screenFrame.width * 0.9
+            let maxH = screenFrame.height * 0.9
+
+            // Eğer görüntü ekrandan büyükse, aspect ratio'yu koruyarak küçült
+            if desiredSize.width > maxW || desiredSize.height > maxH {
+                let imageAspectRatio = image.size.width / image.size.height
+
+                // Genişlik sınırlaması
+                if desiredSize.width > maxW {
+                    desiredSize.width = maxW
+                    desiredSize.height = (maxW - padding) / imageAspectRatio + padding + toolbarHeight
+                }
+
+                // Yükseklik hala çok büyükse
+                if desiredSize.height > maxH {
+                    desiredSize.height = maxH
+                    desiredSize.width = (maxH - padding - toolbarHeight) * imageAspectRatio + padding
+                }
+            }
         }
         window.setContentSize(desiredSize)
         
@@ -495,6 +483,33 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func takeScreenshot() {
         ScreenshotManager.shared.captureArea(mode: .interactive) { [weak self] image in
             self?.showScreenshotEditor(with: image)
+        }
+    }
+
+    @objc func captureArea() {
+        ScreenshotManager.shared.captureArea(mode: .interactive) { [weak self] image in
+            self?.showScreenshotEditor(with: image)
+        }
+    }
+
+    @objc func captureFullScreen() {
+        ScreenshotManager.shared.captureArea(mode: .fullScreen) { [weak self] image in
+            self?.showScreenshotEditor(with: image)
+        }
+    }
+
+    @objc func captureWindow() {
+        ScreenshotManager.shared.captureArea(mode: .window) { [weak self] image in
+            self?.showScreenshotEditor(with: image)
+        }
+    }
+
+    @objc func captureDelayed() {
+        // 3 saniye bekle, sonra tüm ekranı yakala
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            ScreenshotManager.shared.captureArea(mode: .fullScreen) { image in
+                self?.showScreenshotEditor(with: image)
+            }
         }
     }
 }

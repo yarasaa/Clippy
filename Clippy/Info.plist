@@ -6,7 +6,5 @@
 	<string>Clippy, kopyaladığınız öğeleri diğer uygulamalara yapıştırmak ve anahtar kelime özelliğini kullanarak metinleri otomatik olarak genişletmek için Erişilebilirlik iznine ihtiyaç duyar.</string>
 	<key>NSInputMonitoringUsageDescription</key>
 	<string>Clippy, &quot;Anahtar Kelime ile Yapıştırma&quot; özelliğinin çalışması için klavye girişlerinizi izleme iznine ihtiyaç duyar. Bu, yazdığınız bir anahtar kelimeyi (örn: ;imza) ilgili içerikle otomatik olarak değiştirmek için kullanılır.</string>
-	<key>NSScreenCaptureUsageDescription</key>
-	<string>Bu uygulama, ekran kayıtlarından GIF oluşturmak için ekran kaydı iznine ihtiyaç duyar.</string>
 </dict>
 </plist>

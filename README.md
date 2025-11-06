@@ -80,14 +80,40 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
 
 - **Capture with a Shortcut:** Take a screenshot of any area of your screen with a customizable keyboard shortcut.
 - **Rich Annotation Tools:**
-  - **Arrow, Rectangle, Highlighter:** Mark important areas.
-  - **Text:** Add descriptions to your image.
-  - **Blur/Pixelate:** Easily hide sensitive information.
+  - **Select & Move:** Universal selection tool - select any annotation to move, edit, or delete it
+  - **Arrow & Line:** Draw arrows and lines with customizable colors and thickness
+  - **Shapes (Rectangle, Ellipse):** Add shapes with fill, stroke, or both modes, plus adjustable corner radius
+  - **Text:** Add rich text annotations with custom background colors and font sizes that auto-resize to fit content
+  - **Pin/Number:** Add numbered markers with customizable shapes (circle, square, rounded square)
+  - **Highlighter:** Mark important areas with semi-transparent highlighting
+  - **Spotlight:** Focus attention by darkening everything except selected areas (ellipse or rectangle)
+  - **Pen:** Freehand drawing with solid, dashed, or marker styles
+  - **Emoji:** Add emoji annotations with adjustable size
+  - **Blur/Pixelate:** Easily hide sensitive information
+  - **Eraser:** Remove any annotation with a click
+- **Universal Annotation Interaction:**
+  - **Click & Drag:** Click any annotation to select it, then drag to move it anywhere
+  - **Double-Click Text:** Double-click text annotations to edit them instantly
+  - **Resize Handles:** Most annotations have corner/edge handles for resizing
+  - **Right Panel Controls:** Each tool has its own control panel that appears when selected
+  - **Auto-Switch to Select:** After creating shapes, automatically switches to select mode for easy editing
 - **Visual Effects Panel:**
-  - **Backdrop:** Add solid color or gradient backdrops to your screenshot.
-  - **Inset:** Create an aesthetic margin between the image and the backdrop.
-  - **Shadow & Corner Radius:** Add depth and a modern look to your image and its backdrop.
-- **Fluent Navigation:** Precisely zoom in/out to your cursor's position with `Cmd` + Mouse Wheel, or pan around the image with the mouse wheel.
+  - **Backdrop:** Add solid color or gradient backdrops to your screenshot
+  - **Inset:** Create an aesthetic margin between the image and the backdrop
+  - **Shadow & Corner Radius:** Add depth and a modern look to your image and its backdrop
+- **Fluent Navigation:**
+  - Precisely zoom in/out to your cursor's position with `Cmd` + Mouse Wheel
+  - Pan around the image with the mouse wheel
+  - Hover over any annotation to see the move cursor
+- **Smart Text Rendering:**
+  - Text boxes auto-grow as you type (horizontally and vertically)
+  - Multi-line text support with Enter key
+  - Font size adjustments automatically resize the text box
+  - Background colors with rounded corners for better readability
+- **Recording Features:**
+  - **GIF Recording:** Capture screen area as animated GIF with customizable hotkey
+  - **Video Recording:** Record screen area as video file
+  - **Recording Indicator:** Visual indicator shows when recording is active
 
 ### 🛠️ Smart Tools & Developer Features
 
