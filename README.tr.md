@@ -107,7 +107,7 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
   - Siz yazarken metin kutuları otomatik olarak büyür (yatay ve dikey)
   - Enter tuşu ile çok satırlı metin desteği
   - Yazı tipi boyutu ayarlamaları otomatik olarak metin kutusunu yeniden boyutlandırır
-  - Daha iyi okunabilirlik için yuvarlatılmış köşeli arka plan renkleri
+  - Daha iyi okunabilirlik için yuvarlatılmış köşeli arka plan renkler
 
 ### ⚙️ Özelleştirme ve Ayarlar
 

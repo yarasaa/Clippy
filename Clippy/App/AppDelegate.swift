@@ -473,9 +473,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         window.setContentSize(desiredSize)
-        
+
         window.center()
+
+        // Window seviyesini ayarla - en üstte açılsın
+        window.level = .floating
+
+        // Uygulamayı aktif hale getir (diğer uygulamaların önüne geç)
+        NSApp.activate(ignoringOtherApps: true)
+
+        // Window'u anahtar pencere yap ve en öne getir
         window.makeKeyAndOrderFront(self)
+
+        // Window açıldıktan sonra level'ı normale çevir (sürekli üstte kalmasın)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            window.level = .normal
+        }
+
         window.delegate = self
         self.screenshotEditorWindow = window
     }

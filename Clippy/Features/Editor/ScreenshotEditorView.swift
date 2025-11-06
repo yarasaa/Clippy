@@ -195,6 +195,12 @@ class ScreenshotEditorViewModel: ObservableObject {
     @Published var annotations: [Annotation] = []
     @Published var currentNumber: Int = 1 // Numaralandırma için sayaç
 
+    deinit {
+        // ViewModel temizlenirken annotations'ları da temizle
+        annotations.removeAll()
+        print("🧹 ScreenshotEditorViewModel: Deinit - Bellek serbest bırakıldı")
+    }
+
     // Geri alma/yineleme fonksiyonları
     func addAnnotation(_ annotation: Annotation, undoManager: UndoManager?) {
         annotations.append(annotation)
@@ -290,6 +296,7 @@ struct ScreenshotEditorView: View {
     var clipboardMonitor: ClipboardMonitor // AppDelegate'den geçirilmeli
 
     @StateObject private var viewModel = ScreenshotEditorViewModel()
+    @Environment(\.dismiss) private var dismiss
     @State private var selectedTool: DrawingTool = .select
     @State private var selectedColor: Color = .red
     @State private var selectedLineWidth: CGFloat = 4
@@ -351,6 +358,9 @@ struct ScreenshotEditorView: View {
     // Tip güvenli karşılığı; renderFinalImage bununla çalışır.
     @State private var backdropModel: BackdropFillModel = .solid(Color(nsColor: .windowBackgroundColor).opacity(0.8))
     @State private var backdropColor: Color = Color(nsColor: .windowBackgroundColor).opacity(0.8)
+
+    // Memory management
+    @State private var scrollWheelMonitor: Any?
     
     @Environment(\.undoManager) private var undoManager
 
@@ -501,8 +511,8 @@ struct ScreenshotEditorView: View {
                 contentSize = size
             }
             .onAppear {
-                // Mouse scroll wheel desteği için
-                NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+                // Mouse scroll wheel desteği için - event monitor'ı sakla
+                scrollWheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
                     if event.modifierFlags.contains(.command) {
                         // Mouse pozisyonunu hesapla
                         if let window = event.window,
@@ -553,6 +563,10 @@ struct ScreenshotEditorView: View {
                     }
                     return event // Normal scroll için event'i geçir
                 }
+            }
+            .onDisappear {
+                // View kapatılırken belleği temizle
+                cleanupResources()
             }
             } // GeometryReader kapanışı
             .cursor(currentCursor) // İmleci ayarla
@@ -871,7 +885,13 @@ struct ScreenshotEditorView: View {
                 .help(L("Save to a file...", settings: settings))
                 .keyboardShortcut("s", modifiers: .command)
                 
-                Button(action: { NSApp.keyWindow?.close() }) {
+                Button(action: {
+                    // Cleanup yap sonra kapat
+                    cleanupResources()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        NSApp.keyWindow?.close()
+                    }
+                }) {
                     Image(systemName: "xmark")
                 }
                 .buttonStyle(.plain)
@@ -1071,6 +1091,7 @@ struct ScreenshotEditorView: View {
         let finalSize = NSSize(width: totalWidth, height: totalHeight)
 
         let finalImage = NSImage(size: finalSize)
+        finalImage.cacheMode = .never // Memory optimization
         finalImage.lockFocus()
 
         guard let context = NSGraphicsContext.current?.cgContext else {
@@ -1142,18 +1163,18 @@ struct ScreenshotEditorView: View {
     private func applyAnnotations() {
         guard !viewModel.annotations.isEmpty else { return }
 
-        // Apply yapmadan önce undo için kaydet
-        let _ = image
-        let _ = viewModel.annotations
+        let imageSize = image.size
 
-        // Copy original image using bitmap representation
+        // Copy original image using bitmap representation - optimize memory
         guard let tiffData = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData) else {
             print("❌ Failed to get bitmap")
             return
         }
 
-        let newImage = NSImage(size: image.size)
+        // Mevcut image'ı release etmek için yeni bir referans oluştur
+        let newImage = NSImage(size: imageSize)
+        newImage.cacheMode = .never // Cache'lemeyi devre dışı bırak
         newImage.addRepresentation(bitmap)
         newImage.lockFocus()
 
@@ -1468,26 +1489,32 @@ struct ScreenshotEditorView: View {
     }
 
     private func saveImage() {
-        let finalImage = renderFinalImage()
+        // Autoreleasepool ile memory kullanımını optimize et
+        autoreleasepool {
+            let finalImage = renderFinalImage()
 
-        let savePanel = NSSavePanel()
-        savePanel.canCreateDirectories = true
-        savePanel.showsTagField = false
-        savePanel.nameFieldStringValue = "screenshot-\(Int(Date().timeIntervalSince1970)).png"
-        savePanel.level = .modalPanel
-        savePanel.begin { response in
-            if response == .OK, let url = savePanel.url {
-                guard let tiffData = finalImage.tiffRepresentation,
-                      let bitmap = NSBitmapImageRep(data: tiffData),
-                      let pngData = bitmap.representation(using: .png, properties: [:]) else {
-                    print("❌ Görüntü PNG formatına dönüştürülemedi.")
-                    return
-                }
-                do {
-                    try pngData.write(to: url)
-                    print("✅ Görüntü şuraya kaydedildi: \(url.path)")
-                } catch {
-                    print("❌ Görüntü kaydetme hatası: \(error.localizedDescription)")
+            let savePanel = NSSavePanel()
+            savePanel.canCreateDirectories = true
+            savePanel.showsTagField = false
+            savePanel.nameFieldStringValue = "screenshot-\(Int(Date().timeIntervalSince1970)).png"
+            savePanel.level = .modalPanel
+            savePanel.begin { response in
+                if response == .OK, let url = savePanel.url {
+                    // PNG conversion için ayrı autoreleasepool
+                    autoreleasepool {
+                        guard let tiffData = finalImage.tiffRepresentation,
+                              let bitmap = NSBitmapImageRep(data: tiffData),
+                              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+                            print("❌ Görüntü PNG formatına dönüştürülemedi.")
+                            return
+                        }
+                        do {
+                            try pngData.write(to: url)
+                            print("✅ Görüntü şuraya kaydedildi: \(url.path)")
+                        } catch {
+                            print("❌ Görüntü kaydetme hatası: \(error.localizedDescription)")
+                        }
+                    }
                 }
             }
         }
@@ -1526,17 +1553,30 @@ struct ScreenshotEditorView: View {
     }
 
     private func saveToClippy() {
-        let finalImage = renderFinalImage()
-        clipboardMonitor.addImageToHistory(image: finalImage)
-        print("✅ Görüntü Clippy geçmişine kaydedildi.")
-        NSApp.keyWindow?.close()
+        // Autoreleasepool ile memory kullanımını optimize et
+        autoreleasepool {
+            let finalImage = renderFinalImage()
+            clipboardMonitor.addImageToHistory(image: finalImage)
+            print("✅ Görüntü Clippy geçmişine kaydedildi.")
+        }
+
+        // Window kapatılmadan önce cleanup yap
+        cleanupResources()
+
+        // Kısa bir delay ile window'u kapat (cleanup'ın tamamlanması için)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            NSApp.keyWindow?.close()
+        }
     }
     
     private func performOCR() {
         guard !isPerformingOCR else { return }
         isPerformingOCR = true
-        
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+
+        // Autoreleasepool ile CGImage conversion optimize et
+        guard let cgImage = autoreleasepool(invoking: {
+            image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        }) else {
             isPerformingOCR = false
             return
         }
@@ -1546,12 +1586,12 @@ struct ScreenshotEditorView: View {
                 DispatchQueue.main.async { self.isPerformingOCR = false }
                 return
             }
-            
+
             let recognizedText = observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
-            
+
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(recognizedText, forType: .string)
-            
+
             DispatchQueue.main.async {
                 self.ocrButtonIcon = "checkmark"
                 self.isPerformingOCR = false
@@ -1560,13 +1600,16 @@ struct ScreenshotEditorView: View {
                 }
             }
         }
-        
+
         DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                try VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
-            } catch {
-                print("❌ OCR hatası: \(error)")
-                DispatchQueue.main.async { self.isPerformingOCR = false }
+            // OCR processing için autoreleasepool
+            autoreleasepool {
+                do {
+                    try VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
+                } catch {
+                    print("❌ OCR hatası: \(error)")
+                    DispatchQueue.main.async { self.isPerformingOCR = false }
+                }
             }
         }
     }
@@ -1674,6 +1717,58 @@ extension Color {
         self.init(
             .sRGB, red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255, opacity: Double(a) / 255
         )
+    }
+}
+
+// MARK: - Memory Management Extension
+extension ScreenshotEditorView {
+    /// Bellek temizleme fonksiyonu
+    private func cleanupResources() {
+        print("🧹 ScreenshotEditor: Cleanup başladı...")
+
+        // Event monitor'ı temizle
+        if let monitor = scrollWheelMonitor {
+            NSEvent.removeMonitor(monitor)
+            scrollWheelMonitor = nil
+            print("  ✓ Event monitor temizlendi")
+        }
+
+        // Undo manager'ı temizle
+        undoManager?.removeAllActions()
+        print("  ✓ Undo manager temizlendi")
+
+        // Annotations'ları temizle
+        let annotationCount = viewModel.annotations.count
+        viewModel.annotations.removeAll()
+        print("  ✓ \(annotationCount) annotation temizlendi")
+
+        // State'leri reset et
+        selectedAnnotationID = nil
+        editingTextIndex = nil
+        movingAnnotationID = nil
+
+        // Text editing'i durdur
+        if isEditingText {
+            isEditingText = false
+        }
+
+        // CRITICAL: NSImage'ın tüm representation'larını temizle
+        // Bu büyük bellek kullanımının ana kaynağı
+        let representations = image.representations
+        for rep in representations {
+            image.removeRepresentation(rep)
+        }
+        print("  ✓ Image representations temizlendi (\(representations.count) adet)")
+
+        // Image cache'ini temizle
+        image.recache()
+        print("  ✓ Image cache temizlendi")
+
+        // Zoom ve view state'lerini resetle
+        zoomScale = 1.0
+        lastZoomScale = 1.0
+
+        print("🧹 ScreenshotEditor: Bellek temizlendi - Toplam serbest bırakıldı")
     }
 }
 
@@ -3306,6 +3401,14 @@ struct CustomTextEditor: NSViewRepresentable {
         Coordinator(self)
     }
 
+    static func dismantleNSView(_ nsView: NSScrollView, coordinator: Coordinator) {
+        // TextView ve ScrollView referanslarını temizle
+        if let textView = nsView.documentView as? NSTextView {
+            textView.delegate = nil
+            textView.string = ""
+        }
+    }
+
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: CustomTextEditor
 
@@ -3323,10 +3426,6 @@ struct CustomTextEditor: NSViewRepresentable {
             layoutManager.ensureLayout(for: textContainer)
             let usedRect = layoutManager.usedRect(for: textContainer)
 
-            // Yükseklik değişikliğini bildir (eski callback)
-            self.parent.onHeightChange?(usedRect.height)
-
-            // Boyut değişikliğini bildir (yeni callback - hem genişlik hem yükseklik)
             // textContainerInset ile padding zaten ekleniyor, onu hesaba kat
             let inset = textView.textContainerInset
             let horizontalInset = inset.width * 2 // Sol ve sağ
@@ -3336,7 +3435,15 @@ struct CustomTextEditor: NSViewRepresentable {
             let minHeight: CGFloat = 20 // Minimum yükseklik
             let newWidth = max(minWidth, usedRect.width + horizontalInset)
             let newHeight = max(minHeight, usedRect.height + verticalInset)
-            self.parent.onSizeChange?(CGSize(width: newWidth, height: newHeight))
+
+            // Layout cycle dışında callback çağır
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                // Yükseklik değişikliğini bildir (eski callback)
+                self.parent.onHeightChange?(usedRect.height)
+                // Boyut değişikliğini bildir (yeni callback - hem genişlik hem yükseklik)
+                self.parent.onSizeChange?(CGSize(width: newWidth, height: newHeight))
+            }
         }
     }
 }
