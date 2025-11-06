@@ -22,7 +22,11 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 
 ![1759522601059](image/README/1759522601059.png)
 
-![1762463406364](image/README/1762463406364.png)✨ Özellikler
+![1762463406364](image/README/1762463406364.png)
+
+![1762464567469](image/README.tr/1762464567469.png)
+
+✨ Özellikler
 
 ### 📋 Temel Pano Yönetimi
 
