@@ -1,4 +1,5 @@
 
+
 import SwiftUI
 import UniformTypeIdentifiers
 import CoreData
@@ -7,18 +8,17 @@ struct ContentView: View {
     @EnvironmentObject private var monitor: ClipboardMonitor
     @State private var selectedTab: Tab = .history
     @State private var searchText: String = ""
-    
-    @State private var comparisonData: ComparisonData?
-    
-    @FetchRequest private var items: FetchedResults<ClipboardItemEntity>
 
+    @State private var comparisonData: ComparisonData?
+
+    @FetchRequest private var items: FetchedResults<ClipboardItemEntity>
 
     @EnvironmentObject var settings: SettingsManager
 
     enum Tab {
         case history, code, images, snippets, favorites
     }
-    
+
     init() {
         let request = NSFetchRequest<ClipboardItemEntity>(entityName: "ClipboardItemEntity")
         request.sortDescriptors = [
@@ -29,7 +29,6 @@ struct ContentView: View {
         request.fetchBatchSize = 20
         _items = FetchRequest(fetchRequest: request)
     }
-
 
     var body: some View {
         VStack {
@@ -62,7 +61,6 @@ struct ContentView: View {
 
                         Spacer()
 
-                        // Araçlar Menüsü (Oluşturma ve Temizleme)
                         Menu {
                             Section(header: Text(L("Generate", settings: settings))) {
                                 Button(L("Generate UUID", settings: settings)) { monitor.generateUUID() }
@@ -84,7 +82,7 @@ struct ContentView: View {
                         .buttonStyle(.borderless)
                         .disabled(items.isEmpty)
                         .opacity(items.isEmpty ? 0.5 : 1)
-                        
+
                     }
                     .padding(.horizontal)
                     .padding(.top, 10)
@@ -154,7 +152,7 @@ struct ContentView: View {
 
         items.nsPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
     }
-    
+
     private var colorScheme: ColorScheme? {
         switch settings.appTheme {
         case "light":
@@ -162,10 +160,10 @@ struct ContentView: View {
         case "dark":
             return .dark
         default:
-            return nil // Sistem varsayılanını kullan
+            return nil
         }
     }
-    
+
     @ViewBuilder
     private var bottomBar: some View {
         if !monitor.selectedItemIDs.isEmpty {
@@ -174,7 +172,7 @@ struct ContentView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
                 Spacer()
-                
+
                 if monitor.selectedItemIDs.count > 1 {
                     Button {
                         monitor.addSelectionToSequentialQueue()
@@ -182,7 +180,7 @@ struct ContentView: View {
                         Label(L("Add to Sequential Queue", settings: settings), systemImage: "text.badge.plus")
                     }
                 }
-                
+
                 Button {
                     monitor.clearSelection()
                 } label: {
@@ -203,7 +201,7 @@ struct ContentView: View {
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
-    
+
 }
 
 struct ComparisonData: Identifiable {
@@ -229,7 +227,7 @@ struct ClipboardRowView: View {
     @EnvironmentObject var settings: SettingsManager
     let selectedTab: ContentView.Tab
     var itemIndex: Int
-    
+
     @State private var didCopy = false
 
     var body: some View {
@@ -244,7 +242,7 @@ struct ClipboardRowView: View {
             } else {
                 provider = self.itemProvider(for: item)
             }
-            
+
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: .closeClippyPopover, object: nil)
                 if isMultiDrag {
@@ -255,7 +253,7 @@ struct ClipboardRowView: View {
             return provider
         } preview: {
             let itemToShow = item
-            
+
             VStack {
                 if itemToShow.contentType == "text" {
                     Text(itemToShow.content ?? "")
@@ -282,7 +280,7 @@ struct ClipboardRowView: View {
 
         return HStack(spacing: 12) {
             favoriteButton(for: item)
-            
+
             Button(action: {
                 withAnimation { monitor.togglePin(for: item.id ?? UUID()) }
             }) {
@@ -327,14 +325,11 @@ struct ClipboardRowView: View {
             if NSEvent.modifierFlags.contains(.command) {
                 monitor.toggleSelection(for: item.id ?? UUID())
             } else {
-                // Detay penceresini AppDelegate üzerinden aç
                 monitor.appDelegate?.showDetailWindow(for: item)
             }
         }
         .contextMenu { contextMenuItems }
     }
-
-    // MARK: - Subviews
 
     @ViewBuilder
     private var pasteButton: some View {
@@ -344,8 +339,7 @@ struct ClipboardRowView: View {
         .buttonStyle(.bordered)
         .controlSize(.small)
     }
-    
-    
+
     @ViewBuilder
     private func favoriteButton(for item: ClipboardItemEntity) -> some View {
         Button(action: {
@@ -358,7 +352,7 @@ struct ClipboardRowView: View {
         .overlay(alignment: .topTrailing) {
             if monitor.isPastingFromQueue, let id = item.id, let queueIndex = monitor.sequentialPasteQueueIDs.firstIndex(of: id) {
                 let isNext = (queueIndex == monitor.sequentialPasteIndex % monitor.sequentialPasteQueueIDs.count)
-                
+
                 Text("\(queueIndex + 1)")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.white)
@@ -377,7 +371,7 @@ struct ClipboardRowView: View {
             }
         }
     }
-    
+
     private func loadImage(from path: String) -> NSImage? {
         return monitor.loadImage(from: path)
     }
@@ -385,7 +379,7 @@ struct ClipboardRowView: View {
     private func imageURL(from path: String) -> URL? {
         return monitor.getImagesDirectory()?.appendingPathComponent(path)
     }
-    
+
     @ViewBuilder
     private func contentView(for item: ClipboardItemEntity) -> some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -394,7 +388,7 @@ struct ClipboardRowView: View {
                     .font(.headline)
                     .lineLimit(1)
             }
-            
+
             if item.isEncrypted {
                 HStack(spacing: 4) {
                     Image(systemName: "lock.fill").foregroundColor(.secondary)
@@ -405,7 +399,7 @@ struct ClipboardRowView: View {
                     Text((item.content ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
                         .lineLimit(3)
                         .font(.body)
-                    
+
                     if let color = item.toClipboardItem().color {
                         SwiftUI.Rectangle()
                             .fill(color)
@@ -424,12 +418,12 @@ struct ClipboardRowView: View {
                         .cornerRadius(4)
                 }
             }
-            
+
             HStack(spacing: 4) {
                 if let bundleId = item.sourceAppBundleIdentifier {
                     IconView(bundleIdentifier: bundleId, monitor: monitor, size: 14)
                 }
-                
+
                 Text(item.date ?? Date(), style: .time)
                     .font(.caption).foregroundColor(.secondary)
             }
@@ -466,7 +460,7 @@ struct ClipboardRowView: View {
                 monitor.combineSelectedImagesAsNewItem(orientation: .vertical)
                 monitor.clearSelection()
             } label: { Label(L("Combine Vertically", settings: settings), systemImage: "arrow.down.to.line.compact") }
-            
+
             Button {
                 monitor.combineSelectedImagesAsNewItem(orientation: .horizontal)
                 monitor.clearSelection()
@@ -488,14 +482,13 @@ struct ClipboardRowView: View {
             Label(labelText, systemImage: "trash")
         }
     }
-    
-    /// Seçili öğeler arasında birden fazla resim olup olmadığını kontrol eder.
+
     private func hasMultipleImagesSelected() -> Bool {
         guard monitor.selectedItemIDs.count > 1 else { return false }
-        
+
         let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
         fetchRequest.predicate = NSPredicate(format: "id IN %@ AND contentType == 'image'", monitor.selectedItemIDs)
-        
+
         do {
             let count = try item.managedObjectContext?.count(for: fetchRequest) ?? 0
             return count > 1
@@ -530,7 +523,7 @@ struct ClipboardRowView: View {
                         Button(L("Remove Duplicate Lines", settings: settings)) { monitor.removeDuplicateLines(for: itemID) }
                         Button(L("Join All Lines", settings: settings)) { monitor.joinLines(for: itemID) }
                     }
-                    
+
                     Section(header: Text(L("Coding", settings: settings))) {
                         Button(L("Base64 Encode", settings: settings)) {
                             monitor.updateText(for: itemID, transformation: { $0.data(using: .utf8)?.base64EncodedString() ?? $0 })
@@ -541,7 +534,7 @@ struct ClipboardRowView: View {
                         Button(L("Encode as JSON String", settings: settings)) { monitor.encodeAsJSONString(for: itemID) }
                         Button(L("Decode from JSON String", settings: settings)) { monitor.decodeFromJSONString(for: itemID) }
                     }
-                    
+
                     if item.toClipboardItem().isJSON {
                         Section(header: Text(L("JSON", settings: settings))) {
                             Button(L("Format JSON", settings: settings)) { monitor.formatJSON(for: itemID) }
@@ -572,16 +565,16 @@ struct ClipboardRowView: View {
         }
         return NSItemProvider()
     }
-    
+
     private func getItemsToCompare() -> (ClipboardItemEntity, ClipboardItemEntity)? {
         guard monitor.selectedItemIDs.count == 2 else { return nil }
-        
+
         let selectedItems = monitor.selectedItemIDs.compactMap { id in
             items.first { $0.id == id && $0.contentType == "text" }
         }
-        
+
         guard selectedItems.count == 2 else { return nil }
-        
+
         if (selectedItems[0].date ?? .distantPast) < (selectedItems[1].date ?? .distantPast) {
             return (selectedItems[0], selectedItems[1])
         } else {

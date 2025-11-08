@@ -5,6 +5,7 @@
 //  Created by Mehmet Akbaba on 17.09.2025.
 //
 
+
 import Foundation
 import SwiftUI
 
@@ -44,7 +45,7 @@ struct ClipboardItem: Identifiable, Equatable, Hashable, Codable {
         }
         return false
     }
-    
+
     var isImage: Bool {
         if case .image = contentType {
             return true
@@ -57,7 +58,7 @@ struct ClipboardItem: Identifiable, Equatable, Hashable, Codable {
               let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines) as String?,
               (trimmedContent.hasPrefix("{") && trimmedContent.hasSuffix("}")) || (trimmedContent.hasPrefix("[") && trimmedContent.hasSuffix("]")),
               let data = trimmedContent.data(using: .utf8) else { return false }
-        
+
         return (try? JSONSerialization.jsonObject(with: data, options: [])) != nil
     }
 
@@ -100,7 +101,6 @@ struct ClipboardItem: Identifiable, Equatable, Hashable, Codable {
     }
 }
 
-// MARK: - Codable Conformance
 extension ClipboardItem {
     enum CodingKeys: String, CodingKey {
         case id, contentType, date, isFavorite, isCode, sourceAppName, sourceAppBundleIdentifier, detectedDate
@@ -108,7 +108,7 @@ extension ClipboardItem {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         let decodedContentType = try container.decode(ContentType.self, forKey: .contentType)
         let contentString: String
         if case .text(let string) = decodedContentType {
@@ -142,7 +142,6 @@ extension ClipboardItem {
         try container.encode(date, forKey: .date)
         try container.encode(isFavorite, forKey: .isFavorite)
         try container.encode(isCode, forKey: .isCode)
-        // try container.encodeIfPresent(keyword, forKey: .keyword) // Henüz kaydetmiyoruz.
         try container.encodeIfPresent(sourceAppName, forKey: .sourceAppName)
         try container.encodeIfPresent(sourceAppBundleIdentifier, forKey: .sourceAppBundleIdentifier)
         try container.encodeIfPresent(detectedDate, forKey: .detectedDate)
@@ -177,7 +176,7 @@ private extension ClipboardItem {
 
     static func createColor(from content: String) -> Color? {
         let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         if trimmedContent.hasPrefix("#") {
             let hex = trimmedContent.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
             var int: UInt64 = 0

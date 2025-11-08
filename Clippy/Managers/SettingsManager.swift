@@ -5,6 +5,7 @@
 //  Created by Mehmet Akbaba on 17.09.2025.
 //
 
+
 import Foundation
 import Combine
 
@@ -97,49 +98,32 @@ class SettingsManager: ObservableObject {
     }
 
     private init() {
-        // Varsayılan değerleri belirle ve UserDefaults'tan oku
         self.showCodeTab = UserDefaults.standard.object(forKey: "showCodeTab") as? Bool ?? true
         self.showImagesTab = UserDefaults.standard.object(forKey: "showImagesTab") as? Bool ?? true
         self.showSnippetsTab = UserDefaults.standard.object(forKey: "showSnippetsTab") as? Bool ?? true
         self.showFavoritesTab = UserDefaults.standard.object(forKey: "showFavoritesTab") as? Bool ?? true
-        // Varsayılan geçmiş limiti 20'dir.
         self.historyLimit = UserDefaults.standard.object(forKey: "historyLimit") as? Int ?? 20
-        // Varsayılan favori limiti 50'dir.
         self.favoritesLimit = UserDefaults.standard.object(forKey: "favoritesLimit") as? Int ?? 50
-        // Varsayılan resim limiti 5'tir.
         self.imagesLimit = UserDefaults.standard.object(forKey: "imagesLimit") as? Int ?? 5
-        // Varsayılan popover boyutu
         self.popoverWidth = UserDefaults.standard.object(forKey: "popoverWidth") as? Int ?? 380
         self.popoverHeight = UserDefaults.standard.object(forKey: "popoverHeight") as? Int ?? 450
-        // Varsayılan tema: Sistem
         self.appTheme = UserDefaults.standard.string(forKey: "appTheme") ?? "system"
-        // Varsayılan kısayol: Cmd+Shift+V
         self.hotkeyKey = UserDefaults.standard.string(forKey: "hotkeyKey") ?? "v"
-        // NSEvent.ModifierFlags'ın rawValue'larını kullanıyoruz. Cmd+Shift = 131072 + 256 = 131328
         self.hotkeyModifiers = UserDefaults.standard.object(forKey: "hotkeyModifiers") as? UInt ?? 131328
-        // Varsayılan "Tümünü Yapıştır" kısayolu: Cmd+Shift+P
         self.pasteAllHotkeyKey = UserDefaults.standard.string(forKey: "pasteAllHotkeyKey") ?? "p"
         self.pasteAllHotkeyModifiers = UserDefaults.standard.object(forKey: "pasteAllHotkeyModifiers") as? UInt ?? 131328
-        // Varsayılan dil: Sistem dili
         self.appLanguage = UserDefaults.standard.string(forKey: "appLanguage") ?? "system"
-        // Varsayılan "Sıraya Ekle" kısayolu: Cmd+Shift+C
         self.sequentialCopyHotkeyKey = UserDefaults.standard.string(forKey: "sequentialCopyHotkeyKey") ?? "c"
-        self.sequentialCopyHotkeyModifiers = UserDefaults.standard.object(forKey: "sequentialCopyHotkeyModifiers") as? UInt ?? 1179648 // Cmd+Shift
-        // Varsayılan "Sıradakini Yapıştır" kısayolu: Cmd+Shift+B
+        self.sequentialCopyHotkeyModifiers = UserDefaults.standard.object(forKey: "sequentialCopyHotkeyModifiers") as? UInt ?? 1179648
         self.sequentialPasteHotkeyKey = UserDefaults.standard.string(forKey: "sequentialPasteHotkeyKey") ?? "b"
-        self.sequentialPasteHotkeyModifiers = UserDefaults.standard.object(forKey: "sequentialPasteHotkeyModifiers") as? UInt ?? 1179648 // Cmd+Shift
-        // Varsayılan "Sıralı Kuyruğu Temizle" kısayolu: Cmd+Shift+X
-        self.clearQueueHotkeyKey = UserDefaults.standard.string(forKey: "clearQueueHotkeyKey") ?? "k" // Varsayılanı 'k' olarak değiştirildi
-        self.clearQueueHotkeyModifiers = UserDefaults.standard.object(forKey: "clearQueueHotkeyModifiers") as? UInt ?? 1179648 // Cmd+Shift
-        // Anahtar Kelime Genişletme varsayılan olarak etkin.
+        self.sequentialPasteHotkeyModifiers = UserDefaults.standard.object(forKey: "sequentialPasteHotkeyModifiers") as? UInt ?? 1179648
+        self.clearQueueHotkeyKey = UserDefaults.standard.string(forKey: "clearQueueHotkeyKey") ?? "k"
+        self.clearQueueHotkeyModifiers = UserDefaults.standard.object(forKey: "clearQueueHotkeyModifiers") as? UInt ?? 1179648
         self.isKeywordExpansionEnabled = UserDefaults.standard.object(forKey: "isKeywordExpansionEnabled") as? Bool ?? true
-        // Snippet zaman aşımı varsayılan olarak 3 saniye.
         self.snippetTimeoutDuration = UserDefaults.standard.object(forKey: "snippetTimeoutDuration") as? Double ?? 3.0
-        // Varsayılan "Ekran Görüntüsü Al" kısayolu: Cmd+Shift+1
         self.screenshotHotkeyKey = UserDefaults.standard.string(forKey: "screenshotHotkeyKey") ?? "1"
-        self.screenshotHotkeyModifiers = UserDefaults.standard.object(forKey: "screenshotHotkeyModifiers") as? UInt ?? 1179648 // Cmd+Shift
-        // Varsayılan "Kaydırmalı Ekran Görüntüsü Al" kısayolu: Cmd+Shift+2
+        self.screenshotHotkeyModifiers = UserDefaults.standard.object(forKey: "screenshotHotkeyModifiers") as? UInt ?? 1179648
         self.scrollingScreenshotHotkeyKey = UserDefaults.standard.string(forKey: "scrollingScreenshotHotkeyKey") ?? "2"
-        self.scrollingScreenshotHotkeyModifiers = UserDefaults.standard.object(forKey: "scrollingScreenshotHotkeyModifiers") as? UInt ?? 1179648 // Cmd+Shift
+        self.scrollingScreenshotHotkeyModifiers = UserDefaults.standard.object(forKey: "scrollingScreenshotHotkeyModifiers") as? UInt ?? 1179648
     }
 }

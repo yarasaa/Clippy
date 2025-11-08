@@ -5,12 +5,12 @@
 //  Created by Gemini Code Assist on 3.10.2025.
 //
 
+
 import SwiftUI
 
 struct AboutView: View {
     @EnvironmentObject var settings: SettingsManager
 
-    // Uygulamanın versiyon ve build numarasını Bundle'dan al.
     var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
@@ -48,7 +48,7 @@ struct AboutView: View {
                     Label(L("GitHub Repository", settings: settings), systemImage: "link")
                 }
                 .buttonStyle(.link)
-                
+
                 Button(action: {
                     if let url = URL(string: "https://buymeacoffee.com/12hrsofficp") {
                         NSWorkspace.shared.open(url)
@@ -58,7 +58,7 @@ struct AboutView: View {
                 }
                 .controlSize(.large)
                 .buttonStyle(.borderedProminent)
-                .tint(Color(red: 1.0, green: 0.87, blue: 0.0)) // BuyMeACoffee sarısı
+                .tint(Color(red: 1.0, green: 0.87, blue: 0.0))
             }
         }
         .preferredColorScheme(colorScheme)

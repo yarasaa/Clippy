@@ -5,11 +5,11 @@
 //  Created by Mehmet Akbaba on 11.10.2025.
 //
 
+
 import SwiftUI
 import Combine
 import Vision
 
-/// PreferenceKey for capturing view size
 struct ViewSizeKey: PreferenceKey {
     static var defaultValue: CGSize = .zero
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
@@ -17,18 +17,16 @@ struct ViewSizeKey: PreferenceKey {
     }
 }
 
-/// Numara şekli
 enum NumberShape: String, CaseIterable {
     case circle = "Circle"
     case square = "Square"
     case roundedSquare = "Rounded Square"
 }
 
-/// Şekil dolgu modu (fill mode)
 enum FillMode: String, CaseIterable {
-    case stroke = "Stroke"      // Sadece kenarlık
-    case fill = "Fill"          // Sadece dolgu
-    case both = "Both"          // Hem kenarlık hem dolgu
+    case stroke = "Stroke"
+    case fill = "Fill"
+    case both = "Both"
 
     var icon: String {
         switch self {
@@ -39,7 +37,6 @@ enum FillMode: String, CaseIterable {
     }
 }
 
-/// Düzenleme araçlarını temsil eden enum.
 enum DrawingTool: String, CaseIterable, Identifiable {
     case select, move, arrow, rectangle, ellipse, line, text, pin, pixelate, eraser, highlighter, spotlight, emoji, pen
 
@@ -66,7 +63,6 @@ enum DrawingTool: String, CaseIterable, Identifiable {
         self.rawValue
     }
 
-    /// Shape tool'lar mı?
     var isShape: Bool {
         switch self {
         case .rectangle, .ellipse, .line:
@@ -76,7 +72,6 @@ enum DrawingTool: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Tool'un görünen adı (İngilizce - fallback)
     var displayName: String {
         switch self {
         case .select: return "Select"
@@ -96,7 +91,6 @@ enum DrawingTool: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Tool'un localize edilmiş adı
     var localizedName: String {
         let key: String
         switch self {
@@ -121,7 +115,6 @@ enum DrawingTool: String, CaseIterable, Identifiable {
     }
 }
 
-/// Kalem (freehand) çizim için fırça stilleri
 enum BrushStyle: String, CaseIterable, Identifiable {
     case solid = "Düz"
     case dashed = "Kesikli"
@@ -150,7 +143,6 @@ enum BrushStyle: String, CaseIterable, Identifiable {
     }
 }
 
-// Çizilen her bir şekli temsil eden yapı.
 struct Annotation: Identifiable {
     let id = UUID()
     var rect: CGRect
@@ -158,20 +150,19 @@ struct Annotation: Identifiable {
     var lineWidth: CGFloat = 4
     var tool: DrawingTool
     var text: String = ""
-    var number: Int? // Numaralandırma için
-    var numberShape: NumberShape? // Numara şekli
-    var startPoint: CGPoint? // Ok ve çizgi gibi yönlü araçlar için
-    var endPoint: CGPoint?   // Ok ve çizgi gibi yönlü araçlar için
-    var cornerRadius: CGFloat = 0 // Rectangle için köşe yuvarlama
-    var fillMode: FillMode = .stroke // Şekiller için dolgu modu (stroke/fill/both)
-    var spotlightShape: SpotlightShape? // Spotlight için şekil
-    var emoji: String? // Emoji için seçilen emoji karakteri
-    var path: [CGPoint]? // Freehand çizim için nokta dizisi
-    var brushStyle: BrushStyle? // Pen tool için fırça stili
-    var backgroundColor: Color? // Text için arka plan rengi (nil = şeffaf)
+    var number: Int?
+    var numberShape: NumberShape?
+    var startPoint: CGPoint?
+    var endPoint: CGPoint?
+    var cornerRadius: CGFloat = 0
+    var fillMode: FillMode = .stroke
+    var spotlightShape: SpotlightShape?
+    var emoji: String?
+    var path: [CGPoint]?
+    var brushStyle: BrushStyle?
+    var backgroundColor: Color?
 }
 
-/// Spotlight için şekil seçenekleri
 enum SpotlightShape: String, CaseIterable {
     case ellipse
     case rectangle
@@ -184,24 +175,20 @@ enum SpotlightShape: String, CaseIterable {
     }
 }
 
-/// Arka plan doldurma modelini tip güvenli şekilde temsil eder.
 enum BackdropFillModel: Equatable {
     case solid(Color)
     case linearGradient(start: Color, end: Color, startPoint: UnitPoint, endPoint: UnitPoint)
 }
 
-/// Ekran görüntüsü düzenleyicisinin durumunu ve mantığını yöneten sınıf.
 class ScreenshotEditorViewModel: ObservableObject {
     @Published var annotations: [Annotation] = []
-    @Published var currentNumber: Int = 1 // Numaralandırma için sayaç
+    @Published var currentNumber: Int = 1
 
     deinit {
-        // ViewModel temizlenirken annotations'ları da temizle
         annotations.removeAll()
         print("🧹 ScreenshotEditorViewModel: Deinit - Bellek serbest bırakıldı")
     }
 
-    // Geri alma/yineleme fonksiyonları
     func addAnnotation(_ annotation: Annotation, undoManager: UndoManager?) {
         annotations.append(annotation)
         undoManager?.registerUndo(withTarget: self) { target in
@@ -217,7 +204,7 @@ class ScreenshotEditorViewModel: ObservableObject {
         }
         objectWillChange.send()
     }
-    
+
     func moveAnnotation(at index: Int, to newRect: CGRect, from oldRect: CGRect, undoManager: UndoManager?) {
         guard index < annotations.count else { return }
         let originalRect = annotations[index].rect
@@ -232,20 +219,16 @@ class ScreenshotEditorViewModel: ObservableObject {
         guard index < annotations.count else { return }
         annotations[index].rect = newRect
 
-        // Arrow ve line için startPoint ve endPoint'i de güncelle
         if annotations[index].tool == .arrow || annotations[index].tool == .line {
             annotations[index].startPoint = CGPoint(x: newRect.minX, y: newRect.minY)
             annotations[index].endPoint = CGPoint(x: newRect.maxX, y: newRect.maxY)
         }
 
-        // Pen tool için path noktalarını scale et
         if annotations[index].tool == .pen, let path = annotations[index].path {
             let scaledPath = path.map { point in
-                // Eski rect'e göre normalize et
                 let normalizedX = (point.x - oldRect.minX) / oldRect.width
                 let normalizedY = (point.y - oldRect.minY) / oldRect.height
 
-                // Yeni rect'e göre scale et
                 return CGPoint(
                     x: newRect.minX + normalizedX * newRect.width,
                     y: newRect.minY + normalizedY * newRect.height
@@ -263,13 +246,13 @@ class ScreenshotEditorViewModel: ObservableObject {
     func removeAnnotation(with id: UUID, undoManager: UndoManager?) {
         guard let index = annotations.firstIndex(where: { $0.id == id }) else { return }
         let removedAnnotation = annotations.remove(at: index)
-        
+
         undoManager?.registerUndo(withTarget: self) { target in
             target.insertAnnotation(removedAnnotation, at: index, undoManager: undoManager)
         }
         objectWillChange.send()
     }
-    
+
     func insertAnnotation(_ annotation: Annotation, at index: Int, undoManager: UndoManager?) {
         guard index <= annotations.count else { return }
         annotations.insert(annotation, at: index)
@@ -278,8 +261,7 @@ class ScreenshotEditorViewModel: ObservableObject {
         }
         objectWillChange.send()
     }
-    
-    // Metin güncelleme için geri alma desteği
+
     func updateAnnotationText(at index: Int, newText: String, oldText: String, undoManager: UndoManager?) {
         guard index < annotations.count else { return }
         annotations[index].text = newText
@@ -293,61 +275,51 @@ class ScreenshotEditorViewModel: ObservableObject {
 struct ScreenshotEditorView: View {
     @State var image: NSImage
     @EnvironmentObject var settings: SettingsManager
-    var clipboardMonitor: ClipboardMonitor // AppDelegate'den geçirilmeli
+    var clipboardMonitor: ClipboardMonitor
 
     @StateObject private var viewModel = ScreenshotEditorViewModel()
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTool: DrawingTool = .select
     @State private var selectedColor: Color = .red
     @State private var selectedLineWidth: CGFloat = 4
-    
-    // Metin girişi için
+
     @State private var isEditingText: Bool = false
     @FocusState private var isTextFieldFocused: Bool
     @State private var editingTextIndex: Int?
-    
-    // Taşıma işlemi için
+
     @State private var movingAnnotationID: UUID?
     @State private var dragOffset: CGSize = .zero
-    
-    // OCR butonu için durum
+
     @State private var ocrButtonIcon = "text.viewfinder"
     @State private var isPerformingOCR = false
-    
-    // Renk kodunu kopyalamak için durum
+
     @State private var showColorCopied = false
 
-    // Color inspector
     @State private var showColorInspector = false
     @State private var inspectedColor: Color?
     @State private var mouseLocation: CGPoint = .zero
 
-    // Shape ve line width seçimi için popover'lar
     @State private var showShapePicker = false
     @State private var showLineWidthPicker = false
     @State private var showEmojiPicker = false
 
-    // Universal tool kontrol paneli
     @State private var showToolControls = false
-    @State private var selectedAnnotationID: UUID? // Düzenlenmekte olan annotation
+    @State private var selectedAnnotationID: UUID?
 
-    // Tool-specific settings (varsayılan değerler, yeni annotation'lar için)
     @State private var numberSize: CGFloat = 40
     @State private var numberShape: NumberShape = .circle
     @State private var shapeCornerRadius: CGFloat = 0
     @State private var shapeFillMode: FillMode = .stroke
-    @State private var spotlightShape: SpotlightShape = .ellipse // Spotlight için şekil
-    @State private var selectedEmoji: String = "✅" // Emoji tool için seçili emoji
-    @State private var emojiSize: CGFloat = 48 // Emoji boyutu
-    @State private var selectedBrushStyle: BrushStyle = .solid // Pen tool için fırça stili
+    @State private var spotlightShape: SpotlightShape = .ellipse
+    @State private var selectedEmoji: String = "✅"
+    @State private var emojiSize: CGFloat = 48
+    @State private var selectedBrushStyle: BrushStyle = .solid
 
-    // Zoom için durumlar
-    @State private var zoomScale: CGFloat = 1.0 // 1.0 = %100, 2.0 = %200
-    @State private var lastZoomScale: CGFloat = 1.0 // Magnification gesture için önceki zoom
-    @State private var zoomAnchor: UnitPoint = .center // Zoom anchor noktası (mouse pozisyonu)
-    @State private var contentSize: CGSize = .zero // ScrollView content size'ı takip etmek için
+    @State private var zoomScale: CGFloat = 1.0
+    @State private var lastZoomScale: CGFloat = 1.0
+    @State private var zoomAnchor: UnitPoint = .center
+    @State private var contentSize: CGSize = .zero
 
-    // Backdrop efektleri için durumlar
     @State private var showEffectsPanel = false
     @State private var backdropPadding: CGFloat = 40
     @State private var screenshotShadowRadius: CGFloat = 25
@@ -355,13 +327,12 @@ struct ScreenshotEditorView: View {
 
     @State private var backdropCornerRadius: CGFloat = 16
     @State private var backdropFill: AnyShapeStyle = AnyShapeStyle(Color(nsColor: .windowBackgroundColor).opacity(0.8))
-    // Tip güvenli karşılığı; renderFinalImage bununla çalışır.
     @State private var backdropModel: BackdropFillModel = .solid(Color(nsColor: .windowBackgroundColor).opacity(0.8))
     @State private var backdropColor: Color = Color(nsColor: .windowBackgroundColor).opacity(0.8)
 
-    // Memory management
     @State private var scrollWheelMonitor: Any?
-    
+    @State private var escKeyMonitor: Any?
+
     @Environment(\.undoManager) private var undoManager
 
     var body: some View {
@@ -370,20 +341,18 @@ struct ScreenshotEditorView: View {
 
             GeometryReader { geometry in
                 ScrollView([.horizontal, .vertical], showsIndicators: zoomScale > 1.0) {
-                    ZStack { // Ana içerik ZStack'i
+                    ZStack {
                         Color(nsColor: .textBackgroundColor)
                             .frame(
                                 width: max(geometry.size.width, geometry.size.width * zoomScale),
                                 height: max(geometry.size.height, geometry.size.height * zoomScale)
                             )
 
-                        ZStack { // Backdrop Grubu
-                    // 1. Arka Plan (Backdrop)
+                        ZStack {
                     RoundedRectangle(cornerRadius: backdropCornerRadius)
-                        .fill(backdropFill) // AnyShapeStyle ile doldur
+                        .fill(backdropFill)
                         .shadow(radius: screenshotShadowRadius / 2)
 
-                    // 2. Görüntü ve Çizimleri
                     Image(nsImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -396,7 +365,6 @@ struct ScreenshotEditorView: View {
                                             .resizable()
                                             .aspectRatio(contentMode: .fit)
                                         DrawingCanvasView(image: image, viewModel: viewModel, selectedTool: $selectedTool, selectedColor: $selectedColor, selectedLineWidth: $selectedLineWidth, numberSize: $numberSize, numberShape: $numberShape, shapeCornerRadius: $shapeCornerRadius, shapeFillMode: $shapeFillMode, spotlightShape: $spotlightShape, selectedEmoji: $selectedEmoji, emojiSize: $emojiSize, selectedBrushStyle: $selectedBrushStyle, movingAnnotationID: $movingAnnotationID, dragOffset: $dragOffset, editingTextIndex: $editingTextIndex, showToolControls: $showToolControls, selectedAnnotationID: $selectedAnnotationID, isEditingText: $isEditingText, backdropPadding: backdropPadding, canvasSize: overlayGeometry.size, onTextAnnotationCreated: { [weak viewModel] id in
-                                            // DÜZELTME: `self` (struct) yerine `viewModel` (class) üzerinde weak capture yap.
                                             guard let viewModel = viewModel else { return }
                                             if let index = viewModel.annotations.lastIndex(where: { $0.id == id }) {
                                                 startEditingText(at: index)
@@ -407,31 +375,25 @@ struct ScreenshotEditorView: View {
                                             stopEditingText()
                                         })
 
-                                        // TÜM text annotation'ları overlay olarak göster
                                         ForEach(viewModel.annotations.filter { $0.tool == .text }) { annotation in
                                             if let index = viewModel.annotations.firstIndex(where: { $0.id == annotation.id }) {
                                                 let isEditing = isEditingText && index == editingTextIndex
 
-                                            // overlayGeometry, overlay içindeki gerçek alanı veriyor
                                             let imageSize = image.size
                                             let canvasSize = overlayGeometry.size
 
-                                            // Scale faktörü - aspect fit
                                             let scale = min(canvasSize.width / imageSize.width, canvasSize.height / imageSize.height)
 
-                                            // Ölçeklenmiş image'ın boyutu
                                             let scaledImageSize = CGSize(
                                                 width: imageSize.width * scale,
                                                 height: imageSize.height * scale
                                             )
 
-                                            // Image aspect-fit ile ortalandığı için offset hesapla
                                             let imageOffset = CGPoint(
                                                 x: (canvasSize.width - scaledImageSize.width) / 2,
                                                 y: (canvasSize.height - scaledImageSize.height) / 2
                                             )
 
-                                            // Canvas'ta annotation'ın gerçek konumu ve boyutu
                                             let canvasRect = CGRect(
                                                 x: annotation.rect.origin.x * scale + imageOffset.x,
                                                 y: annotation.rect.origin.y * scale + imageOffset.y,
@@ -440,7 +402,6 @@ struct ScreenshotEditorView: View {
                                             )
 
                                             if isEditing {
-                                                // Editing mode: TextEditor
                                                 CustomTextEditor(
                                                     text: Binding(
                                                         get: { viewModel.annotations[index].text },
@@ -455,14 +416,12 @@ struct ScreenshotEditorView: View {
                                                     textColor: NSColor(annotation.color),
                                                     backgroundColor: annotation.backgroundColor.map { NSColor($0) },
                                                     onHeightChange: { newHeight in
-                                                        // Yükseklik değiştiğinde annotation'ı güncelle (image koordinatlarında)
                                                         let imageHeight = newHeight / scale
                                                         if viewModel.annotations[index].rect.size.height != imageHeight {
                                                             viewModel.annotations[index].rect.size.height = imageHeight
                                                         }
                                                     },
                                                     onSizeChange: { newSize in
-                                                        // Hem genişlik hem yükseklik değiştiğinde annotation'ı güncelle (image koordinatlarında)
                                                         let imageSize = CGSize(width: newSize.width / scale, height: newSize.height / scale)
                                                         if viewModel.annotations[index].rect.size != imageSize {
                                                             viewModel.annotations[index].rect.size = imageSize
@@ -475,33 +434,30 @@ struct ScreenshotEditorView: View {
                                                 .onSubmit { stopEditingText() }
                                                 .onExitCommand { stopEditingText() }
                                             }
-                                            // Display mode: Text artık Canvas'ta çiziliyor, overlay'e gerek yok
                                             }
                                         }
-                                    } // ZStack
-                                } // GeometryReader
+                                    }
+                                }
                         )
                         .clipShape(RoundedRectangle(cornerRadius: screenshotCornerRadius))
-                        .padding(backdropPadding) // Inset
+                        .padding(backdropPadding)
                 }
-                .frame(width: geometry.size.width, height: geometry.size.height) // Backdrop grubunu pencereye sığdır
-                .frame(maxWidth: .infinity, maxHeight: .infinity) // ScrollView içinde ortala
-                .scaleEffect(zoomScale, anchor: zoomAnchor) // Zoom uygula (mouse pozisyonuna göre)
-                .coordinateSpace(name: "zoomableContent") // Koordinat uzayı tanımla
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scaleEffect(zoomScale, anchor: zoomAnchor)
+                .coordinateSpace(name: "zoomableContent")
                 .gesture(
                     MagnificationGesture()
                         .onChanged { value in
-                            // Gesture değeri lastZoomScale'e göre hesaplanır
                             let newZoom = lastZoomScale * value
                             zoomScale = max(0.5, min(4.0, newZoom))
                         }
                         .onEnded { value in
-                            // Gesture bittiğinde son zoom seviyesini kaydet
                             lastZoomScale = zoomScale
                         }
                 )
-            } // Ana içerik ZStack'i kapanışı
-            } // ScrollView kapanışı
+            }
+            }
             .background(
                 GeometryReader { scrollGeometry in
                     Color.clear.preference(key: ViewSizeKey.self, value: scrollGeometry.size)
@@ -511,37 +467,25 @@ struct ScreenshotEditorView: View {
                 contentSize = size
             }
             .onAppear {
-                // Mouse scroll wheel desteği için - event monitor'ı sakla
                 scrollWheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
                     if event.modifierFlags.contains(.command) {
-                        // Mouse pozisyonunu hesapla
                         if let window = event.window,
                            contentSize.width > 0 && contentSize.height > 0 {
-                            // Window içindeki mouse pozisyonu
                             let mouseLocation = event.locationInWindow
 
-                            // Window'un content view'ını al
                             if let contentView = window.contentView {
-                                // Content view koordinatlarına çevir
                                 let locationInContent = contentView.convert(mouseLocation, from: nil)
 
-                                // Content view'ın frame'ini al
                                 let contentFrame = contentView.frame
 
-                                // Toolbar yüksekliğini hesaba kat (yaklaşık 60pt)
-                                // SwiftUI koordinatları (sol-üst) ile AppKit (sol-alt) farkını düzelt
                                 let adjustedY = contentFrame.height - locationInContent.y
 
-                                // GeometryReader'ın başladığı noktayı bul
-                                // Toolbar yaklaşık 60pt, bu yüzden çıkar
                                 let toolbarHeight: CGFloat = 60
                                 let relativeY = adjustedY - toolbarHeight
 
-                                // Normalize et (0-1 arası)
                                 let normalizedX = locationInContent.x / contentSize.width
                                 let normalizedY = relativeY / contentSize.height
 
-                                // Anchor'ı güncelle
                                 zoomAnchor = UnitPoint(
                                     x: max(0, min(1, normalizedX)),
                                     y: max(0, min(1, normalizedY))
@@ -549,63 +493,76 @@ struct ScreenshotEditorView: View {
                             }
                         }
 
-                        // Cmd + Scroll = Zoom (mouse pozisyonuna göre)
                         let delta = event.scrollingDeltaY
                         if delta > 0 {
-                            // Zoom in
                             zoomScale = min(4.0, zoomScale + 0.1)
                         } else if delta < 0 {
-                            // Zoom out
                             zoomScale = max(0.5, zoomScale - 0.1)
                         }
                         lastZoomScale = zoomScale
-                        return nil // Event'i consume et
+                        return nil
                     }
-                    return event // Normal scroll için event'i geçir
+                    return event
                 }
             }
             .onDisappear {
-                // View kapatılırken belleği temizle
                 cleanupResources()
             }
-            } // GeometryReader kapanışı
-            .cursor(currentCursor) // İmleci ayarla
-            .frame(maxWidth: .infinity, maxHeight: .infinity) // Tüm alanı kapla
+            }
+            .cursor(currentCursor)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(
-                // Universal Tool Control Panel (sağ tarafta)
-                HStack {
-                    Spacer()
+                VStack {
+                    if showToolControls {
+                        HStack {
+                            Spacer()
 
-                    if showToolControls && selectedAnnotationID != nil {
-                        ToolControlPanel(
-                            isPresented: $showToolControls,
-                            selectedAnnotationID: $selectedAnnotationID,
-                            viewModel: viewModel,
-                            selectedTool: selectedTool,
-                            selectedColor: $selectedColor,
-                            selectedLineWidth: $selectedLineWidth,
-                            numberSize: $numberSize,
-                            numberShape: $numberShape,
-                            shapeCornerRadius: $shapeCornerRadius,
-                            shapeFillMode: $shapeFillMode,
-                            spotlightShape: $spotlightShape,
-                            selectedEmoji: $selectedEmoji,
-                            emojiSize: $emojiSize,
-                            selectedBrushStyle: $selectedBrushStyle
-                        )
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                        .padding(.trailing, 20)
-                        .padding(.top, 80)
+                            ToolControlPanel(
+                                isPresented: $showToolControls,
+                                selectedAnnotationID: $selectedAnnotationID,
+                                viewModel: viewModel,
+                                selectedTool: selectedTool,
+                                selectedColor: $selectedColor,
+                                selectedLineWidth: $selectedLineWidth,
+                                numberSize: $numberSize,
+                                numberShape: $numberShape,
+                                shapeCornerRadius: $shapeCornerRadius,
+                                shapeFillMode: $shapeFillMode,
+                                spotlightShape: $spotlightShape,
+                                selectedEmoji: $selectedEmoji,
+                                emojiSize: $emojiSize,
+                                selectedBrushStyle: $selectedBrushStyle
+                            )
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                            .padding(.trailing, 20)
+                        }
+                        .padding(.top, 70)
                     }
+
+                    Spacer()
                 }
-                , alignment: .topTrailing
             )
         }
         .frame(minWidth: 900, minHeight: 500)
+        .background(
+            Button("") {
+                if selectedTool != .select {
+                    if isEditingText {
+                        stopEditingText()
+                    }
+
+                    selectedTool = .select
+                    showToolControls = false
+                    selectedAnnotationID = nil
+                    print("⌨️ ESC tuşuna basıldı - Select moduna dönüldü")
+                }
+            }
+            .keyboardShortcut(.escape, modifiers: [])
+            .opacity(0)
+            .frame(width: 0, height: 0)
+        )
     }
 
-    
-    /// Seçili olan araca göre uygun fare imlecini döndürür.
     private var currentCursor: NSCursor {
         switch selectedTool {
         case .select:
@@ -616,27 +573,24 @@ struct ScreenshotEditorView: View {
             return .crosshair
         }
     }
-    
-    /// Modern üst araç çubuğu
+
     private var topToolbar: some View {
         HStack(spacing: 6) {
-            // Sol Taraf (Geri Al/Yinele)
             HStack {
                 Button(action: { undoManager?.undo() }) {
                     Image(systemName: "arrow.uturn.backward")
                 }
                 .disabled(!(undoManager?.canUndo ?? false))
-                
+
                 Button(action: { undoManager?.redo() }) {
                     Image(systemName: "arrow.uturn.forward")
                 }
                 .disabled(!(undoManager?.canRedo ?? false))
             }
             .buttonStyle(.plain)
-            
+
             Divider()
 
-            // Shape Tool - Popover ile seçim
             Button(action: { showShapePicker.toggle() }) {
                 VStack(spacing: 2) {
                     Image(systemName: selectedTool.isShape ? selectedTool.icon : "square")
@@ -652,22 +606,28 @@ struct ScreenshotEditorView: View {
             }
             .buttonStyle(.plain)
             .popover(isPresented: $showShapePicker, arrowEdge: .bottom) {
-                ShapePickerView(selectedTool: $selectedTool, isPresented: $showShapePicker)
+                ShapePickerView(selectedTool: $selectedTool, isPresented: $showShapePicker, showToolControls: $showToolControls)
             }
 
-            // Diğer Çizim Araçları (shape olmayan)
             ForEach(DrawingTool.allCases.filter { !$0.isShape }) { tool in
                 Button(action: {
+                    if isEditingText {
+                        stopEditingText()
+                    }
+
                     selectedTool = tool
-                    // Spotlight için control panel'i aç
-                    if tool == .spotlight {
+
+                    let toolsWithControlPanel: [DrawingTool] = [.text, .pin, .spotlight, .pen, .emoji]
+                    if toolsWithControlPanel.contains(tool) {
                         showToolControls = true
+                        selectedAnnotationID = nil
+                        print("🔧 Tool seçildi: \(tool.rawValue), Control panel açıldı")
+                    } else {
+                        showToolControls = false
+                        selectedAnnotationID = nil
+                        print("🔧 Tool seçildi: \(tool.rawValue), Control panel kapatıldı")
                     }
-                    // Pen için control panel'i aç
-                    if tool == .pen {
-                        showToolControls = true
-                    }
-                    // Emoji için emoji picker'ı aç
+
                     if tool == .emoji {
                         showEmojiPicker = true
                     }
@@ -692,9 +652,7 @@ struct ScreenshotEditorView: View {
                 }
             }
 
-            // Number Controls (sadece number tool seçiliyken göster)
             if selectedTool == .pin {
-                // Reset Button
                 Button(action: { viewModel.currentNumber = 1 }) {
                     HStack(spacing: 4) {
                         Text("\(viewModel.currentNumber)")
@@ -714,7 +672,6 @@ struct ScreenshotEditorView: View {
 
             Divider()
 
-            // Hand Tool - Image'ı sürükle-bırak ile kopyala
             Button(action: { startImageDrag() }) {
                 VStack(spacing: 2) {
                     Image(systemName: "hand.raised.fill")
@@ -732,11 +689,10 @@ struct ScreenshotEditorView: View {
 
             Divider()
 
-            // Renk ve Kalınlık Seçimi
             ColorPicker("", selection: $selectedColor, supportsOpacity: false)
                 .labelsHidden()
                 .frame(width: 28, height: 28)
-            
+
             Text(showColorCopied ? L("Copied!", settings: settings) : selectedColor.hexString)
                 .font(.system(.caption, design: .monospaced))
                 .padding(.horizontal, 8)
@@ -752,8 +708,7 @@ struct ScreenshotEditorView: View {
                         showColorCopied = false
                     }
                 }
-            
-            // Line Width - Görsel Popover
+
             Button(action: { showLineWidthPicker.toggle() }) {
                 HStack(spacing: 4) {
                     Circle()
@@ -772,10 +727,9 @@ struct ScreenshotEditorView: View {
             .popover(isPresented: $showLineWidthPicker, arrowEdge: .bottom) {
                 LineWidthPickerView(selectedLineWidth: $selectedLineWidth, isPresented: $showLineWidthPicker)
             }
-            
+
             Divider()
-            
-            // Efektler Paneli Butonu
+
             Button(action: { showEffectsPanel.toggle() }) {
                 Image(systemName: "wand.and.rays")
                     .font(.title3)
@@ -791,9 +745,8 @@ struct ScreenshotEditorView: View {
                                      backdropModel: $backdropModel)
             }
 
-            Spacer() // Ortadaki boşluk
+            Spacer()
 
-            // Zoom Controls
             HStack(spacing: 4) {
                 Button(action: {
                     zoomScale = max(0.5, zoomScale - 0.25)
@@ -833,7 +786,6 @@ struct ScreenshotEditorView: View {
 
             Divider()
 
-            // Sağ Taraf (Bilgi, Kaydet, Kapat)
             HStack(spacing: 10) {
                 Text("\(Int(image.size.width))x\(Int(image.size.height))")
                     .font(.caption)
@@ -841,14 +793,14 @@ struct ScreenshotEditorView: View {
                     .padding(.vertical, 4)
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(6)
-                
+
                 Button(action: performOCR) {
                     Image(systemName: ocrButtonIcon)
                 }
                 .buttonStyle(.plain)
                 .help(L("Copy Text from Image (OCR)", settings: settings))
                 .disabled(isPerformingOCR)
-                
+
                 if settings.showImagesTab {
                     Button(action: saveToClippy) {
                         Image(systemName: "internaldrive")
@@ -856,7 +808,7 @@ struct ScreenshotEditorView: View {
                     .buttonStyle(.plain)
                     .help(L("Save to Clippy History", settings: settings))
                 }
-                
+
                 Divider()
 
                 Button(action: applyAnnotations) {
@@ -884,9 +836,8 @@ struct ScreenshotEditorView: View {
                 .buttonStyle(.borderedProminent)
                 .help(L("Save to a file...", settings: settings))
                 .keyboardShortcut("s", modifiers: .command)
-                
+
                 Button(action: {
-                    // Cleanup yap sonra kapat
                     cleanupResources()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         NSApp.keyWindow?.close()
@@ -895,8 +846,8 @@ struct ScreenshotEditorView: View {
                     Image(systemName: "xmark")
                 }
                 .buttonStyle(.plain)
-                .help(L("Close Editor", settings: settings))
-                .keyboardShortcut(.escape, modifiers: [])
+                .help(L("Close Editor (⌘Q)", settings: settings))
+                .keyboardShortcut("q", modifiers: .command)
             }
         }
         .padding(.horizontal, 12)
@@ -905,9 +856,7 @@ struct ScreenshotEditorView: View {
         .background(.bar)
     }
 
-    /// Tüm çizimleri Canvas üzerine işleyen fonksiyon
     private func drawAnnotations(context: inout GraphicsContext, canvasSize: CGSize) {
-        // Bu fonksiyon artık sadece final render için kullanılıyor, bu yüzden sadece kaydedilmiş çizimleri çizer.
         print("🎨 [DEBUG] drawAnnotations called: \(viewModel.annotations.count) annotations, canvasSize: \(canvasSize)")
         for (index, annotation) in viewModel.annotations.enumerated() {
             var currentRect = annotation.rect
@@ -919,8 +868,7 @@ struct ScreenshotEditorView: View {
             drawSingleAnnotation(annotation, rect: currentRect, in: &context, canvasSize: canvasSize, nsImage: image)
         }
     }
-    
-    /// Tek bir annotation'ı çizen yardımcı fonksiyon
+
     private func drawSingleAnnotation(_ annotation: Annotation, rect: CGRect, in context: inout GraphicsContext, canvasSize: CGSize, nsImage: NSImage? = nil) {
         switch annotation.tool {
         case .rectangle:
@@ -944,14 +892,11 @@ struct ScreenshotEditorView: View {
                 context.fill(path, with: .color(annotation.color))
             }
         case .pixelate:
-            // GÜVENLİK: Tamamen opak siyah - parlaklık oynatılarak içerik görülemesin
             context.fill(Path(rect), with: .color(.black))
         case .pin:
-            // Numara şekli - kullanıcının seçimine göre
             let diameter = rect.width
             let shapeRect = CGRect(x: rect.minX, y: rect.minY, width: diameter, height: diameter)
 
-            // Arka plan şekli
             let shape = annotation.numberShape ?? .circle
             let shapePath: Path
             switch shape {
@@ -964,20 +909,20 @@ struct ScreenshotEditorView: View {
             }
             context.fill(shapePath, with: .color(annotation.color))
 
-            // Numara metni - tam merkezlenmiş
+            if annotation.number == nil {
+                print("⚠️ drawAnnotations: Pin number is NIL!")
+            }
+
             if let number = annotation.number {
                 let fontSize = diameter * 0.55
                 let numberText = "\(number)"
 
-                // Text'i merkeze hizalamak için resolved text kullan
                 let text = Text(numberText)
                     .font(.system(size: fontSize, weight: .bold))
                     .foregroundColor(.white)
 
-                // Text'i resolve et
                 let resolved = context.resolve(text)
 
-                // Text'i shape rect'in tam ortasına çiz - anchor point ile
                 context.draw(resolved, at: CGPoint(x: shapeRect.midX, y: shapeRect.midY), anchor: .center)
             }
         case .text:
@@ -985,28 +930,23 @@ struct ScreenshotEditorView: View {
                 let text = Text(annotation.text)
                     .font(.system(size: annotation.lineWidth * 4))
                     .foregroundColor(annotation.color)
-                // Metni rect'in sol üst köşesinden başlayarak çiz
                 context.draw(text, in: rect)
             } else if (editingTextIndex == viewModel.annotations.firstIndex(where: {$0.id == annotation.id})) {
                 let path = Path(rect)
                 context.stroke(path, with: .color(.gray), style: StrokeStyle(lineWidth: 1, dash: [4]))
             }
         case .emoji:
-            // Emoji çiz
             if let emoji = annotation.emoji {
-                let fontSize = rect.width * 0.8 // Emoji boyutunu rect'e göre ayarla
+                let fontSize = rect.width * 0.8
                 let emojiText = Text(emoji)
                     .font(.system(size: fontSize))
 
-                // Text'i resolve et
                 let resolved = context.resolve(emojiText)
 
-                // Emoji'yi rect'in tam ortasına çiz
                 context.draw(resolved, at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
             }
 
         case .pen:
-            // Freehand çizim - path noktalarını çiz
             if let path = annotation.path, path.count > 1 {
                 var bezierPath = Path()
                 bezierPath.move(to: path[0])
@@ -1014,7 +954,6 @@ struct ScreenshotEditorView: View {
                     bezierPath.addLine(to: path[i])
                 }
 
-                // Brush style'a göre çiz
                 let brushStyle = annotation.brushStyle ?? .solid
                 switch brushStyle {
                 case .solid:
@@ -1027,11 +966,8 @@ struct ScreenshotEditorView: View {
             }
 
         case .spotlight:
-            // Spotlight: Seçilen alan dışını karartma (even-odd rule ile)
-            // Tüm canvas ve spotlight alanını içeren combined path oluştur
             var fullScreenPath = Path(CGRect(origin: .zero, size: canvasSize))
 
-            // Spotlight alanını ekle
             let spotPath: Path
             if annotation.spotlightShape == .rectangle {
                 spotPath = Path(roundedRect: rect, cornerRadius: 8)
@@ -1040,31 +976,23 @@ struct ScreenshotEditorView: View {
             }
             fullScreenPath.addPath(spotPath)
 
-            // Even-odd fill rule ile spotlight alanı dışındaki her yeri karart
             context.fill(fullScreenPath, with: .color(.black.opacity(0.6)), style: FillStyle(eoFill: true))
 
-            // Seçilen alanın etrafına ince kenarlık
             context.stroke(spotPath, with: .color(.white.opacity(0.5)), lineWidth: 2)
 
         case .move, .eraser, .select:
             break
         }
 
-        // NOT: Highlight özelliği kaldırıldı - kullanıcı seçili annotation'ı kontrol panelinden anlayacak
     }
 
-
     private func renderFinalImage() -> NSImage {
-        // OPTIMIZATION: Autoreleasepool ile RAM kullanımını minimize et
         return autoreleasepool {
-            // 1. ADIM: Sadece Görüntü ve Çizimleri Render Et
             let annotationsView = ZStack {
                 Image(nsImage: image)
                     .resizable()
 
                 Canvas { context, size in
-                    // Annotation'lar zaten orijinal görüntü koordinatlarında saklandığı için
-                    // ek bir dönüşüme gerek yok.
                     drawAnnotations(context: &context, canvasSize: size)
                 }
             }
@@ -1085,13 +1013,12 @@ struct ScreenshotEditorView: View {
 
     private func createFinalImageWithBackdrop(annotatedImage: NSImage) -> NSImage {
 
-        // 2. ADIM: Arka Planı ve Efektleri Ekleyerek Son Görüntüyü Oluştur
         let totalWidth = image.size.width + (backdropPadding * 2)
         let totalHeight = image.size.height + (backdropPadding * 2)
         let finalSize = NSSize(width: totalWidth, height: totalHeight)
 
         let finalImage = NSImage(size: finalSize)
-        finalImage.cacheMode = .never // Memory optimization
+        finalImage.cacheMode = .never
         finalImage.lockFocus()
 
         guard let context = NSGraphicsContext.current?.cgContext else {
@@ -1100,22 +1027,19 @@ struct ScreenshotEditorView: View {
             return annotatedImage
         }
 
-        // Arka Planı Çiz
         let backgroundRect = CGRect(origin: .zero, size: finalSize)
         let backgroundPath = NSBezierPath(roundedRect: NSRect(origin: .zero, size: finalSize),
                                             xRadius: backdropCornerRadius,
                                             yRadius: backdropCornerRadius)
-        
+
         switch backdropModel {
         case .solid(let color):
             NSColor(color).setFill()
             backgroundPath.fill()
-            
+
         case .linearGradient(let start, let end, let startPoint, let endPoint):
-            // CGGradient ile çizim
             let colors = [NSColor(start).cgColor, NSColor(end).cgColor] as CFArray
             guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0.0, 1.0]) else {
-                // Fallback: solid end color
                 NSColor(end).setFill()
                 backgroundPath.fill()
                 break
@@ -1123,8 +1047,7 @@ struct ScreenshotEditorView: View {
             context.saveGState()
             let clipPath = NSBezierPath(roundedRect: backgroundRect, xRadius: backdropCornerRadius, yRadius: backdropCornerRadius)
             clipPath.addClip()
-            
-            // UnitPoint -> CGPoint (backgroundRect koordinatlarında)
+
             let sp = CGPoint(x: backgroundRect.minX + startPoint.x * backgroundRect.width,
                              y: backgroundRect.minY + startPoint.y * backgroundRect.height)
             let ep = CGPoint(x: backgroundRect.minX + endPoint.x * backgroundRect.width,
@@ -1133,60 +1056,52 @@ struct ScreenshotEditorView: View {
             context.restoreGState()
         }
 
-        // Çizimli Görüntüyü Ortaya Çiz
         let imageRect = NSRect(x: backdropPadding,
                                y: backdropPadding,
                                width: image.size.width,
                                height: image.size.height)
-        
-        // Görüntüye Köşe Yuvarlatma ve Gölge Ekleme
+
         context.saveGState()
         let imageClipPath = NSBezierPath(roundedRect: imageRect,
                                          xRadius: screenshotCornerRadius,
                                          yRadius: screenshotCornerRadius)
         imageClipPath.addClip()
-        
+
         context.setShadow(offset: CGSize(width: 0, height: -screenshotShadowRadius / 2),
                           blur: screenshotShadowRadius,
                           color: NSColor.black.withAlphaComponent(0.5).cgColor)
-        
+
         annotatedImage.draw(in: imageRect)
-        
+
         context.restoreGState()
 
         finalImage.unlockFocus()
-        
+
         return finalImage
     }
 
-    /// Annotations'ları görüntüye kalıcı olarak uygular
     private func applyAnnotations() {
         guard !viewModel.annotations.isEmpty else { return }
 
         let imageSize = image.size
 
-        // Copy original image using bitmap representation - optimize memory
         guard let tiffData = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData) else {
             print("❌ Failed to get bitmap")
             return
         }
 
-        // Mevcut image'ı release etmek için yeni bir referans oluştur
         let newImage = NSImage(size: imageSize)
-        newImage.cacheMode = .never // Cache'lemeyi devre dışı bırak
+        newImage.cacheMode = .never
         newImage.addRepresentation(bitmap)
         newImage.lockFocus()
 
-        // Draw annotations with Y-coordinate conversion (SwiftUI Canvas -> AppKit)
         let imageHeight = image.size.height
 
-        // ÖNCE tüm normal annotation'ları çiz
         for annotation in viewModel.annotations where annotation.tool != .spotlight {
             drawAnnotation(annotation, imageHeight: imageHeight)
         }
 
-        // SON OLARAK spotlight'ları çiz (diğer annotation'ların ÜSTÜNe overlay olarak)
         let spotlights = viewModel.annotations.filter { $0.tool == .spotlight }
         if !spotlights.isEmpty {
             drawSpotlightsOverlay(spotlights, imageHeight: imageHeight)
@@ -1194,26 +1109,23 @@ struct ScreenshotEditorView: View {
 
         newImage.unlockFocus()
 
-        // Update - annotation'ları silmiyoruz, böylece üzerine daha fazla çizim yapılabilir
         image = newImage
-        // viewModel.annotations.removeAll() // Artık silmiyoruz - non-destructive editing
 
-        // Apply'dan sonra undo stack'i temizle - artık geri dönüş yok
-        // Yeni annotation eklenince tekrar undo aktif olacak
         undoManager?.removeAllActions()
     }
 
-    /// Tüm annotation'ları temizler
     private func clearAllAnnotations() {
         guard !viewModel.annotations.isEmpty else { return }
 
         viewModel.annotations.removeAll()
+
+        viewModel.currentNumber = 1
+        print("🔢 Clear All: Pin numarası sıfırlandı")
     }
 
     private func drawAnnotation(_ a: Annotation, imageHeight: CGFloat) {
         let c = NSColor(a.color)
 
-        // Convert Y-coordinate from SwiftUI (top-left origin) to AppKit (bottom-left origin)
         func flipY(_ y: CGFloat) -> CGFloat {
             return imageHeight - y
         }
@@ -1231,19 +1143,15 @@ struct ScreenshotEditorView: View {
             let cornerRadius = a.cornerRadius
             let p = NSBezierPath(roundedRect: flipped, xRadius: cornerRadius, yRadius: cornerRadius)
 
-            // Fill mode'a göre çiz
             switch a.fillMode {
             case .fill:
-                // Sadece dolgu
                 c.setFill()
                 p.fill()
             case .stroke:
-                // Sadece kenarlık
                 c.setStroke()
                 p.lineWidth = a.lineWidth
                 p.stroke()
             case .both:
-                // Hem dolgu hem kenarlık
                 c.withAlphaComponent(0.3).setFill()
                 p.fill()
                 c.setStroke()
@@ -1255,19 +1163,15 @@ struct ScreenshotEditorView: View {
             let flipped = flipRect(a.rect)
             let p = NSBezierPath(ovalIn: flipped)
 
-            // Fill mode'a göre çiz
             switch a.fillMode {
             case .fill:
-                // Sadece dolgu
                 c.setFill()
                 p.fill()
             case .stroke:
-                // Sadece kenarlık
                 c.setStroke()
                 p.lineWidth = a.lineWidth
                 p.stroke()
             case .both:
-                // Hem dolgu hem kenarlık
                 c.withAlphaComponent(0.3).setFill()
                 p.fill()
                 c.setStroke()
@@ -1327,7 +1231,6 @@ struct ScreenshotEditorView: View {
             let diameter = flippedRect.width
             let shapeRect = CGRect(x: flippedRect.minX, y: flippedRect.minY, width: diameter, height: diameter)
 
-            // Arka plan şekli - kullanıcının seçimine göre
             c.setFill()
             let shape = a.numberShape ?? .circle
             let shapePath: NSBezierPath
@@ -1341,7 +1244,6 @@ struct ScreenshotEditorView: View {
             }
             shapePath.fill()
 
-            // Numara metni - tam merkezlenmiş
             let numText = "\(number)"
             let paragraphStyle = NSMutableParagraphStyle()
             paragraphStyle.alignment = .center
@@ -1353,10 +1255,9 @@ struct ScreenshotEditorView: View {
             ]
 
             let textSize = numText.size(withAttributes: attrs)
-            // Y ekseninde tam ortala (AppKit'te baseline compensation gerekli)
             let textRect = CGRect(
                 x: shapeRect.minX,
-                y: shapeRect.midY - textSize.height / 2 + diameter * 0.05, // Küçük offset ile görsel merkezleme
+                y: shapeRect.midY - textSize.height / 2 + diameter * 0.05,
                 width: diameter,
                 height: textSize.height
             )
@@ -1371,20 +1272,15 @@ struct ScreenshotEditorView: View {
             a.text.draw(in: flipRect(a.rect), withAttributes: attrs)
 
         case .pixelate:
-            // Güvenlik için tamamen opak siyah - parlaklık oynatılarak içerik görülemesin
             NSColor.black.setFill()
             NSBezierPath(rect: flipRect(a.rect)).fill()
 
         case .spotlight:
-            // Spotlight artık drawSpotlights() fonksiyonunda işleniyor
-            // Burası boş bırakılabilir veya warning için break
             break
 
         case .pen:
-            // Freehand çizim (Apply için - NSBezierPath)
             guard let path = a.path, path.count > 1 else { return }
 
-            // Path noktalarını Y ekseni çevirisi ile oluştur
             let flippedPath = path.map { CGPoint(x: $0.x, y: flipY($0.y)) }
 
             c.setStroke()
@@ -1394,7 +1290,6 @@ struct ScreenshotEditorView: View {
                 bezierPath.line(to: flippedPath[i])
             }
 
-            // Brush style'a göre çiz
             let brushStyle = a.brushStyle ?? .solid
             switch brushStyle {
             case .solid:
@@ -1405,18 +1300,15 @@ struct ScreenshotEditorView: View {
                 bezierPath.setLineDash([10, 5], count: 2, phase: 0)
                 bezierPath.stroke()
             case .marker:
-                // Marker: Kalın, yarı saydam
                 c.withAlphaComponent(0.5).setStroke()
                 bezierPath.lineWidth = a.lineWidth * 2
                 bezierPath.lineCapStyle = .round
                 bezierPath.lineJoinStyle = .round
                 bezierPath.stroke()
-                // Rengi geri yükle
                 c.setStroke()
             }
 
         case .emoji:
-            // Emoji çiz (Apply için)
             guard let emoji = a.emoji else { return }
             let flippedRect = flipRect(a.rect)
             let fontSize = flippedRect.width * 0.8
@@ -1425,7 +1317,6 @@ struct ScreenshotEditorView: View {
                 .font: NSFont.systemFont(ofSize: fontSize)
             ]
 
-            // Emoji'yi merkeze hizala
             let emojiSize = emoji.size(withAttributes: attrs)
             let emojiRect = CGRect(
                 x: flippedRect.midX - emojiSize.width / 2,
@@ -1440,7 +1331,6 @@ struct ScreenshotEditorView: View {
         }
     }
 
-    /// Tüm spotlight annotation'larını overlay olarak çizer (en üstte)
     private func drawSpotlightsOverlay(_ spotlights: [Annotation], imageHeight: CGFloat) {
         guard !spotlights.isEmpty else { return }
 
@@ -1451,7 +1341,6 @@ struct ScreenshotEditorView: View {
                          height: rect.height)
         }
 
-        // Tüm spotlight alanlarını toplayan path
         let spotlightAreas = NSBezierPath()
         for spotlight in spotlights {
             let spotPath: NSBezierPath
@@ -1463,18 +1352,14 @@ struct ScreenshotEditorView: View {
             spotlightAreas.append(spotPath)
         }
 
-        // Tüm ekran path'i oluştur
         let fullScreen = NSBezierPath(rect: CGRect(origin: .zero, size: image.size))
 
-        // Even-odd winding rule ile spotlight alanları dışındaki her yeri karart
         fullScreen.append(spotlightAreas)
         fullScreen.windingRule = .evenOdd
 
-        // Spotlight dışındaki alanları karart
         NSColor.black.withAlphaComponent(0.6).setFill()
         fullScreen.fill()
 
-        // Spotlight kenarlıklarını çiz
         for spotlight in spotlights {
             let spotPath: NSBezierPath
             if spotlight.spotlightShape == .rectangle {
@@ -1489,7 +1374,6 @@ struct ScreenshotEditorView: View {
     }
 
     private func saveImage() {
-        // Autoreleasepool ile memory kullanımını optimize et
         autoreleasepool {
             let finalImage = renderFinalImage()
 
@@ -1500,7 +1384,6 @@ struct ScreenshotEditorView: View {
             savePanel.level = .modalPanel
             savePanel.begin { response in
                 if response == .OK, let url = savePanel.url {
-                    // PNG conversion için ayrı autoreleasepool
                     autoreleasepool {
                         guard let tiffData = finalImage.tiffRepresentation,
                               let bitmap = NSBitmapImageRep(data: tiffData),
@@ -1521,11 +1404,9 @@ struct ScreenshotEditorView: View {
     }
 
     private func renderFinalImage_OLD() -> NSImage {
-        // DÜZELTME: Bu yöntem, padding (inset) olduğunda kaymaya neden olduğu için
-        // artık kullanılmıyor. Yerine iki adımlı render yöntemi kullanılıyor.
         let finalWidth = image.size.width + (backdropPadding * 2)
         let finalHeight = image.size.height + (backdropPadding * 2)
-        
+
         let viewToRender = ZStack {
             RoundedRectangle(cornerRadius: backdropCornerRadius)
                 .fill(backdropFill)
@@ -1536,10 +1417,8 @@ struct ScreenshotEditorView: View {
                     .resizable()
                     .clipShape(RoundedRectangle(cornerRadius: screenshotCornerRadius))
                     .shadow(radius: screenshotShadowRadius)
-                
+
                 Canvas { context, size in
-                    // Annotation'lar zaten model koordinatlarında saklandığı için
-                    // ek bir dönüşüme gerek yok.
                     drawAnnotations(context: &context, canvasSize: image.size)
                 }
             }
@@ -1548,32 +1427,28 @@ struct ScreenshotEditorView: View {
         .frame(width: finalWidth, height: finalHeight)
 
         let renderer = ImageRenderer(content: viewToRender)
-        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0 // Retina ekranlar için kaliteyi artır.
-        return renderer.nsImage ?? image // Render başarısız olursa orijinal görüntüyü döndür.
+        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0
+        return renderer.nsImage ?? image
     }
 
     private func saveToClippy() {
-        // Autoreleasepool ile memory kullanımını optimize et
         autoreleasepool {
             let finalImage = renderFinalImage()
             clipboardMonitor.addImageToHistory(image: finalImage)
             print("✅ Görüntü Clippy geçmişine kaydedildi.")
         }
 
-        // Window kapatılmadan önce cleanup yap
         cleanupResources()
 
-        // Kısa bir delay ile window'u kapat (cleanup'ın tamamlanması için)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             NSApp.keyWindow?.close()
         }
     }
-    
+
     private func performOCR() {
         guard !isPerformingOCR else { return }
         isPerformingOCR = true
 
-        // Autoreleasepool ile CGImage conversion optimize et
         guard let cgImage = autoreleasepool(invoking: {
             image.cgImage(forProposedRect: nil, context: nil, hints: nil)
         }) else {
@@ -1602,7 +1477,6 @@ struct ScreenshotEditorView: View {
         }
 
         DispatchQueue.global(qos: .userInitiated).async {
-            // OCR processing için autoreleasepool
             autoreleasepool {
                 do {
                     try VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
@@ -1613,43 +1487,39 @@ struct ScreenshotEditorView: View {
             }
         }
     }
-        
+
     private func pixelate(image: NSImage, in rect: CGRect) -> NSImage? {
         guard let tiffData = image.tiffRepresentation,
               let ciImage = CIImage(data: tiffData) else {
             return nil
         }
-        // Görüntünün tamamını değil, sadece ilgili alanı filtrelemek daha verimli olabilir
         let sourceRect = CGRect(origin: .zero, size: image.size)
-        let rectInSource = rect.intersection(sourceRect) // İlgili alanın görüntü sınırları içinde kalmasını sağla
+        let rectInSource = rect.intersection(sourceRect)
         if rectInSource.isEmpty { return nil }
 
         guard let filter = CIFilter(name: "CIPixellate") else { return nil }
-        
-        // CIImage koordinat sistemi için rect'i dönüştür (sol alt köşe başlangıç)
+
         let ciRect = CGRect(x: rectInSource.origin.x, y: ciImage.extent.height - rectInSource.origin.y - rectInSource.size.height, width: rectInSource.size.width, height: rectInSource.size.height)
 
-        // Filtreyi sadece ilgili alana uygula
         let croppedImage = ciImage.cropped(to: ciRect)
         filter.setValue(croppedImage, forKey: kCIInputImageKey)
-        filter.setValue(20, forKey: kCIInputScaleKey) // Piksel boyutu
-        
+        filter.setValue(20, forKey: kCIInputScaleKey)
+
         guard let outputImage = filter.outputImage else { return nil }
-        
-        // Çıktıyı tekrar NSImage'a dönüştürürken boyutları koru
+
         let rep = NSCIImageRep(ciImage: outputImage)
-        let nsImage = NSImage(size: rectInSource.size) // Kırpılan alanın boyutunu kullan
+        let nsImage = NSImage(size: rectInSource.size)
         nsImage.addRepresentation(rep)
         return nsImage
     }
-    
+
     private func findAnnotation(at point: CGPoint) -> (id: UUID, index: Int)? {
         if let index = viewModel.annotations.lastIndex(where: { $0.rect.contains(point) }) {
             return (viewModel.annotations[index].id, index)
         }
         return nil
     }
-    
+
     private func startEditingText(at index: Int) {
         print("🚀 startEditingText çağrıldı, index: \(index)")
         print("   Annotation sayısı: \(viewModel.annotations.count)")
@@ -1667,29 +1537,21 @@ struct ScreenshotEditorView: View {
     }
 
     private func stopEditingText() {
-        // Not: Rect zaten onSizeChange callback'i ile düzenleme sırasında güncellenmiş durumda
-        // Sadece editing state'lerini temizle
         isEditingText = false
         editingTextIndex = nil
-        // İsteğe bağlı: Boş metin kutularını sil
-        // viewModel.annotations.removeAll { $0.tool == .text && $0.text.isEmpty }
     }
 
     private func startImageDrag() {
-        // Final rendered image'ı oluştur
         let finalImage = renderFinalImage()
 
-        // NSPasteboard'a image'ı kopyala
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.writeObjects([finalImage])
 
-        // Kullanıcıya bildirim
         NSSound.beep()
     }
 }
 
-// Color'a HEX string'e dönüştürme yeteneği
 extension Color {
     var hexString: String {
         guard let components = NSColor(self).usingColorSpace(.sRGB)?.cgColor.components, components.count >= 3 else { return "#000000" }
@@ -1698,18 +1560,18 @@ extension Color {
         let b = Int(components[2] * 255.0)
         return String(format: "#%02X%02X%02X", r, g, b)
     }
-    
+
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
         Scanner(string: hex).scanHexInt64(&int)
         let a, r, g, b: UInt64
         switch hex.count {
-        case 3: // RGB (12-bit)
+        case 3:
             (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
+        case 6:
             (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
+        case 8:
             (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
         default:
             (a, r, g, b) = (255, 0, 0, 0)
@@ -1720,51 +1582,40 @@ extension Color {
     }
 }
 
-// MARK: - Memory Management Extension
 extension ScreenshotEditorView {
-    /// Bellek temizleme fonksiyonu
     private func cleanupResources() {
         print("🧹 ScreenshotEditor: Cleanup başladı...")
 
-        // Event monitor'ı temizle
         if let monitor = scrollWheelMonitor {
             NSEvent.removeMonitor(monitor)
             scrollWheelMonitor = nil
             print("  ✓ Event monitor temizlendi")
         }
 
-        // Undo manager'ı temizle
         undoManager?.removeAllActions()
         print("  ✓ Undo manager temizlendi")
 
-        // Annotations'ları temizle
         let annotationCount = viewModel.annotations.count
         viewModel.annotations.removeAll()
         print("  ✓ \(annotationCount) annotation temizlendi")
 
-        // State'leri reset et
         selectedAnnotationID = nil
         editingTextIndex = nil
         movingAnnotationID = nil
 
-        // Text editing'i durdur
         if isEditingText {
             isEditingText = false
         }
 
-        // CRITICAL: NSImage'ın tüm representation'larını temizle
-        // Bu büyük bellek kullanımının ana kaynağı
         let representations = image.representations
         for rep in representations {
             image.removeRepresentation(rep)
         }
         print("  ✓ Image representations temizlendi (\(representations.count) adet)")
 
-        // Image cache'ini temizle
         image.recache()
         print("  ✓ Image cache temizlendi")
 
-        // Zoom ve view state'lerini resetle
         zoomScale = 1.0
         lastZoomScale = 1.0
 
@@ -1772,8 +1623,6 @@ extension ScreenshotEditorView {
     }
 }
 
-// MARK: - Effects Inspector Panel
-// Gradient yönleri için yardımcı struct
 struct NamedUnitPoint: Identifiable, Hashable {
     let id = UUID()
     let name: String
@@ -1791,11 +1640,11 @@ struct EffectsInspectorView: View {
 
     @EnvironmentObject var settings: SettingsManager
     @State private var selectedTab: Int = 0
-    @State private var solidColor: Color = .white // Başlangıç rengi
+    @State private var solidColor: Color = .white
     @State private var gradientStartColor: Color = .blue
     @State private var gradientEndColor: Color = .cyan
     @State private var gradientStartPoint: UnitPoint = .topLeading
-    
+
     let solidColors: [Color] = [
         .blue, .green, .red, .orange, .purple, .yellow,
         .pink, .cyan, .indigo, .mint, .white, .black
@@ -1815,35 +1664,31 @@ struct EffectsInspectorView: View {
         .init(name: "Left", point: .leading), .init(name: "Center", point: .center), .init(name: "Right", point: .trailing),
         .init(name: "Bottom Left", point: .bottomLeading), .init(name: "Bottom", point: .bottom), .init(name: "Bottom Right", point: .bottomTrailing)
     ]
-    
-    // Hesaplanan bitiş noktası
+
     private var gradientEndPoint: UnitPoint {
-        // Basitçe tersini alıyoruz
         UnitPoint(x: 1.0 - gradientStartPoint.x, y: 1.0 - gradientStartPoint.y)
     }
 
     var body: some View {
         ScrollView {
         VStack(alignment: .leading, spacing: 12) {
-            
-            // --- 1. SLIDER'LAR ---
+
             VStack(alignment: .leading, spacing: 8) {
                 HStack { Text(L("Inset", settings: settings)).font(.caption); Spacer(); Text("\(Int(backdropPadding))").font(.caption2) }
-                Slider(value: $backdropPadding, in: 0...150) // Max değeri artırdık
-                
+                Slider(value: $backdropPadding, in: 0...150)
+
                 HStack { Text(L("Shadow", settings: settings)).font(.caption); Spacer(); Text("\(Int(shadowRadius))").font(.caption2) }
                 Slider(value: $shadowRadius, in: 0...100)
-                
+
                 HStack { Text(L("Outer Radius", settings: settings)).font(.caption); Spacer(); Text("\(Int(backdropCornerRadius))").font(.caption2) }
-                Slider(value: $backdropCornerRadius, in: 0...100) // Max değeri artırdık
-                
+                Slider(value: $backdropCornerRadius, in: 0...100)
+
                 HStack { Text(L("Inner Radius", settings: settings)).font(.caption); Spacer(); Text("\(Int(screenshotCornerRadius))").font(.caption2) }
-                Slider(value: $screenshotCornerRadius, in: 0...100) // Max değeri artırdık
+                Slider(value: $screenshotCornerRadius, in: 0...100)
             }
-            
+
             Divider()
-            
-            // --- 2. SEKMELER (TABS) ---
+
             Picker(L("Color Type", settings: settings), selection: $selectedTab) {
                 Text(L("Solid", settings: settings)).tag(0)
                 Text(L("Colormix", settings: settings)).tag(1)
@@ -1851,10 +1696,9 @@ struct EffectsInspectorView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            
-            // --- 3. SEKMEYE GÖRE İÇERİK ---
+
             Group {
-                if selectedTab == 0 { // Solid
+                if selectedTab == 0 {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 24), spacing: 8)], spacing: 8) {
                         ForEach(solidColors, id: \.self) { color in
                             Button {
@@ -1876,8 +1720,8 @@ struct EffectsInspectorView: View {
                             backdropFill = AnyShapeStyle($0)
                             backdropModel = .solid($0)
                         }
-                    
-                } else if selectedTab == 1 { // Colormix
+
+                } else if selectedTab == 1 {
                     VStack(alignment: .leading) {
                         Text(L("Presets", settings: settings)).font(.caption)
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 24), spacing: 8)], spacing: 8) {
@@ -1894,7 +1738,7 @@ struct EffectsInspectorView: View {
                                 .buttonStyle(.plain)
                             }
                         }
-                        
+
                         Divider().padding(.vertical, 5)
                         Text(L("Custom Gradient", settings: settings)).font(.caption)
                         HStack {
@@ -1902,7 +1746,7 @@ struct EffectsInspectorView: View {
                             ColorPicker(L("End", settings: settings), selection: $gradientEndColor)
                             Spacer()
                         }
-                        
+
                         Picker(L("Direction", settings: settings), selection: $gradientStartPoint) {
                             ForEach(gradientDirections) { Text(L($0.name, settings: settings)).tag($0.point) }
                         }
@@ -1918,12 +1762,12 @@ struct EffectsInspectorView: View {
                             .onChange(of: gradientEndColor) { _ in updateBackdropFillWithGradient() }
                             .onChange(of: gradientStartPoint) { _ in updateBackdropFillWithGradient() }
                     }
-                } else { // Image
+                } else {
                     VStack {
                         Image(systemName: "photo.on.rectangle.angled")
                             .font(.largeTitle).foregroundColor(.secondary)
                         Text(L("Select an image for the backdrop", settings: settings)).font(.caption).foregroundColor(.secondary)
-                        Button(L("Browse...", settings: settings)) { /* TODO: Resim seçme ekle */ }
+                        Button(L("Browse...", settings: settings)) {  }
                     }
                     .frame(maxWidth: .infinity, minHeight: 100)
                 }
@@ -1931,8 +1775,7 @@ struct EffectsInspectorView: View {
             .frame(maxHeight: .infinity)
 
             Spacer()
-            
-            // --- 4. ALT BUTONLAR ---
+
             HStack {
                 Button(L("Remove", settings: settings), role: .destructive) {
                     backdropPadding = 0
@@ -1942,7 +1785,7 @@ struct EffectsInspectorView: View {
                     let defaultColor = Color(nsColor: .windowBackgroundColor).opacity(0.8)
                     backdropFill = AnyShapeStyle(defaultColor)
                     backdropModel = .solid(defaultColor)
-                    solidColor = defaultColor // Solid rengi de sıfırla
+                    solidColor = defaultColor
                 }
                 Spacer()
                 Button(L("Ok", settings: settings)) { isPresented = false }
@@ -1952,19 +1795,16 @@ struct EffectsInspectorView: View {
         .padding()
         }
         .frame(width: 280, height: 500)
-        .onAppear(perform: setupInitialStateFromFill) // Başlangıç durumunu ayarla
+        .onAppear(perform: setupInitialStateFromFill)
     }
-    
-    // Ana görünümdeki backdropFill'i güncelleyen fonksiyon
+
     private func updateBackdropFillWithGradient() {
         let gradient = LinearGradient(gradient: Gradient(colors: [gradientStartColor, gradientEndColor]), startPoint: gradientStartPoint, endPoint: gradientEndPoint)
         backdropFill = AnyShapeStyle(gradient)
         backdropModel = .linearGradient(start: gradientStartColor, end: gradientEndColor, startPoint: gradientStartPoint, endPoint: gradientEndPoint)
     }
-    
-    // Panel açıldığında, mevcut backdropFill'e göre state'leri ayarla
+
     private func setupInitialStateFromFill() {
-        // AnyShapeStyle introspection yok; mevcut backdropModel üzerinden state’i eşitle
         switch backdropModel {
         case .solid(let color):
             solidColor = color
@@ -1973,15 +1813,11 @@ struct EffectsInspectorView: View {
             gradientStartColor = start
             gradientEndColor = end
             gradientStartPoint = sp
-            // ep, gradientEndPoint ile uyumlu olacak şekilde gösterim amaçlı.
             selectedTab = 1
         }
     }
 }
 
-// MARK: - Drawing Canvas View
-
-/// Çizim mantığını kendi içinde yöneten, daha performanslı ve stabil bir Canvas görünümü.
 struct DrawingCanvasView: View {
     let image: NSImage
     @ObservedObject var viewModel: ScreenshotEditorViewModel
@@ -2003,19 +1839,17 @@ struct DrawingCanvasView: View {
     @Binding var selectedAnnotationID: UUID?
     @Binding var isEditingText: Bool
     let backdropPadding: CGFloat
-    let canvasSize: CGSize  // Overlay geometry'den gelen gerçek canvas boyutu
+    let canvasSize: CGSize
     var onTextAnnotationCreated: (UUID) -> Void
     var onStartEditingText: (Int) -> Void
     var onStopEditingText: () -> Void
 
     @Environment(\.undoManager) private var undoManager
 
-    // Canlı çizim için yerel state'ler
     @State private var liveDrawingStart: CGPoint?
     @State private var liveDrawingEnd: CGPoint?
-    @State private var liveDrawingPath: [CGPoint]? // Pen tool için path
+    @State private var liveDrawingPath: [CGPoint]?
 
-    // Resize handles için state'ler
     @State private var resizingHandle: ResizeHandle?
     @State private var originalRect: CGRect?
 
@@ -2027,26 +1861,20 @@ struct DrawingCanvasView: View {
 
     var body: some View {
         Canvas { context, size in
-            // overlayGeometry'den gelen canvasSize'ı kullan
-            // Ölçek faktörünü hesapla - canvas'ın image'a göre ölçeği
             let imageSize = image.size
             let scale = min(canvasSize.width / imageSize.width, canvasSize.height / imageSize.height)
 
-            // Ölçeklenmiş image'ın boyutu
             let scaledImageSize = CGSize(
                 width: imageSize.width * scale,
                 height: imageSize.height * scale
             )
 
-            // Image aspect-fit ile ortalandığı için offset hesapla
             let imageOffset = CGPoint(
                 x: (canvasSize.width - scaledImageSize.width) / 2,
                 y: (canvasSize.height - scaledImageSize.height) / 2
             )
 
-                // 1. Mevcut (kaydedilmiş) çizimleri çiz - image koordinatlarından canvas koordinatlarına
                 for annotation in viewModel.annotations {
-                    // Image koordinatlarını canvas koordinatlarına dönüştür (scale + offset)
                     var displayRect = CGRect(
                         x: annotation.rect.origin.x * scale + imageOffset.x,
                         y: annotation.rect.origin.y * scale + imageOffset.y,
@@ -2068,7 +1896,6 @@ struct DrawingCanvasView: View {
                             x: start.x * scale + imageOffset.x,
                             y: start.y * scale + imageOffset.y
                         )
-                        // Taşınıyorsa offset uygula
                         if isMoving {
                             displayStart.x += dragOffset.width
                             displayStart.y += dragOffset.height
@@ -2080,7 +1907,6 @@ struct DrawingCanvasView: View {
                             x: end.x * scale + imageOffset.x,
                             y: end.y * scale + imageOffset.y
                         )
-                        // Taşınıyorsa offset uygula
                         if isMoving {
                             displayEnd.x += dragOffset.width
                             displayEnd.y += dragOffset.height
@@ -2093,7 +1919,6 @@ struct DrawingCanvasView: View {
                                 x: point.x * scale + imageOffset.x,
                                 y: point.y * scale + imageOffset.y
                             )
-                            // Taşınıyorsa offset uygula
                             if isMoving {
                                 displayPoint.x += dragOffset.width
                                 displayPoint.y += dragOffset.height
@@ -2105,14 +1930,12 @@ struct DrawingCanvasView: View {
                     drawSingleAnnotation(displayAnnotation, rect: displayRect, in: &context, canvasSize: size, nsImage: image)
                 }
 
-                // 2. Canlı (o an çizilen) şekli çiz
                 if let start = liveDrawingStart, let end = liveDrawingEnd {
                     let rect = CGRect(from: start, to: end)
                     var liveAnnotation = Annotation(rect: rect, color: selectedColor, lineWidth: selectedLineWidth, tool: selectedTool)
                     liveAnnotation.startPoint = start
                     liveAnnotation.endPoint = end
 
-                    // Tool-specific properties ekle (live preview için)
                     if selectedTool == .spotlight {
                         liveAnnotation.spotlightShape = spotlightShape
                     }
@@ -2120,9 +1943,7 @@ struct DrawingCanvasView: View {
                     drawSingleAnnotation(liveAnnotation, rect: rect, in: &context, canvasSize: size, nsImage: image)
                 }
 
-                // 2b. Canlı freehand çizim (pen tool)
                 if let path = liveDrawingPath, path.count > 1 {
-                    // Path noktalarını canvas koordinatlarına dönüştür
                     let canvasPath = path.map { point in
                         CGPoint(
                             x: point.x * scale + imageOffset.x,
@@ -2130,14 +1951,12 @@ struct DrawingCanvasView: View {
                         )
                     }
 
-                    // Path oluştur
                     var bezierPath = Path()
                     bezierPath.move(to: canvasPath[0])
                     for i in 1..<canvasPath.count {
                         bezierPath.addLine(to: canvasPath[i])
                     }
 
-                    // Brush style'a göre çiz
                     let scaledLineWidth = selectedLineWidth * scale
                     switch selectedBrushStyle {
                     case .solid:
@@ -2149,14 +1968,11 @@ struct DrawingCanvasView: View {
                     }
                 }
 
-                // 3. Seçili annotation için resize handle'ları ve selection border çiz
                 if let selectedID = selectedAnnotationID,
                    let selectedAnnotation = viewModel.annotations.first(where: { $0.id == selectedID }) {
 
-                    // Annotation'ın display rect'ini hesapla (scale ve offset ile)
                     var originalRect = selectedAnnotation.rect
 
-                    // Text için gerçek render boyutunu hesapla
                     if selectedAnnotation.tool == .text && !selectedAnnotation.text.isEmpty {
                         let font = NSFont.systemFont(ofSize: selectedAnnotation.lineWidth * 4)
                         let textAttributes: [NSAttributedString.Key: Any] = [.font: font]
@@ -2166,7 +1982,6 @@ struct DrawingCanvasView: View {
                             attributes: textAttributes
                         ).size
 
-                        // Padding ekle (8pt yatay, 4pt dikey)
                         let paddedWidth = textSize.width + 16
                         let paddedHeight = textSize.height + 8
 
@@ -2185,7 +2000,6 @@ struct DrawingCanvasView: View {
                         height: originalRect.height * scale
                     )
 
-                    // Handle pozisyonlarını al ve çiz (tool'a göre)
                     let handlePositions = getHandlePositions(for: displayRect, tool: selectedAnnotation.tool)
                     let handleSize: CGFloat = 8
 
@@ -2195,7 +2009,6 @@ struct DrawingCanvasView: View {
                                                width: handleSize,
                                                height: handleSize)
 
-                        // Beyaz handle ile mavi kenarlık
                         context.fill(Path(ellipseIn: handleRect), with: .color(.white))
                         context.stroke(Path(ellipseIn: handleRect), with: .color(.blue), lineWidth: 2)
                     }
@@ -2203,7 +2016,6 @@ struct DrawingCanvasView: View {
             }
             .gesture(drawingGesture(in: canvasSize))
             .onTapGesture(count: 2) { location in
-                // Çift tıklama - text annotation'ları edit moduna sokar
                 handleDoubleTap(at: location, in: canvasSize)
             }
             .onContinuousHover { phase in
@@ -2216,7 +2028,6 @@ struct DrawingCanvasView: View {
             }
     }
 
-    // Çift tıklama handler'ı
     private func handleDoubleTap(at location: CGPoint, in canvasSize: CGSize) {
         let imageSize = image.size
         let scale = min(canvasSize.width / imageSize.width, canvasSize.height / imageSize.height)
@@ -2231,19 +2042,17 @@ struct DrawingCanvasView: View {
             y: (location.y - imageOffset.y) / scale
         )
 
-        // Text annotation üzerinde mi kontrol et
         if let (id, index) = findAnnotation(at: imageLocation) {
             let annotation = viewModel.annotations[index]
             if annotation.tool == .text {
                 selectedAnnotationID = id
-                selectedTool = .select // Select mode'a geç
+                selectedTool = .select
                 onStartEditingText(index)
                 showToolControls = true
             }
         }
     }
 
-    // Cursor'u mouse pozisyonuna göre güncelle
     private func updateCursor(at location: CGPoint, in canvasSize: CGSize) {
         let imageSize = image.size
         let scale = min(canvasSize.width / imageSize.width, canvasSize.height / imageSize.height)
@@ -2258,29 +2067,24 @@ struct DrawingCanvasView: View {
             y: (location.y - imageOffset.y) / scale
         )
 
-        // Eraser hariç tüm tool'larda annotation üzerinde move cursor göster
         if selectedTool != .eraser {
-            // Önce mevcut seçili annotation'ın handle'larını kontrol et (select/move tool'da)
             if (selectedTool == .select || selectedTool == .move) {
                 if let selectedID = selectedAnnotationID,
                    let annotation = viewModel.annotations.first(where: { $0.id == selectedID }),
                    !isEditingText {
                     if let _ = detectHandle(at: imageLocation, for: annotation.rect, tool: annotation.tool) {
-                        // Handle üzerindeyse resize cursor göster
                         NSCursor.crosshair.set()
                         return
                     }
                 }
             }
 
-            // Herhangi bir annotation üzerinde mi kontrol et - TÜM TOOL'LARDA
             if let _ = findAnnotation(at: imageLocation) {
                 NSCursor.openHand.set()
                 return
             }
         }
 
-        // Default cursor - tool'a göre
         switch selectedTool {
         case .pen:
             NSCursor.crosshair.set()
@@ -2291,25 +2095,20 @@ struct DrawingCanvasView: View {
         }
     }
 
-    // Tüm çizim, silme ve taşıma işlemlerini yöneten tek gesture
     private func drawingGesture(in canvasSize: CGSize) -> some Gesture {
-        // Koordinat dönüşümü için ölçek faktörünü ve offset'i hesapla
         let imageSize = image.size
         let scale = min(canvasSize.width / imageSize.width, canvasSize.height / imageSize.height)
 
-        // Ölçeklenmiş image'ın boyutu
         let scaledImageSize = CGSize(
             width: imageSize.width * scale,
             height: imageSize.height * scale
         )
 
-        // Image aspect-fit ile ortalandığı için offset hesapla
         let imageOffset = CGPoint(
             x: (canvasSize.width - scaledImageSize.width) / 2,
             y: (canvasSize.height - scaledImageSize.height) / 2
         )
 
-        // Canvas koordinatlarını image koordinatlarına dönüştürme fonksiyonu
         func toImageCoords(_ point: CGPoint) -> CGPoint {
             return CGPoint(
                 x: (point.x - imageOffset.x) / scale,
@@ -2325,7 +2124,6 @@ struct DrawingCanvasView: View {
             .onChanged { value in
                 let imageLocation = toImageCoords(value.location)
 
-                // Annotation taşıma sadece taşıma devam ediyorsa (tüm tool'larda)
                 if movingAnnotationID != nil {
                     dragOffset = value.translation
                     return
@@ -2333,29 +2131,22 @@ struct DrawingCanvasView: View {
 
                 switch selectedTool {
                 case .select:
-                    // Select tool - resize handle kontrolü veya direkt sürükleme
                     if resizingHandle == nil, movingAnnotationID == nil {
                         if let selectedID = selectedAnnotationID,
                            let annotation = viewModel.annotations.first(where: { $0.id == selectedID }) {
-                            // Text düzenleniyorsa sürüklemeyi engelle
                             let isEditingThisText = isEditingText && viewModel.annotations.firstIndex(where: { $0.id == selectedID }) == editingTextIndex
 
                             if !isEditingThisText {
-                                // Önce handle kontrolü yap
                                 if let handle = detectHandle(at: imageLocation, for: annotation.rect, tool: annotation.tool) {
                                     resizingHandle = handle
                                     originalRect = annotation.rect
                                 } else if annotation.rect.contains(imageLocation) {
-                                    // Handle değilse ama annotation içindeyse, taşıma başlat
                                     movingAnnotationID = selectedID
                                     dragOffset = .zero
                                 } else if let (id, index) = findAnnotation(at: imageLocation) {
-                                    // Başka bir annotation'a tıklandıysa
                                     let clickedAnnotation = viewModel.annotations[index]
                                     selectedAnnotationID = id
 
-                                    // Text ise ve düzenleme modundaysa taşımayı engelle
-                                    // Diğer durumlarda (text düzenleme modunda değilse veya text değilse) taşımaya başla
                                     let isEditingThisText = clickedAnnotation.tool == .text && isEditingText && editingTextIndex == index
                                     if !isEditingThisText {
                                         movingAnnotationID = id
@@ -2364,12 +2155,9 @@ struct DrawingCanvasView: View {
                                 }
                             }
                         } else if let (id, index) = findAnnotation(at: imageLocation) {
-                            // Hiç seçili yoksa, tıklanan annotation'ı seç
                             let clickedAnnotation = viewModel.annotations[index]
                             selectedAnnotationID = id
 
-                            // Text ise ve düzenleme modundaysa taşımayı engelle
-                            // Diğer durumlarda taşımaya başla
                             let isEditingThisText = clickedAnnotation.tool == .text && isEditingText && editingTextIndex == index
                             if !isEditingThisText {
                                 movingAnnotationID = id
@@ -2378,33 +2166,27 @@ struct DrawingCanvasView: View {
                         }
                     }
 
-                    // Handle resize sürükleme işlemi
                     if let handle = resizingHandle, let original = originalRect,
                        let selectedID = selectedAnnotationID,
                        let index = viewModel.annotations.firstIndex(where: { $0.id == selectedID }) {
                         let newRect = calculateResizedRect(originalRect: original, handle: handle, dragTo: imageLocation)
                         viewModel.annotations[index].rect = newRect
 
-                        // startPoint ve endPoint'i de güncelle (arrow, line gibi şekiller için)
                         if viewModel.annotations[index].tool == .arrow || viewModel.annotations[index].tool == .line {
                             viewModel.annotations[index].startPoint = CGPoint(x: newRect.minX, y: newRect.minY)
                             viewModel.annotations[index].endPoint = CGPoint(x: newRect.maxX, y: newRect.maxY)
                         }
                     } else if movingAnnotationID != nil {
-                        // Normal taşıma işlemi (move tool ile aynı mantık)
                         dragOffset = value.translation
                     }
                 case .move:
-                    // Move tool - resize handle kontrolü öncelikli
                     if resizingHandle == nil, movingAnnotationID == nil {
                         if let selectedID = selectedAnnotationID,
                            let annotation = viewModel.annotations.first(where: { $0.id == selectedID }) {
-                            // Önce handle kontrolü yap
                             if let handle = detectHandle(at: imageLocation, for: annotation.rect, tool: annotation.tool) {
                                 resizingHandle = handle
                                 originalRect = annotation.rect
                             } else if let (id, _) = findAnnotation(at: imageLocation) {
-                                // Handle değilse normal taşıma başlat
                                 movingAnnotationID = id
                                 dragOffset = .zero
                             }
@@ -2414,20 +2196,17 @@ struct DrawingCanvasView: View {
                         }
                     }
 
-                    // Handle resize sürükleme işlemi
                     if let handle = resizingHandle, let original = originalRect,
                        let selectedID = selectedAnnotationID,
                        let index = viewModel.annotations.firstIndex(where: { $0.id == selectedID }) {
                         let newRect = calculateResizedRect(originalRect: original, handle: handle, dragTo: imageLocation)
                         viewModel.annotations[index].rect = newRect
 
-                        // startPoint ve endPoint'i de güncelle
                         if viewModel.annotations[index].tool == .arrow || viewModel.annotations[index].tool == .line {
                             viewModel.annotations[index].startPoint = CGPoint(x: newRect.minX, y: newRect.minY)
                             viewModel.annotations[index].endPoint = CGPoint(x: newRect.maxX, y: newRect.maxY)
                         }
                     } else if movingAnnotationID != nil {
-                        // Normal taşıma işlemi
                         dragOffset = value.translation
                     }
                 case .eraser:
@@ -2435,18 +2214,14 @@ struct DrawingCanvasView: View {
                         viewModel.removeAnnotation(with: id, undoManager: undoManager)
                     }
                 case .pin, .emoji:
-                    // Pin ve emoji toolları için önce resize handle kontrolü
                     if resizingHandle == nil,
                        let selectedID = selectedAnnotationID,
                        let annotation = viewModel.annotations.first(where: { $0.id == selectedID }) {
-                        // Handle'a tıklanmış mı kontrol et
                         if let handle = detectHandle(at: imageLocation, for: annotation.rect, tool: annotation.tool) {
                             resizingHandle = handle
                             originalRect = annotation.rect
                         }
-                        // Handle değilse hiçbir şey yapma - onEnded'de oluşturacak
                     } else if resizingHandle != nil {
-                        // Resize işlemi devam ediyor
                         if let handle = resizingHandle, let original = originalRect,
                            let selectedID = selectedAnnotationID,
                            let index = viewModel.annotations.firstIndex(where: { $0.id == selectedID }) {
@@ -2454,65 +2229,50 @@ struct DrawingCanvasView: View {
                             viewModel.annotations[index].rect = newRect
                         }
                     }
-                    // Resize değilse hiçbir şey yapma - sadece onEnded'de oluştur
                 case .text:
-                    // Text tool - hiçbir şey yapma, onEnded'de oluşturacak
-                    // Sürüklemeye izin verme
                     break
 
                 case .pen:
-                    // Eğer annotation taşıma başladıysa, pen çizme
                     if movingAnnotationID != nil {
                         break
                     }
 
-                    // Freehand çizim - sürekli path oluşturma
                     if liveDrawingPath == nil {
-                        // Yeni path başlat
                         liveDrawingPath = [imageLocation]
                     } else {
-                        // Mevcut path'e nokta ekle
                         liveDrawingPath?.append(imageLocation)
                     }
-                default: // Diğer tüm çizim araçları (rectangle, ellipse, line, arrow, etc.)
-                    // Eğer annotation taşıma başladıysa, bu case'de hiçbir şey yapma
+                default:
                     if movingAnnotationID != nil {
                         break
                     }
 
-                    // ÖNCELİK 1: Resize handle kontrolü (HER DURUMDA)
                     if resizingHandle == nil, liveDrawingStart == nil,
                        let selectedID = selectedAnnotationID,
                        let annotation = viewModel.annotations.first(where: { $0.id == selectedID }) {
-                        // Handle'a tıklanmış mı kontrol et - tool fark etmeksizin
                         if let handle = detectHandle(at: imageLocation, for: annotation.rect, tool: annotation.tool) {
                             resizingHandle = handle
                             originalRect = annotation.rect
                         } else if annotation.tool == selectedTool {
-                            // Handle değilse ve tool eşleşiyorsa normal çizime başla
                             liveDrawingStart = value.location
                             liveDrawingEnd = value.location
                         } else {
-                            // Tool eşleşmiyorsa yeni şekil çiz
                             liveDrawingStart = value.location
                             liveDrawingEnd = value.location
                         }
                     } else if resizingHandle != nil {
-                        // Resize işlemi devam ediyor
                         if let handle = resizingHandle, let original = originalRect,
                            let selectedID = selectedAnnotationID,
                            let index = viewModel.annotations.firstIndex(where: { $0.id == selectedID }) {
                             let newRect = calculateResizedRect(originalRect: original, handle: handle, dragTo: imageLocation)
                             viewModel.annotations[index].rect = newRect
 
-                            // startPoint ve endPoint'i de güncelle
                             if viewModel.annotations[index].tool == .arrow || viewModel.annotations[index].tool == .line {
                                 viewModel.annotations[index].startPoint = CGPoint(x: newRect.minX, y: newRect.minY)
                                 viewModel.annotations[index].endPoint = CGPoint(x: newRect.maxX, y: newRect.maxY)
                             }
                         }
                     } else {
-                        // Normal çizim işlemi
                         if liveDrawingStart == nil {
                             liveDrawingStart = value.location
                         }
@@ -2525,39 +2285,28 @@ struct DrawingCanvasView: View {
                 let imageTranslation = toImageSize(value.translation)
                 let dragDistance = hypot(value.translation.width, value.translation.height)
 
-                // UNIVERSAL ANNOTATION INTERACTION - EN YÜKSEK ÖNCELİK
-
-                // 0. Resize işlemi tamamlandıysa (HER TOOL İÇİN)
-                // Sadece gerçekten sürükleme yapıldıysa resize kaydet
                 if resizingHandle != nil, let original = originalRect,
                    let selectedID = selectedAnnotationID,
                    let index = viewModel.annotations.firstIndex(where: { $0.id == selectedID }) {
 
                     if dragDistance >= 5 {
-                        // Gerçek resize - undo'ya kaydet
                         let finalRect = viewModel.annotations[index].rect
                         viewModel.updateAnnotationRect(at: index, newRect: finalRect, oldRect: original, undoManager: undoManager)
                         resizingHandle = nil
                         self.originalRect = nil
-                        // Seçili kal, menü açık kal
                         return
                     } else {
-                        // Küçük hareket veya tıklama - resize state'i temizle ve normal akışa devam et
                         resizingHandle = nil
                         self.originalRect = nil
-                        // Normal akışa devam et (fall through)
                     }
                 }
 
-                // 1. Eğer annotation taşıma tamamlandıysa
                 if let movingID = movingAnnotationID, let index = viewModel.annotations.firstIndex(where: { $0.id == movingID }) {
                     if dragDistance >= 5 {
-                        // Taşıma işlemi tamamlandı
                         let oldRect = viewModel.annotations[index].rect
                         let newRect = oldRect.offsetBy(dx: imageTranslation.width, dy: imageTranslation.height)
                         viewModel.moveAnnotation(at: index, to: newRect, from: oldRect, undoManager: undoManager)
 
-                        // Arrow ve line için startPoint ve endPoint'i de taşı
                         let tool = viewModel.annotations[index].tool
                         if tool == .arrow || tool == .line {
                             if let start = viewModel.annotations[index].startPoint,
@@ -2573,13 +2322,11 @@ struct DrawingCanvasView: View {
                             }
                         }
 
-                        // Taşıma sonrası: seçili kal, menü açık kal
                         selectedAnnotationID = movingID
                         showToolControls = true
                         movingAnnotationID = nil
                         dragOffset = .zero
 
-                        // Tüm tool state'lerini temizle
                         liveDrawingStart = nil
                         liveDrawingEnd = nil
                         liveDrawingPath = nil
@@ -2588,7 +2335,6 @@ struct DrawingCanvasView: View {
 
                         return
                     } else {
-                        // Küçük hareket - sadece seçim yap
                         selectedAnnotationID = movingID
                         showToolControls = true
                         movingAnnotationID = nil
@@ -2602,14 +2348,12 @@ struct DrawingCanvasView: View {
                     }
                 }
 
-                // 2. Boş alan kontrolü (sadece select/move/eraser için)
                 if selectedTool == .select || selectedTool == .move {
                     if let (id, _) = findAnnotation(at: imageLocation) {
                         selectedAnnotationID = id
                         showToolControls = true
                         return
                     } else {
-                        // Boş yere tıklandı - menüyü kapat, resize/taşıma state'lerini temizle
                         selectedAnnotationID = nil
                         showToolControls = false
                         resizingHandle = nil
@@ -2621,25 +2365,20 @@ struct DrawingCanvasView: View {
                         }
                     }
                 } else if selectedTool == .eraser {
-                    // Eraser için boş yere tıklayınca menüyü kapat
                     if dragDistance < 5 {
                         selectedAnnotationID = nil
                         showToolControls = false
                     }
                 }
-                // Diğer tool'lar: Annotation'a tıklansa bile yeni şekil çizilsin, sadece kendi annotation'ını seçsin
 
                 switch selectedTool {
                 case .select:
-                    // Universal logic zaten her şeyi hallediyor
                     break
                 case .move:
-                    // Universal logic zaten her şeyi hallediyor
                     break
                 case .eraser:
-                    break // Silme işlemi onChanged'de yapılıyor.
+                    break
                 case .pin:
-                    // Number tool - tek tıklama ile kullanıcı tarafından ayarlanmış boyutlu numara oluştur
                     let rect = CGRect(
                         x: imageLocation.x - numberSize / 2,
                         y: imageLocation.y - numberSize / 2,
@@ -2650,25 +2389,19 @@ struct DrawingCanvasView: View {
                     var newAnnotation = Annotation(rect: rect, color: selectedColor, lineWidth: selectedLineWidth, tool: .pin)
                     newAnnotation.number = viewModel.currentNumber
                     newAnnotation.numberShape = numberShape
+                    print("🔢 Pin oluşturuldu: number=\(viewModel.currentNumber), shape=\(numberShape)")
                     viewModel.currentNumber += 1
                     viewModel.addAnnotation(newAnnotation, undoManager: undoManager)
 
-                    // Kontrol panelini aç ve bu annotation'ı seç
                     selectedAnnotationID = newAnnotation.id
-                    showToolControls = true
-
-                    // Select moduna dön - böylece shapes popup kapanır
-                    selectedTool = .select
+                    print("📌 Pin eklendi ve seçildi, tool aktif kalıyor. ESC ile çıkabilirsiniz.")
 
                 case .pen:
-                    // Universal annotation interaction zaten tamamlandıysa, hiçbir şey yapma
                     if movingAnnotationID != nil {
                         break
                     }
 
-                    // Freehand çizim tamamlandı - path'i annotation olarak kaydet
                     if let path = liveDrawingPath, path.count > 1 {
-                        // Path'in bounding box'ını hesapla
                         let minX = path.map { $0.x }.min() ?? 0
                         let maxX = path.map { $0.x }.max() ?? 0
                         let minY = path.map { $0.y }.min() ?? 0
@@ -2680,30 +2413,23 @@ struct DrawingCanvasView: View {
                         newAnnotation.brushStyle = selectedBrushStyle
                         viewModel.addAnnotation(newAnnotation, undoManager: undoManager)
 
-                        // NOT: Pen tool'da kalıyoruz, select moduna dönmüyoruz
-                        // Böylece kullanıcı sürekli çizim yapabilir
                     }
 
-                    // Path'i temizle
                     liveDrawingPath = nil
 
                 case .emoji:
-                    // Universal annotation interaction zaten tamamlandıysa, hiçbir şey yapma
                     if movingAnnotationID != nil {
                         break
                     }
 
-                    // Resize işlemi tamamlandıysa
                     if resizingHandle != nil, let original = originalRect,
                        let selectedID = selectedAnnotationID,
                        let index = viewModel.annotations.firstIndex(where: { $0.id == selectedID }) {
                         let finalRect = viewModel.annotations[index].rect
-                        // Undo için kaydet
                         viewModel.updateAnnotationRect(at: index, newRect: finalRect, oldRect: original, undoManager: undoManager)
                         resizingHandle = nil
                         originalRect = nil
                     } else {
-                        // Emoji tool - tek tıklama ile kullanıcının seçtiği emoji'yi yerleştir
                         let rect = CGRect(
                             x: imageLocation.x - emojiSize / 2,
                             y: imageLocation.y - emojiSize / 2,
@@ -2715,23 +2441,18 @@ struct DrawingCanvasView: View {
                         newAnnotation.emoji = selectedEmoji
                         viewModel.addAnnotation(newAnnotation, undoManager: undoManager)
 
-                        // Kontrol panelini aç ve bu annotation'ı seç
                         selectedAnnotationID = newAnnotation.id
                         showToolControls = true
 
-                        // Select moduna dön - böylece shapes popup kapanır
                         selectedTool = .select
                     }
 
                 case .text:
-                    // Universal annotation interaction zaten tamamlandıysa, hiçbir şey yapma
                     if movingAnnotationID != nil {
                         break
                     }
 
-                    // Text tool - tek tıklama ile küçük text box oluştur ve direkt düzenlemeye başla
                     if resizingHandle == nil && liveDrawingStart == nil {
-                        // Tıklanan noktada küçük bir text box oluştur (başlangıç boyutu - minimum boyut)
                         let initialWidth: CGFloat = 50
                         let initialHeight: CGFloat = 30
                         let rect = CGRect(
@@ -2742,46 +2463,37 @@ struct DrawingCanvasView: View {
                         )
 
                         var newAnnotation = Annotation(rect: rect, color: selectedColor, lineWidth: selectedLineWidth, tool: .text)
-                        // Text için varsayılan olarak turuncu/coral arkaplan
-                        newAnnotation.backgroundColor = Color(red: 1.0, green: 0.38, blue: 0.27) // #FF6145
+                        newAnnotation.backgroundColor = Color(red: 1.0, green: 0.38, blue: 0.27)
                         viewModel.addAnnotation(newAnnotation, undoManager: undoManager)
 
-                        // Kontrol panelini aç ve bu annotation'ı seç
                         selectedAnnotationID = newAnnotation.id
                         showToolControls = true
 
-                        // Select moduna geç
                         selectedTool = .select
 
-                        // Direkt düzenleme moduna geç
                         if let index = viewModel.annotations.lastIndex(where: { $0.id == newAnnotation.id }) {
                             onStartEditingText(index)
                         }
                     }
 
-                default: // Diğer tüm çizim araçları (arrow, rectangle, ellipse, line, spotlight, pixelate, highlighter)
-                    // Resize işlemi tamamlandıysa
+                default:
                     if resizingHandle != nil, let original = originalRect,
                        let selectedID = selectedAnnotationID,
                        let index = viewModel.annotations.firstIndex(where: { $0.id == selectedID }) {
                         let finalRect = viewModel.annotations[index].rect
-                        // Undo için kaydet
                         viewModel.updateAnnotationRect(at: index, newRect: finalRect, oldRect: original, undoManager: undoManager)
                         resizingHandle = nil
                         originalRect = nil
                     } else if let start = liveDrawingStart {
-                        // Normal çizim işlemi tamamlandı
-                        // Canvas koordinatlarını image koordinatlarına dönüştür
                         let imageStart = toImageCoords(start)
                         let imageEnd = imageLocation
                         let rect = CGRect(from: imageStart, to: imageEnd)
 
-                        if rect.width > 2 || rect.height > 2 { // Çok küçük çizimleri engelle
+                        if rect.width > 2 || rect.height > 2 {
                             var newAnnotation = Annotation(rect: rect, color: selectedColor, lineWidth: selectedLineWidth, tool: selectedTool)
                             newAnnotation.startPoint = imageStart
                             newAnnotation.endPoint = imageEnd
 
-                            // Tool-specific properties ekle
                             if selectedTool == .rectangle {
                                 newAnnotation.cornerRadius = shapeCornerRadius
                                 newAnnotation.fillMode = shapeFillMode
@@ -2793,16 +2505,13 @@ struct DrawingCanvasView: View {
 
                             viewModel.addAnnotation(newAnnotation, undoManager: undoManager)
 
-                            // Kontrol panelini aç ve bu annotation'ı seç
                             selectedAnnotationID = newAnnotation.id
                             showToolControls = true
 
-                            // Select moduna geç - böylece shapes popup kapanır
                             selectedTool = .select
                         }
                     }
                 }
-                // Her durumda canlı çizim state'lerini sıfırla
                 liveDrawingStart = nil
                 liveDrawingEnd = nil
                 resizingHandle = nil
@@ -2810,12 +2519,8 @@ struct DrawingCanvasView: View {
             }
     }
 
-    // MARK: - Helper Functions
-
     private func findAnnotation(at point: CGPoint) -> (id: UUID, index: Int)? {
-        // Ters sırada ara (en üstteki annotation önce bulunmalı)
         for (index, annotation) in viewModel.annotations.enumerated().reversed() {
-            // Arrow ve line için özel kontrol - çizgiye yakınlık
             if annotation.tool == .arrow || annotation.tool == .line {
                 if let start = annotation.startPoint, let end = annotation.endPoint {
                     let distance = distanceFromPointToLine(point: point, lineStart: start, lineEnd: end)
@@ -2826,14 +2531,11 @@ struct DrawingCanvasView: View {
                 }
             }
 
-            // Text için özel kontrol - annotation.rect kullan (artık doğru boyutta olmalı)
             if annotation.tool == .text && !annotation.text.isEmpty {
-                // Önce annotation.rect'i dene
                 if annotation.rect.contains(point) {
                     return (annotation.id, index)
                 }
 
-                // Eğer rect güncel değilse, gerçek boyutu hesapla (fallback)
                 let font = NSFont.systemFont(ofSize: annotation.lineWidth * 4)
                 let textAttributes: [NSAttributedString.Key: Any] = [.font: font]
                 let textSize = (annotation.text as NSString).boundingRect(
@@ -2842,7 +2544,6 @@ struct DrawingCanvasView: View {
                     attributes: textAttributes
                 ).size
 
-                // Padding ekle (8pt yatay, 4pt dikey)
                 let paddedWidth = textSize.width + 16
                 let paddedHeight = textSize.height + 8
 
@@ -2856,10 +2557,9 @@ struct DrawingCanvasView: View {
                 if textRect.contains(point) {
                     return (annotation.id, index)
                 }
-                continue // Rect kontrolüne geçme, text için özel kontrol yaptık
+                continue
             }
 
-            // Diğer şekiller için rect kontrolü
             if annotation.rect.contains(point) {
                 return (annotation.id, index)
             }
@@ -2867,7 +2567,6 @@ struct DrawingCanvasView: View {
         return nil
     }
 
-    // Noktadan çizgiye olan mesafeyi hesapla
     private func distanceFromPointToLine(point: CGPoint, lineStart: CGPoint, lineEnd: CGPoint) -> CGFloat {
         let x0 = point.x
         let y0 = point.y
@@ -2880,29 +2579,22 @@ struct DrawingCanvasView: View {
         let denominator = sqrt(pow(y2 - y1, 2) + pow(x2 - x1, 2))
 
         if denominator == 0 {
-            // Çizgi bir nokta, direkt mesafe hesapla
             return sqrt(pow(x0 - x1, 2) + pow(y0 - y1, 2))
         }
 
         return numerator / denominator
     }
 
-    // MARK: - Resize Handle Functions
-
-    /// Verilen rect ve tool için uygun resize handle'ların pozisyonlarını döndür
     private func getHandlePositions(for rect: CGRect, tool: DrawingTool) -> [ResizeHandle: CGPoint] {
         switch tool {
         case .line, .arrow:
-            // Line ve arrow için sadece 2 handle (başlangıç ve bitiş noktaları)
             return [
                 .topLeft: CGPoint(x: rect.minX, y: rect.minY),
                 .bottomRight: CGPoint(x: rect.maxX, y: rect.maxY)
             ]
         case .text:
-            // Text için handle yok - sadece tıklayınca düzenleme
             return [:]
         case .emoji:
-            // Emoji için sadece 4 köşe handle (oran korunsun)
             return [
                 .topLeft: CGPoint(x: rect.minX, y: rect.minY),
                 .topRight: CGPoint(x: rect.maxX, y: rect.minY),
@@ -2910,10 +2602,8 @@ struct DrawingCanvasView: View {
                 .bottomRight: CGPoint(x: rect.maxX, y: rect.maxY)
             ]
         case .pin:
-            // Pin için handle yok
             return [:]
         case .pen:
-            // Pen için bounding box resize - 8 handle
             return [
                 .topLeft: CGPoint(x: rect.minX, y: rect.minY),
                 .top: CGPoint(x: rect.midX, y: rect.minY),
@@ -2925,7 +2615,6 @@ struct DrawingCanvasView: View {
                 .bottomRight: CGPoint(x: rect.maxX, y: rect.maxY)
             ]
         case .rectangle, .ellipse, .highlighter, .pixelate, .spotlight:
-            // Bu şekiller için 8 handle (4 köşe + 4 kenar)
             return [
                 .topLeft: CGPoint(x: rect.minX, y: rect.minY),
                 .top: CGPoint(x: rect.midX, y: rect.minY),
@@ -2937,14 +2626,12 @@ struct DrawingCanvasView: View {
                 .bottomRight: CGPoint(x: rect.maxX, y: rect.maxY)
             ]
         case .select, .move, .eraser:
-            // Bu toollar için handle gerekmiyor (ama bu fonksiyon çağrılmamalı)
             return [:]
         }
     }
 
-    /// Verilen noktanın hangi handle'a tıkladığını tespit et
     private func detectHandle(at point: CGPoint, for rect: CGRect, tool: DrawingTool) -> ResizeHandle? {
-        let handleSize: CGFloat = 12 // Handle'ın tıklanabilir boyutu
+        let handleSize: CGFloat = 12
         let positions = getHandlePositions(for: rect, tool: tool)
 
         for (handle, position) in positions {
@@ -2959,7 +2646,6 @@ struct DrawingCanvasView: View {
         return nil
     }
 
-    /// Handle sürüklemesine göre yeni rect hesapla
     private func calculateResizedRect(originalRect: CGRect, handle: ResizeHandle, dragTo point: CGPoint) -> CGRect {
         var newRect = originalRect
 
@@ -2998,33 +2684,26 @@ struct DrawingCanvasView: View {
                            height: point.y - originalRect.minY)
         }
 
-        // Minimum boyut kontrolü (en az 20x20 pixel)
         let minSize: CGFloat = 20
         if abs(newRect.width) < minSize || abs(newRect.height) < minSize {
             return originalRect
         }
 
-        // Negatif boyut varsa normalize et
         return newRect.standardized
     }
 
-    // Bu fonksiyon, ana View'daki ile aynı olmalı.
     private func drawSingleAnnotation(_ annotation: Annotation, rect: CGRect, in context: inout GraphicsContext, canvasSize: CGSize, nsImage: NSImage? = nil) {
         switch annotation.tool {
         case .rectangle:
             let cornerRadius = annotation.cornerRadius
             let rectPath = Path(roundedRect: rect, cornerRadius: cornerRadius)
 
-            // Fill mode'a göre çiz
             switch annotation.fillMode {
             case .fill:
-                // Sadece dolgu
                 context.fill(rectPath, with: .color(annotation.color))
             case .stroke:
-                // Sadece kenarlık
                 context.stroke(rectPath, with: .color(annotation.color), lineWidth: annotation.lineWidth)
             case .both:
-                // Hem dolgu hem kenarlık
                 context.fill(rectPath, with: .color(annotation.color.opacity(0.3)))
                 context.stroke(rectPath, with: .color(annotation.color), lineWidth: annotation.lineWidth)
             }
@@ -3032,16 +2711,12 @@ struct DrawingCanvasView: View {
         case .ellipse:
             let ellipsePath = Path(ellipseIn: rect)
 
-            // Fill mode'a göre çiz
             switch annotation.fillMode {
             case .fill:
-                // Sadece dolgu
                 context.fill(ellipsePath, with: .color(annotation.color))
             case .stroke:
-                // Sadece kenarlık
                 context.stroke(ellipsePath, with: .color(annotation.color), lineWidth: annotation.lineWidth)
             case .both:
-                // Hem dolgu hem kenarlık
                 context.fill(ellipsePath, with: .color(annotation.color.opacity(0.3)))
                 context.stroke(ellipsePath, with: .color(annotation.color), lineWidth: annotation.lineWidth)
             }
@@ -3054,13 +2729,9 @@ struct DrawingCanvasView: View {
                 context.stroke(path, with: .color(annotation.color), lineWidth: annotation.lineWidth)
             }
         case .highlighter:
-            // DÜZELTME: Highlighter'ı doğru çalışan haline geri getir.
-            // .multiply blend modu, rengin alttaki metni karartmasını engeller.
             context.blendMode = .multiply
             context.fill(Path(rect), with: .color(annotation.color.opacity(0.5)))
         case .arrow:
-            // DÜZELTME: `rect` yerine, kaydedilmiş başlangıç ve bitiş noktalarını kullan.
-            // Canlı çizim sırasında da bu noktalar anlık olarak güncellenir.
             let start = annotation.startPoint ?? rect.origin
             let end = annotation.endPoint ?? rect.endPoint
             if hypot(end.x - start.x, end.y - start.y) > annotation.lineWidth * 2 {
@@ -3068,17 +2739,12 @@ struct DrawingCanvasView: View {
                 context.fill(path, with: .color(annotation.color))
             }
         case .pixelate:
-            // GÜVENLİK: Parlaklık oynatılarak içerik görülememesi için tamamen siyah overlay
-            // Canlı önizlemede hafif şeffaf (kullanıcı neyi gizlediğini görebilsin)
-            // Apply'dan sonra %100 opak olacak
             context.fill(Path(rect), with: .color(.black.opacity(0.85)))
 
         case .pin:
-            // Numara şekli - kullanıcının seçimine göre
             let diameter = rect.width
             let shapeRect = CGRect(x: rect.minX, y: rect.minY, width: diameter, height: diameter)
 
-            // Arka plan şekli
             let shape = annotation.numberShape ?? .circle
             let shapePath: Path
             switch shape {
@@ -3091,42 +2757,33 @@ struct DrawingCanvasView: View {
             }
             context.fill(shapePath, with: .color(annotation.color))
 
-            // Numara metni - tam merkezlenmiş
             if let number = annotation.number {
                 let fontSize = diameter * 0.55
                 let numberText = "\(number)"
 
-                // Text'i merkeze hizalamak için resolved text kullan
                 let text = Text(numberText)
                     .font(.system(size: fontSize, weight: .bold))
                     .foregroundColor(.white)
 
-                // Text'i resolve et
                 let resolved = context.resolve(text)
 
-                // Text'i shape rect'in tam ortasına çiz - anchor point ile
                 context.draw(resolved, at: CGPoint(x: shapeRect.midX, y: shapeRect.midY), anchor: .center)
             }
 
         case .text:
-            // Text editing mode değilse Canvas'ta çiz (overlay yerine)
             let isEditing = editingTextIndex == viewModel.annotations.firstIndex(where: { $0.id == annotation.id })
 
             if !isEditing && !annotation.text.isEmpty {
-                // Background'ı çiz
                 if let bgColor = annotation.backgroundColor {
                     let bgPath = Path(roundedRect: rect, cornerRadius: 6)
                     context.fill(bgPath, with: .color(bgColor))
                 }
 
-                // Text'i çiz
                 let text = Text(annotation.text)
                     .font(.system(size: annotation.lineWidth * 4))
                     .foregroundColor(annotation.color)
 
                 let resolved = context.resolve(text)
-                // Text'i rect içinde çiz (rect zaten padding ile hesaplanmış)
-                // Padding kadar içeri offset et
                 context.draw(resolved, in: CGRect(
                     x: rect.minX + 8,
                     y: rect.minY + 4,
@@ -3134,26 +2791,21 @@ struct DrawingCanvasView: View {
                     height: rect.height
                 ))
             } else if annotation.text.isEmpty && isEditing {
-                // Boş text kutusu - editing sırasında çizgi çiz
                 let path = Path(rect)
                 context.stroke(path, with: .color(.gray), style: StrokeStyle(lineWidth: 1, dash: [4]))
             }
         case .emoji:
-            // Emoji çiz
             if let emoji = annotation.emoji {
-                let fontSize = rect.width * 0.8 // Emoji boyutunu rect'e göre ayarla
+                let fontSize = rect.width * 0.8
                 let emojiText = Text(emoji)
                     .font(.system(size: fontSize))
 
-                // Text'i resolve et
                 let resolved = context.resolve(emojiText)
 
-                // Emoji'yi rect'in tam ortasına çiz
                 context.draw(resolved, at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
             }
 
         case .pen:
-            // Freehand çizim - path noktalarını çiz
             if let path = annotation.path, path.count > 1 {
                 var bezierPath = Path()
                 bezierPath.move(to: path[0])
@@ -3161,7 +2813,6 @@ struct DrawingCanvasView: View {
                     bezierPath.addLine(to: path[i])
                 }
 
-                // Brush style'a göre çiz
                 let brushStyle = annotation.brushStyle ?? .solid
                 switch brushStyle {
                 case .solid:
@@ -3174,11 +2825,8 @@ struct DrawingCanvasView: View {
             }
 
         case .spotlight:
-            // Spotlight: Seçilen alan dışını karartma (even-odd rule ile)
-            // Tüm canvas ve spotlight alanını içeren combined path oluştur
             var fullScreenPath = Path(CGRect(origin: .zero, size: canvasSize))
 
-            // Spotlight alanını ekle
             let spotPath: Path
             if annotation.spotlightShape == .rectangle {
                 spotPath = Path(roundedRect: rect, cornerRadius: 8)
@@ -3187,29 +2835,23 @@ struct DrawingCanvasView: View {
             }
             fullScreenPath.addPath(spotPath)
 
-            // Even-odd fill rule ile spotlight alanı dışındaki her yeri karart
             context.fill(fullScreenPath, with: .color(.black.opacity(0.6)), style: FillStyle(eoFill: true))
 
-            // Seçilen alanın etrafına ince kenarlık
             context.stroke(spotPath, with: .color(.white.opacity(0.5)), lineWidth: 2)
 
         case .move, .eraser, .select:
             break
         }
 
-        // NOT: Highlight özelliği kaldırıldı - kullanıcı seçili annotation'ı kontrol panelinden anlayacak
     }
 }
 
-// MARK: - Helper Extensions
 extension CGRect {
     init(from: CGPoint, to: CGPoint) {
         self.init(x: min(from.x, to.x), y: min(from.y, to.y), width: abs(from.x - to.x), height: abs(from.y - to.y))
     }
 }
 
-
-// MARK: - CheckerboardView
 struct CheckerboardView: View {
     let squareSize: CGFloat = 16
     let lightColor = Color(nsColor: .windowBackgroundColor).opacity(0.8)
@@ -3233,7 +2875,6 @@ struct CheckerboardView: View {
     }
 }
 
-// View'a .cursor() değiştiricisi eklemek için bir uzantı.
 extension View {
     func cursor(_ cursor: NSCursor) -> some View {
         self.onHover { inside in
@@ -3246,24 +2887,19 @@ extension View {
     }
 }
 
-// MARK: - Scroll Event Handling
-// DÜZELTİLDİ: Çalışan Scroll Event yakalayıcısı
 struct ScrollEventModifier: ViewModifier {
     var onScroll: (NSEvent) -> Void
 
     func body(content: Content) -> some View {
-        // İçeriği, arka planına yerleştirilen bir olay yakalayıcı
-        // köprüsü ile sarmalar.
         content.background(
             ScrollEventView(onScroll: onScroll)
         )
     }
 }
 
-/// Arka planda çalışan ve fare tekerleği olaylarını dinleyen görünmez bir NSView.
 private struct ScrollEventView: NSViewRepresentable {
     var onScroll: (NSEvent) -> Void
-    
+
     func makeCoordinator() -> Coordinator {
         Coordinator(onScroll: onScroll)
     }
@@ -3277,43 +2913,30 @@ private struct ScrollEventView: NSViewRepresentable {
     func updateNSView(_ nsView: EventHandlingView, context: Context) {
         context.coordinator.onScroll = onScroll
     }
-    
+
     class Coordinator {
         var onScroll: (NSEvent) -> Void
         init(onScroll: @escaping (NSEvent) -> Void) {
             self.onScroll = onScroll
         }
     }
-    
-    /// Olayları yakalamak için özelleştirilmiş NSView.
-    /// Bu sınıf, yanıtlayıcı zincirine girerek olayları yakalar.
+
     class EventHandlingView: NSView {
-        // DÜZELTME: Referans döngüsünü kırmak için coordinator'a zayıf referans tut.
         weak var coordinator: Coordinator?
 
-        // 1. Bu view'un "first responder" (ilk yanıtlayıcı)
-        //    olabileceğini sisteme bildiriyoruz.
         override var acceptsFirstResponder: Bool { true }
 
-        // 2. View pencereye eklendiği anda bu fonksiyon tetiklenir.
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            // Pencereye eklendiği gibi, bu view'ı
-            // klavye/fare olayları için ilk yanıtlayıcı yap.
             window?.makeFirstResponder(self)
         }
-        
-        // 3. Olayı yakalayıp closure'a iletiyoruz.
+
         override func scrollWheel(with event: NSEvent) {
             coordinator?.onScroll(event)
         }
     }
 }
 
-
-// MARK: - CustomTextEditor (NSViewRepresentable)
-/// SwiftUI'ın TextEditor'ındaki canlı düzenleme sırasındaki bulanıklık sorununu çözmek için
-/// bir NSTextView'ı sarmalayan özel bir görünüm.
 struct CustomTextEditor: NSViewRepresentable {
     @Binding var text: String
     var font: NSFont
@@ -3327,25 +2950,22 @@ struct CustomTextEditor: NSViewRepresentable {
         let textView = scrollView.documentView as! NSTextView
 
         textView.delegate = context.coordinator
-        scrollView.hasVerticalScroller = false // Scroll bar'ı gizle
-        scrollView.drawsBackground = false // ScrollView arkaplanı şeffaf
+        scrollView.hasVerticalScroller = false
+        scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
 
         textView.isRichText = false
         textView.font = font
         textView.textColor = textColor
 
-        // Arka plan rengi ayarla
         if let bgColor = backgroundColor {
             textView.drawsBackground = true
             textView.backgroundColor = bgColor
 
-            // Corner radius ve padding için layer ayarları
             textView.wantsLayer = true
             textView.layer?.cornerRadius = 6
             textView.layer?.masksToBounds = true
 
-            // Text padding
             textView.textContainerInset = NSSize(width: 8, height: 4)
         } else {
             textView.drawsBackground = false
@@ -3359,7 +2979,6 @@ struct CustomTextEditor: NSViewRepresentable {
         textView.textContainer?.lineFragmentPadding = 0
         textView.insertionPointColor = textColor
 
-        // Text container'ı sağa doğru genişleyebilir yap
         textView.textContainer?.widthTracksTextView = false
         textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.isHorizontallyResizable = true
@@ -3378,7 +2997,6 @@ struct CustomTextEditor: NSViewRepresentable {
             textView.textColor = textColor
         }
 
-        // Background color değişikliklerini handle et
         if let bgColor = backgroundColor {
             if textView.backgroundColor != bgColor {
                 textView.drawsBackground = true
@@ -3402,7 +3020,6 @@ struct CustomTextEditor: NSViewRepresentable {
     }
 
     static func dismantleNSView(_ nsView: NSScrollView, coordinator: Coordinator) {
-        // TextView ve ScrollView referanslarını temizle
         if let textView = nsView.documentView as? NSTextView {
             textView.delegate = nil
             textView.string = ""
@@ -3420,35 +3037,29 @@ struct CustomTextEditor: NSViewRepresentable {
             guard let textView = notification.object as? NSTextView else { return }
             self.parent.text = textView.string
 
-            // Metin değiştikçe gereken boyutu hesapla ve bildir.
             guard let layoutManager = textView.layoutManager,
                   let textContainer = textView.textContainer else { return }
             layoutManager.ensureLayout(for: textContainer)
             let usedRect = layoutManager.usedRect(for: textContainer)
 
-            // textContainerInset ile padding zaten ekleniyor, onu hesaba kat
             let inset = textView.textContainerInset
-            let horizontalInset = inset.width * 2 // Sol ve sağ
-            let verticalInset = inset.height * 2 // Üst ve alt
+            let horizontalInset = inset.width * 2
+            let verticalInset = inset.height * 2
 
-            let minWidth: CGFloat = 50 // Minimum genişlik
-            let minHeight: CGFloat = 20 // Minimum yükseklik
+            let minWidth: CGFloat = 50
+            let minHeight: CGFloat = 20
             let newWidth = max(minWidth, usedRect.width + horizontalInset)
             let newHeight = max(minHeight, usedRect.height + verticalInset)
 
-            // Layout cycle dışında callback çağır
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
-                // Yükseklik değişikliğini bildir (eski callback)
                 self.parent.onHeightChange?(usedRect.height)
-                // Boyut değişikliğini bildir (yeni callback - hem genişlik hem yükseklik)
                 self.parent.onSizeChange?(CGSize(width: newWidth, height: newHeight))
             }
         }
     }
 }
 
-// CGRect için yardımcı uzantılar
 extension CGRect {
     var center: CGPoint {
         CGPoint(x: midX, y: midY)
@@ -3458,7 +3069,6 @@ extension CGRect {
     }
 }
 
-// Path'e ok çizme fonksiyonu ekleyen uzantı
 extension Path {
     static func arrow(from start: CGPoint, to end: CGPoint, tailWidth: CGFloat, headWidth: CGFloat, headLength: CGFloat) -> Path {
         let length = hypot(end.x - start.x, end.y - start.y)
@@ -3486,10 +3096,10 @@ extension Path {
     }
 }
 
-// MARK: - Shape Picker View
 struct ShapePickerView: View {
     @Binding var selectedTool: DrawingTool
     @Binding var isPresented: Bool
+    @Binding var showToolControls: Bool
     @EnvironmentObject var settings: SettingsManager
 
     let shapes: [DrawingTool] = [.rectangle, .ellipse, .line]
@@ -3505,10 +3115,11 @@ struct ShapePickerView: View {
             ForEach(shapes) { shape in
                 Button(action: {
                     selectedTool = shape
+                    showToolControls = true
+                    print("🔧 Shape seçildi: \(shape.rawValue), Control panel açıldı")
                     isPresented = false
                 }) {
                     HStack(spacing: 12) {
-                        // Görsel önizleme
                         ZStack {
                             if shape == .rectangle {
                                 RoundedRectangle(cornerRadius: 2)
@@ -3552,7 +3163,6 @@ struct ShapePickerView: View {
     }
 }
 
-// MARK: - Emoji Picker View
 struct EmojiPickerView: View {
     @Binding var selectedEmoji: String
     @Binding var isPresented: Bool
@@ -3593,14 +3203,12 @@ struct EmojiPickerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             Text("Emoji Seç")
                 .font(.headline)
                 .padding(.horizontal, 12)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
 
-            // Tab Bar
             HStack(spacing: 4) {
                 ForEach(EmojiCategory.allCases, id: \.self) { category in
                     Button(action: {
@@ -3626,7 +3234,6 @@ struct EmojiPickerView: View {
 
             Divider()
 
-            // Emoji Grid
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 8) {
                     ForEach(selectedCategory.emojis, id: \.self) { emoji in
@@ -3658,7 +3265,6 @@ struct EmojiPickerView: View {
     }
 }
 
-// MARK: - Line Width Picker View
 struct LineWidthPickerView: View {
     @Binding var selectedLineWidth: CGFloat
     @Binding var isPresented: Bool
@@ -3684,7 +3290,6 @@ struct LineWidthPickerView: View {
                     isPresented = false
                 }) {
                     HStack(spacing: 12) {
-                        // Görsel önizleme - çizgi kalınlığı
                         ZStack {
                             Capsule()
                                 .fill(Color.accentColor)
@@ -3715,7 +3320,6 @@ struct LineWidthPickerView: View {
     }
 }
 
-// MARK: - Universal Tool Control Panel (Compact Horizontal)
 struct ToolControlPanel: View {
     @Binding var isPresented: Bool
     @Binding var selectedAnnotationID: UUID?
@@ -3725,22 +3329,17 @@ struct ToolControlPanel: View {
     @Binding var selectedColor: Color
     @Binding var selectedLineWidth: CGFloat
 
-    // Number tool
     @Binding var numberSize: CGFloat
     @Binding var numberShape: NumberShape
 
-    // Shape tools
     @Binding var shapeCornerRadius: CGFloat
     @Binding var shapeFillMode: FillMode
 
-    // Spotlight tool
     @Binding var spotlightShape: SpotlightShape
 
-    // Emoji tool
     @Binding var selectedEmoji: String
     @Binding var emojiSize: CGFloat
 
-    // Pen tool
     @Binding var selectedBrushStyle: BrushStyle
 
     var currentAnnotation: Annotation? {
@@ -3750,7 +3349,6 @@ struct ToolControlPanel: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Close button
             Button(action: { isPresented = false }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .semibold))
@@ -3760,7 +3358,6 @@ struct ToolControlPanel: View {
             .buttonStyle(.plain)
             .help(L("Close", settings: settings))
 
-            // Color picker (tüm tool'lar için)
             if selectedTool != .move && selectedTool != .eraser {
                 ColorPicker("", selection: Binding(
                     get: { currentAnnotation?.color ?? selectedColor },
@@ -3777,9 +3374,7 @@ struct ToolControlPanel: View {
                 .help(L("Color", settings: settings))
             }
 
-            // Tool-specific controls - seçili annotation'a göre değişir
             if let currentAnnotation = currentAnnotation {
-                // Seçili annotation varsa, onun tipine göre kontroller göster
                 switch currentAnnotation.tool {
                 case .text:
                     textControls
@@ -3801,7 +3396,6 @@ struct ToolControlPanel: View {
                     EmptyView()
                 }
             } else {
-                // Seçili annotation yoksa, aktif tool'a göre göster
                 switch selectedTool {
                 case .text:
                     textControls
@@ -3833,11 +3427,9 @@ struct ToolControlPanel: View {
         )
     }
 
-    // Number tool controls (compact horizontal)
     @ViewBuilder
     var numberControls: some View {
-        // Size slider
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Image(systemName: "circle.fill")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
@@ -3871,37 +3463,47 @@ struct ToolControlPanel: View {
             Image(systemName: "circle.fill")
                 .font(.system(size: 16))
                 .foregroundColor(.secondary)
-        }
 
-        // Shape selector
-        Menu {
-            ForEach(NumberShape.allCases, id: \.self) { shape in
-                Button(action: {
-                    numberShape = shape
-                    if let id = selectedAnnotationID,
-                       let index = viewModel.annotations.firstIndex(where: { $0.id == id }) {
-                        viewModel.annotations[index].numberShape = shape
-                    }
-                }) {
-                    HStack {
-                        Text(shape.rawValue)
-                        if (currentAnnotation?.numberShape ?? numberShape) == shape {
-                            Image(systemName: "checkmark")
+            Divider()
+                .frame(height: 20)
+
+            Menu {
+                ForEach(NumberShape.allCases, id: \.self) { shape in
+                    Button(action: {
+                        numberShape = shape
+                        if let id = selectedAnnotationID,
+                           let index = viewModel.annotations.firstIndex(where: { $0.id == id }) {
+                            viewModel.annotations[index].numberShape = shape
+                        }
+                    }) {
+                        HStack {
+                            Text(shape.rawValue)
+                            if (currentAnnotation?.numberShape ?? numberShape) == shape {
+                                Image(systemName: "checkmark")
+                            }
                         }
                     }
                 }
-            }
-        } label: {
-            Image(systemName: "chevron.up.chevron.down")
-                .font(.system(size: 12))
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "shape")
+                        .font(.system(size: 12))
+                    Text((currentAnnotation?.numberShape ?? numberShape).rawValue)
+                        .font(.system(size: 11))
+                }
                 .foregroundColor(.secondary)
-                .frame(width: 28, height: 28)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.secondary.opacity(0.1))
+                )
+            }
+            .menuStyle(.borderlessButton)
+            .help(L("Shape", settings: settings))
         }
-        .menuStyle(.borderlessButton)
-                .help(L("Shape", settings: settings))
     }
 
-    // Line width control (for arrow, line)
     @ViewBuilder
     var lineWidthControl: some View {
         HStack(spacing: 6) {
@@ -3928,13 +3530,10 @@ struct ToolControlPanel: View {
         }
     }
 
-    // Rectangle tool controls (compact)
     @ViewBuilder
     var rectangleControls: some View {
-        // Fill mode selector
         fillModeButtons
 
-        // Corner radius slider
         HStack(spacing: 6) {
             Image(systemName: "square")
                 .font(.system(size: 10))
@@ -3958,13 +3557,11 @@ struct ToolControlPanel: View {
         }
     }
 
-    // Ellipse tool controls (compact)
     @ViewBuilder
     var ellipseControls: some View {
         fillModeButtons
     }
 
-    // Fill mode buttons (3 buttons: stroke, fill, both)
     @ViewBuilder
     var fillModeButtons: some View {
         HStack(spacing: 6) {
@@ -3991,7 +3588,6 @@ struct ToolControlPanel: View {
         }
     }
 
-    // Emoji tool controls - sadece boyut slider'ı
     @ViewBuilder
     var emojiControls: some View {
         HStack(spacing: 6) {
@@ -4031,9 +3627,9 @@ struct ToolControlPanel: View {
         }
     }
 
+    @ViewBuilder
     var penControls: some View {
         HStack(spacing: 6) {
-            // Line width slider
             Image(systemName: "line.diagonal")
                 .font(.system(size: 8))
                 .foregroundColor(.secondary)
@@ -4062,7 +3658,6 @@ struct ToolControlPanel: View {
             Divider()
                 .frame(height: 20)
 
-            // Brush style menu
             Menu {
                 ForEach(BrushStyle.allCases, id: \.self) { style in
                     Button(action: {
@@ -4100,7 +3695,6 @@ struct ToolControlPanel: View {
     }
 
     var spotlightControls: some View {
-        // Shape selector (ellipse or rectangle)
         HStack(spacing: 6) {
             ForEach(SpotlightShape.allCases, id: \.self) { shape in
                 Button(action: {
@@ -4128,15 +3722,12 @@ struct ToolControlPanel: View {
     @ViewBuilder
     var textControls: some View {
         HStack(spacing: 8) {
-            // Background color toggle button
             Button(action: {
                 if let id = selectedAnnotationID,
                    let index = viewModel.annotations.firstIndex(where: { $0.id == id }) {
                     if viewModel.annotations[index].backgroundColor != nil {
-                        // Make transparent
                         viewModel.annotations[index].backgroundColor = nil
                     } else {
-                        // Set to white as default
                         viewModel.annotations[index].backgroundColor = .white
                     }
                 }
@@ -4153,7 +3744,6 @@ struct ToolControlPanel: View {
             .buttonStyle(.plain)
             .help(currentAnnotation?.backgroundColor == nil ? "Add Background" : "Remove Background")
 
-            // Background color picker (only shown if background is not transparent)
             if currentAnnotation?.backgroundColor != nil {
                 ColorPicker("", selection: Binding(
                     get: {
@@ -4179,7 +3769,6 @@ struct ToolControlPanel: View {
             Divider()
                 .frame(height: 24)
 
-            // Font size control
             Image(systemName: "textformat.size")
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
@@ -4197,7 +3786,6 @@ struct ToolControlPanel: View {
                        let index = viewModel.annotations.firstIndex(where: { $0.id == id }) {
                         viewModel.annotations[index].lineWidth = newSize
 
-                        // Text boyutu değiştiğinde rect'i güncelle
                         let annotation = viewModel.annotations[index]
                         if annotation.tool == .text && !annotation.text.isEmpty {
                             let font = NSFont.systemFont(ofSize: newSize * 4)
@@ -4208,11 +3796,9 @@ struct ToolControlPanel: View {
                                 attributes: textAttributes
                             ).size
 
-                            // Padding ekle (8pt yatay, 4pt dikey)
                             let paddedWidth = textSize.width + 16
                             let paddedHeight = textSize.height + 8
 
-                            // Rect'i güncelle (origin aynı, boyut değişti)
                             viewModel.annotations[index].rect.size = CGSize(width: paddedWidth, height: paddedHeight)
                         }
                     }

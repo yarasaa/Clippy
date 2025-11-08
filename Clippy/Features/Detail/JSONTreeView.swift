@@ -5,6 +5,7 @@
 //  Created by Mehmet Akbaba on 25.09.2025.
 //
 
+
 import SwiftUI
 
 struct JSONTreeView: View {
@@ -13,7 +14,7 @@ struct JSONTreeView: View {
     let currentPath: String
     private var fullPath: String
     @EnvironmentObject var settings: SettingsManager
-    
+
     @State private var isExpanded: Bool = true
 
     init(key: String?, value: JSONValue, currentPath: String) {
@@ -94,7 +95,7 @@ struct JSONTreeView: View {
             }
         }
     }
-    
+
     @ViewBuilder
     private var valueText: some View {
         switch value {
@@ -105,12 +106,12 @@ struct JSONTreeView: View {
         default: EmptyView()
         }
     }
-    
+
     private func copyToClipboard(_ text: String) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
-        
+
         pasteboard.addTypes([PasteManager.pasteFromClippyType], owner: nil)
     }
 }

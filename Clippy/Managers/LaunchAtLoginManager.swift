@@ -5,6 +5,7 @@
 //  Created by Mehmet Akbaba on 17.09.2025.
 //
 
+
 import Foundation
 import ServiceManagement
 import Combine
@@ -20,7 +21,7 @@ class LaunchAtLoginManager: ObservableObject {
 
     private init() {
         self.isEnabled = SMAppService.mainApp.status == .enabled
-        
+
         if UserDefaults.standard.object(forKey: "hasSetLaunchAtLogin") == nil {
             self.isEnabled = true
             UserDefaults.standard.set(true, forKey: "hasSetLaunchAtLogin")

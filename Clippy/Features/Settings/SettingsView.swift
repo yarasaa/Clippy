@@ -5,6 +5,7 @@
 //  Created by Mehmet Akbaba on 17.09.2025.
 //
 
+
 import SwiftUI
 
 struct SettingsView: View {
@@ -43,8 +44,6 @@ struct SettingsView: View {
         .padding()
     }
 
-    // MARK: - Tab Views
-
     private var generalSettings: some View {
         Form {
             Section {
@@ -55,7 +54,7 @@ struct SettingsView: View {
                     Text(L("Turkish", settings: settings)).tag("tr")
                 }
             }
-            
+
             Section(header: Text(L("Tab Visibility", settings: settings))) {
                 Toggle(L("Show Code Tab", settings: settings), isOn: $settings.showCodeTab)
                 Toggle(L("Show Images Tab", settings: settings), isOn: $settings.showImagesTab)
@@ -80,7 +79,7 @@ struct SettingsView: View {
                     Text(L("Light", settings: settings)).tag("light")
                     Text(L("Dark", settings: settings)).tag("dark")
                 }
-                
+
                 Stepper(String(format: L("Popover Width: %d", settings: settings), settings.popoverWidth), value: $settings.popoverWidth, in: 300...800, step: 10)
                 Stepper(String(format: L("Popover Height: %d", settings: settings), settings.popoverHeight), value: $settings.popoverHeight, in: 300...1000, step: 10)
             }
@@ -107,13 +106,12 @@ struct SettingsView: View {
         .padding()
     }
 
-    /// Gelişmiş ayarları içeren görünüm.
     private var advancedSettings: some View {
         Form {
             Section(header: Text(L("Keyword Expansion", settings: settings))) {
                 Toggle(L("Enable Keyword Expansion", settings: settings), isOn: $settings.isKeywordExpansionEnabled)
                     .help(L("When enabled, typing a keyword (e.g., ;sig) will automatically replace it with the corresponding content.", settings: settings))
-                
+
                 if settings.isKeywordExpansionEnabled {
                     Stepper(String(format: L("Snippet Timeout: %.1f seconds", settings: settings), settings.snippetTimeoutDuration), value: $settings.snippetTimeoutDuration, in: 1.0...10.0, step: 0.5)
                         .disabled(!settings.isKeywordExpansionEnabled)
@@ -130,7 +128,7 @@ struct SettingsView: View {
         case "dark":
             return .dark
         default:
-            return nil // Sistem varsayılanını kullan
+            return nil
         }
     }
 
@@ -148,7 +146,6 @@ struct HotkeySettingsView: View {
 
     var body: some View {
         HStack {
-            // Çözüm: Toggle'ların stilini .button olarak değiştirerek daha kompakt ve standart bir görünüm elde ediyoruz.
             modifierToggle(label: "⌘", flag: .command)
             modifierToggle(label: "⇧", flag: .shift)
             modifierToggle(label: "⌥", flag: .option)
@@ -157,9 +154,8 @@ struct HotkeySettingsView: View {
             TextField(L("Key", settings: settings), text: $hotkeyKey)
                 .frame(width: 80)
                 .multilineTextAlignment(.center)
-                .textFieldStyle(.roundedBorder) // Metnin görünür olmasını sağlamak için stil ekle.
+                .textFieldStyle(.roundedBorder)
                 .onChange(of: hotkeyKey) { newValue in
-                    // Sadece tek bir karakter girilmesini sağla
                     if newValue.count > 1 {
                         hotkeyKey = String(newValue.prefix(1))
                     }
@@ -167,7 +163,6 @@ struct HotkeySettingsView: View {
         }
     }
 
-    /// Değiştirici tuşlar için bir Toggle oluşturan yardımcı fonksiyon.
     private func modifierToggle(label: String, flag: NSEvent.ModifierFlags) -> some View {
         Toggle(label, isOn: Binding(
             get: { hotkeyModifiers & flag.rawValue != 0 },

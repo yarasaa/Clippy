@@ -4,6 +4,7 @@
 //
 //  Created by Mehmet Akbaba on 6.10.2025.
 //
+
 @preconcurrency import ImageIO
 import AppKit
 import UniformTypeIdentifiers
@@ -13,7 +14,7 @@ import ScreenCaptureKit
 @available(macOS 12.3, *)
 class ScreenshotManager: NSObject {
     static let shared = ScreenshotManager()
-    
+
     enum CaptureMode {
         case interactive
         case window
@@ -22,7 +23,7 @@ class ScreenshotManager: NSObject {
 
     func captureArea(mode: CaptureMode, completion: @escaping (NSImage) -> Void) {
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("screenshot-\(UUID().uuidString).png")
-        
+
         let task = Process()
         task.launchPath = "/usr/sbin/screencapture"
 
@@ -35,7 +36,7 @@ class ScreenshotManager: NSObject {
         case .fullScreen:
             arguments.append("-C")
         }
-        
+
         arguments.append(tempURL.path)
         task.arguments = arguments
 
@@ -61,8 +62,7 @@ class ScreenshotManager: NSObject {
 
         task.launch()
     }
-    
-    /// Başarı bildirimi göster
+
     private func showSuccessNotification(url: URL) {
         let alert = NSAlert()
         alert.messageText = "✅ Başarıyla Kaydedildi"
@@ -70,21 +70,20 @@ class ScreenshotManager: NSObject {
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Finder'da Göster")
         alert.addButton(withTitle: "Tamam")
-        
+
         if alert.runModal() == .alertFirstButtonReturn {
             NSWorkspace.shared.activateFileViewerSelecting([url])
         }
     }
 }
 
-// MARK: - CGImage Extension
 extension CGImage {
     func toPixelBuffer(width: Int, height: Int) -> CVPixelBuffer? {
         let attrs = [
             kCVPixelBufferCGImageCompatibilityKey: kCFBooleanTrue,
             kCVPixelBufferCGBitmapContextCompatibilityKey: kCFBooleanTrue
         ] as CFDictionary
-        
+
         var pixelBuffer: CVPixelBuffer?
         let status = CVPixelBufferCreate(
             kCFAllocatorDefault,
@@ -94,14 +93,14 @@ extension CGImage {
             attrs,
             &pixelBuffer
         )
-        
+
         guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
             return nil
         }
-        
+
         CVPixelBufferLockBaseAddress(buffer, [])
         defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
-        
+
         guard let context = CGContext(
             data: CVPixelBufferGetBaseAddress(buffer),
             width: width,
@@ -113,9 +112,9 @@ extension CGImage {
         ) else {
             return nil
         }
-        
+
         context.draw(self, in: CGRect(x: 0, y: 0, width: width, height: height))
-        
+
         return buffer
     }
 }

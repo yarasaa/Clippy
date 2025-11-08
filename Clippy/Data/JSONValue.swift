@@ -5,6 +5,7 @@
 //  Created by Mehmet Akbaba on 25.09.2025.
 //
 
+
 import Foundation
 
 enum JSONValue: Hashable, Identifiable {
@@ -45,7 +46,7 @@ enum JSONValue: Hashable, Identifiable {
             return nil
         }
     }
-    
+
     var hasChildren: Bool {
         switch self {
         case .array(let array): return !array.isEmpty
@@ -53,7 +54,7 @@ enum JSONValue: Hashable, Identifiable {
         default: return false
         }
     }
-    
+
     var stringValue: String {
         switch self {
         case .string(let val):
@@ -71,7 +72,7 @@ enum JSONValue: Hashable, Identifiable {
             return self.jsonString ?? ""
         }
     }
-    
+
     var jsonString: String? {
         let anyValue = self.toAny()
         guard let data = try? JSONSerialization.data(withJSONObject: anyValue, options: [.prettyPrinted, .sortedKeys]) else {
@@ -79,7 +80,7 @@ enum JSONValue: Hashable, Identifiable {
         }
         return String(data: data, encoding: .utf8)
     }
-    
+
     private func toAny() -> Any {
         switch self {
         case .string(let val): return val

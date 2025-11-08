@@ -5,6 +5,7 @@
 //  Created by Mehmet Akbaba on 17.09.2025.
 //
 
+
 import SwiftUI
 import CoreData
 
@@ -13,17 +14,16 @@ struct ClipboardDetailView: View {
     @ObservedObject var monitor: ClipboardMonitor
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.dismiss) var dismiss
-    
+
     @State private var didCopy = false
     @State private var isScanning = false
     @State private var showAppPicker = false
 
-    // Değişiklikleri yerel state'te tutarak performansı artır
     @State private var editedText: String?
     @State private var editedTitle: String?
     @State private var editedKeyword: String?
     @State private var editedAppRules: String?
-    
+
     var body: some View {
         VStack(spacing: 0) {
             Group {
@@ -38,7 +38,6 @@ struct ClipboardDetailView: View {
                     )
                 } else if item.contentType == "text" {
                     VStack(spacing: 0) {
-                        // Başlık Giriş Alanı
                         TextField(L("Enter a title... (optional)", settings: settings), text: Binding(
                             get: { editedTitle ?? item.title ?? "" },
                             set: { editedTitle = $0 }
@@ -46,7 +45,7 @@ struct ClipboardDetailView: View {
                         .textFieldStyle(.plain)
                         .font(.title2.weight(.semibold))
                         .padding([.horizontal, .top])
-                        
+
                         Divider()
 
                         ZStack(alignment: .bottomTrailing) {
@@ -56,7 +55,7 @@ struct ClipboardDetailView: View {
                             ))
                             .font(.body)
                             .padding(5)
-                            
+
                             if let color = item.toClipboardItem().color {
                                 color
                                     .frame(width: 80, height: 80)
@@ -79,7 +78,6 @@ struct ClipboardDetailView: View {
 
             HStack {
                 VStack(alignment: .leading, spacing: 8) {
-                    // Anahtar Kelime
                     HStack {
                         Label(L("Keyword", settings: settings), systemImage: "keyboard")
                         TextField(L("e.g., ;sig", settings: settings), text: Binding(
@@ -88,13 +86,12 @@ struct ClipboardDetailView: View {
                         ))
                         .textFieldStyle(.roundedBorder)
                     }
-                    
-                    // Uygulama Kuralları
+
                     HStack {
                         Label(L("Apps", settings: settings), systemImage: "app.dashed")
-                        
+
                         let identifiers = (editedAppRules ?? item.applicationRules ?? "").split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-                        
+
                         if identifiers.isEmpty {
                             Text(L("All Apps", settings: settings)).foregroundColor(.secondary).padding(.horizontal, 4)
                         } else {
@@ -106,7 +103,7 @@ struct ClipboardDetailView: View {
                                 }
                             }
                         }
-                        
+
                         Button(L("Select...", settings: settings)) {
                             showAppPicker = true
                         }
@@ -131,7 +128,7 @@ struct ClipboardDetailView: View {
                     .help(L("Recognize text in this image", settings: settings))
                     .disabled(isScanning)
                 }
-                
+
                 Button {
                     monitor.copyToClipboard(item: item.toClipboardItem())
                     withAnimation { didCopy = true }
@@ -147,21 +144,20 @@ struct ClipboardDetailView: View {
                     }
                 }
                 .help(L("Copy", settings: settings))
-                
+
                 if editedText != nil || editedTitle != nil || editedKeyword != nil || editedAppRules != nil {
                     Button(L("Save", settings: settings)) {
-                        // Sadece değişen alanları kaydet
                         if let newText = editedText, newText != item.content { item.content = newText }
-                        
+
                         let newTitle = editedTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
                         if newTitle != item.title { item.title = (newTitle?.isEmpty ?? true) ? nil : newTitle }
-                        
+
                         let newKeyword = editedKeyword?.trimmingCharacters(in: .whitespacesAndNewlines)
                         if newKeyword != item.keyword { item.keyword = (newKeyword?.isEmpty ?? true) ? nil : newKeyword }
-                        
+
                         let newRules = editedAppRules?.trimmingCharacters(in: .whitespacesAndNewlines)
                         if newRules != item.applicationRules { item.applicationRules = (newRules?.isEmpty ?? true) ? nil : newRules }
-                        
+
                         monitor.scheduleSave()
                         dismiss()
                     }.keyboardShortcut("s", modifiers: .command)
@@ -173,16 +169,13 @@ struct ClipboardDetailView: View {
         }
         .preferredColorScheme(colorScheme)
         .onAppear {
-            // State'i sadece bir kez, görünüm ilk açıldığında doldur.
             editedTitle = item.title
             editedText = item.content
             editedKeyword = item.keyword
             editedAppRules = item.applicationRules
             if item.contentType == "image" {
-                // Resim detay ekranı açıldığında renkleri otomatik olarak çıkar.
                 Task {
                     if let imagePath = item.content, let _ = monitor.loadImage(from: imagePath) {
-                        // self.extractedColors = await monitor.extractDominantColors(from: image) // Bu satır kaldırıldı
                     }
                 }
             }
@@ -194,9 +187,9 @@ struct ClipboardDetailView: View {
             ))
             .environmentObject(settings)
         }
-        .frame(minWidth: 450, idealWidth: 600, maxWidth: .infinity, minHeight: 350, idealHeight: 500, maxHeight: .infinity) // Pencerenin yeniden boyutlandırılabilir olmasını sağlar.
+        .frame(minWidth: 450, idealWidth: 600, maxWidth: .infinity, minHeight: 350, idealHeight: 500, maxHeight: .infinity)
     }
-    
+
     private var colorScheme: ColorScheme? {
         switch settings.appTheme {
         case "light":
@@ -207,12 +200,9 @@ struct ClipboardDetailView: View {
             return nil
         }
     }
-    
+
 }
 
-// MARK: - Statistics Subviews
-
-/// Metin istatistiklerini (karakter, kelime, satır) gösteren görünüm.
 struct TextStatsView: View {
     let text: String
     @EnvironmentObject var settings: SettingsManager
@@ -241,7 +231,6 @@ struct TextStatsView: View {
     }
 }
 
-/// Tek bir istatistik öğesini (değer ve etiket) gösteren küçük görünüm.
 struct StatItem: View {
     let label: String
     let value: Int

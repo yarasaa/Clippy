@@ -5,16 +5,17 @@
 //  Created by Mehmet Akbaba on 25.09.2025.
 //
 
+
 import SwiftUI
 
 struct JSONDetailView: View {
     @State private var editedText: String
     let onSave: (String) -> Void
     @EnvironmentObject var settings: SettingsManager
-    
+
     @State private var parsedValue: JSONValue?
     @State private var parseError: String?
-    
+
     @State private var showRawText = false
 
     init(initialText: String, onSave: @escaping (String) -> Void) {
@@ -52,7 +53,7 @@ struct JSONDetailView: View {
         .onAppear(perform: parseJSON)
         .onChange(of: editedText, perform: { _ in parseJSON() })
     }
-    
+
     @ViewBuilder
     private var headerView: some View {
         HStack {
@@ -64,9 +65,9 @@ struct JSONDetailView: View {
                 Label(L("Valid JSON", settings: settings), systemImage: "checkmark.circle.fill")
                     .foregroundColor(.green)
             }
-            
+
             Spacer()
-            
+
             Button {
                 showRawText.toggle()
             } label: {
@@ -74,7 +75,7 @@ struct JSONDetailView: View {
             }
             .buttonStyle(.borderless)
             .help(showRawText ? L("Show Tree View", settings: settings) : L("Edit Raw Text", settings: settings))
-            
+
             Button(L("Save", settings: settings)) {
                 onSave(editedText)
             }
@@ -100,7 +101,7 @@ struct JSONDetailView: View {
             self.parsedValue = nil
             return
         }
-        
+
         guard let data = editedText.data(using: .utf8) else {
             self.parseError = "Could not encode text to UTF-8."
             self.parsedValue = nil

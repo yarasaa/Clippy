@@ -1,3 +1,4 @@
+
 import SwiftUI
 
 struct ClipboardListView: View {

@@ -5,6 +5,7 @@
 //  Created by Gemini Code Assist on 7.10.2025.
 //
 
+
 import SwiftUI
 
 struct AppPickerView: View {

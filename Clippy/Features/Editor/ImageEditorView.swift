@@ -2,18 +2,18 @@
 //  ImageEditorView.swift
 //  Clippy
 
+
 import SwiftUI
 
-/// Bir resimden renk seçmek için kullanılan özel görünüm.
 struct ImageEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var settings: SettingsManager
 
     let image: NSImage
-    
+
     @State private var zoomScale: CGFloat = 1.0
     @State private var viewOffset: CGVector = .zero
-    
+
     @State private var showCopiedBanner = false
     @State private var copiedColorHex: String = ""
 
@@ -28,7 +28,7 @@ struct ImageEditorView: View {
                         copyColorToClipboard(color)
                     }
                 )
-                
+
                 if showCopiedBanner {
                     Text(String(format: L("Saved %@ to History", settings: settings), copiedColorHex))
                         .padding(.vertical, 8)
@@ -78,15 +78,14 @@ struct ImageEditorView: View {
         let blue = Int(round(rgbColor.blueComponent * 255))
 
         let hexString = String(format: "#%02X%02X%02X", red, green, blue)
-        
+
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(hexString, forType: .string)
-        
-        // Yeni bir pano öğesi oluştur ve geçmişe ekle.
+
         let newItem = ClipboardItem(contentType: .text(hexString), date: Date(), sourceAppName: L("Color Picker", settings: settings), sourceAppBundleIdentifier: "com.yarasa.Clippy.ColorPicker")
         PasteManager.shared.clipboardMonitor?.addNewItem(newItem)
-        
+
         copiedColorHex = hexString
         withAnimation {
             showCopiedBanner = true
@@ -105,8 +104,6 @@ struct ImageEditorView: View {
     }
 }
 
-// MARK: - Drawing Canvas
-
 struct DrawingCanvas: NSViewRepresentable {
     let image: NSImage
     @Binding var zoomScale: CGFloat
@@ -120,7 +117,7 @@ struct DrawingCanvas: NSViewRepresentable {
         view.delegate = context.coordinator
         context.coordinator.onColorPick = onColorPick
         return view
-        
+
     }
 
     func updateNSView(_ nsView: DrawingNSView, context: Context) {
@@ -139,11 +136,11 @@ struct DrawingCanvas: NSViewRepresentable {
         init(parent: DrawingCanvas) {
             self.parent = parent
         }
-        
+
         func didPickColor(_ color: NSColor) {
             onColorPick?(color)
         }
-        
+
         func didUpdateZoom(scale: CGFloat, offset: CGVector) {
             parent.zoomScale = scale
             parent.viewOffset = offset

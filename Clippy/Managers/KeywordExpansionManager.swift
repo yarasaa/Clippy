@@ -5,6 +5,7 @@
 //  Created by Mehmet Akbaba on 29.09.2025.
 //
 
+
 import AppKit
 import Combine
 import CoreData
@@ -18,12 +19,11 @@ class KeywordExpansionManager {
     weak var appDelegate: AppDelegate?
     private(set) var isEnabled = false
     private var cancellable: AnyCancellable?
-    
+
     private var keywordCache: [String: String] = [:]
     private var contextualRulesCache: [String: [String]] = [:]
     private let viewContext = PersistenceController.shared.container.viewContext
 
-    // Dinamik içerik için formatlayıcı
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
@@ -31,7 +31,6 @@ class KeywordExpansionManager {
     }()
 
     init() {
-        // Ayarlardaki değişiklikleri dinle ve monitörü otomatik olarak başlat/durdur.
         cancellable = SettingsManager.shared.$isKeywordExpansionEnabled
             .receive(on: DispatchQueue.main)
             .sink { [weak self] shouldBeEnabled in
@@ -49,9 +48,9 @@ class KeywordExpansionManager {
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.handleKeyEvent(event)
         }
-        
+
         reloadCache()
-        
+
         NotificationCenter.default.addObserver(self, selector: #selector(handleKeywordsChanged), name: .keywordsDidChange, object: nil)
         isEnabled = true
 
@@ -70,7 +69,7 @@ class KeywordExpansionManager {
 
     private func handleKeyEvent(_ event: NSEvent) {
         guard let characters = event.charactersIgnoringModifiers, !characters.isEmpty else { return }
-        
+
         let typedChar = characters.first!
 
         if typedChar == triggerCharacter {
@@ -93,86 +92,73 @@ class KeywordExpansionManager {
 
     private func checkBufferForKeyword() {
         let keywordToFind = currentBuffer
-        
+
         guard let rawContent = keywordCache[keywordToFind] else { return }
-        
+
         if let allowedApps = contextualRulesCache[keywordToFind], !allowedApps.isEmpty {
-            guard let frontmostAppId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier, // Mevcut aktif uygulamanın kimliğini al
+            guard let frontmostAppId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
                   allowedApps.contains(frontmostAppId) else {
                 return
             }
         }
-        
+
         processAndPasteContent(rawContent, keywordLength: keywordToFind.count)
     }
-    
+
     private func processAndPasteContent(_ content: String, keywordLength: Int) {
-        // Dinamik içerik işleme (örn: {{DATE}})
         let processedContent = processDynamicPlaceholders(in: content)
 
-        // Parametreli genişletme kontrolü (örn: {parametre})
         let parameters = findParameters(in: processedContent)
         if !parameters.isEmpty {
-            // Diyalog penceresi açılmadan ÖNCE aktif olan uygulamayı sakla.
             let targetApp = NSWorkspace.shared.frontmostApplication
-            
-            // Silme işlemini yapıp diyalog penceresini göster
+
             PasteManager.shared.deleteBackward(times: keywordLength) {
                 DispatchQueue.main.async {
                     self.appDelegate?.showParameterInputDialog(parameters: parameters) { [weak self] filledValues in
-                        guard let self = self, let values = filledValues else { // Kullanıcı iptal ettiğinde veya self nil olduğunda.
+                        guard let self = self, let values = filledValues else {
                             self?.resetBuffer()
                             return
                         }
-                        
+
                         var finalContent = processedContent
-                        // Değerleri yer tutucularla değiştir
                         for (key, value) in values {
                             finalContent = finalContent.replacingOccurrences(of: "{\(key)}", with: value)
                         }
-                        
-                        // Son metni yapıştır
+
                         PasteManager.shared.pasteText(finalContent, into: targetApp)
                         self.resetBuffer()
                     }
                 }
             }
         } else {
-            // Parametre yoksa, doğrudan yapıştır
             replaceKeywordWith(content: processedContent, keywordLength: keywordLength)
             resetBuffer()
         }
     }
-    
-    /// Dinamik yer tutucuları gerçek verilerle değiştirir.
+
     private func processDynamicPlaceholders(in content: String) -> String {
         var processedContent = content
-        
-        // {{DATE}} -> 2025-10-04
+
         if content.contains("{{DATE}}") {
             processedContent = processedContent.replacingOccurrences(of: "{{DATE}}", with: dateFormatter.string(from: Date()))
         }
-        
-        // {{TIME}} -> 15:30:25
+
         if content.contains("{{TIME}}") {
             let timeFormatter = DateFormatter()
             timeFormatter.dateFormat = "HH:mm:ss"
             processedContent = processedContent.replacingOccurrences(of: "{{TIME}}", with: timeFormatter.string(from: Date()))
         }
-        
-        // {{DATETIME}} -> 2025-10-04 15:30
+
         if content.contains("{{DATETIME}}") {
             let dateTimeFormatter = DateFormatter()
             dateTimeFormatter.dateFormat = "yyyy-MM-dd HH:mm"
             processedContent = processedContent.replacingOccurrences(of: "{{DATETIME}}", with: dateTimeFormatter.string(from: Date()))
         }
-        
-        // {{UUID}} -> Yeni bir UUID
+
         if content.contains("{{UUID}}") {
             processedContent = processedContent.replacingOccurrences(of: "{{UUID}}", with: UUID().uuidString)
         }
-        
-        // {{CLIPBOARD}} -> Panodaki mevcut metin
+
         if content.contains("{{CLIPBOARD}}") {
             let pasteboard = NSPasteboard.general
             let clipboardContent = pasteboard.string(forType: .string) ?? ""
@@ -181,11 +167,8 @@ class KeywordExpansionManager {
         return processedContent
     }
 
-    /// İçerikteki {parametre} formatındaki yer tutucuları bulur.
     private func findParameters(in content: String) -> [String] {
         do {
-            // Regex'i güncelleyerek `{` ve `}` arasındaki her şeyi yakalamasını sağla.
-            // Bu, {isim:tip=değer:seçenek1,seçenek2} gibi karmaşık yapıları destekler.
             let regex = try NSRegularExpression(pattern: "\\{([^{}]+)\\}")
             let results = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
             return results.map {
@@ -215,16 +198,16 @@ class KeywordExpansionManager {
         currentBuffer = ""
         bufferResetTimer?.invalidate()
     }
-    
+
     @objc private func handleKeywordsChanged() {
         print("🔄 Anahtar kelimeler değişti, önbellek yeniden yükleniyor...")
         reloadCache()
     }
-    
+
     private func reloadCache() {
         var newCache: [String: String] = [:]
         var newRulesCache: [String: [String]] = [:]
-        
+
         let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
         fetchRequest.predicate = NSPredicate(format: "keyword != nil AND keyword != ''")
 
@@ -233,7 +216,7 @@ class KeywordExpansionManager {
             for item in results {
                 if let keyword = item.keyword, !keyword.isEmpty, let content = item.content {
                     newCache[keyword] = content
-                    
+
                     if let rules = item.applicationRules, !rules.isEmpty {
                         let appIdentifiers = rules.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
                         newRulesCache[keyword] = appIdentifiers

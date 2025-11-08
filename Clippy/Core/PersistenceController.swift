@@ -5,6 +5,7 @@
 //  Created by Mehmet Akbaba on 22.09.2025.
 //
 
+
 import CoreData
 
 struct PersistenceController {
@@ -13,20 +14,17 @@ struct PersistenceController {
     let container: NSPersistentContainer
 
     init(inMemory: Bool = false) {
-        container = NSPersistentContainer(name: "Clippy") // Veri modelinizin adıyla eşleşmeli
+        container = NSPersistentContainer(name: "Clippy")
         if inMemory {
             container.persistentStoreDescriptions.first!.url = URL(fileURLWithPath: "/dev/null")
         }
-        
-        // Otomatik ve hafif veri modeli geçişlerini (migration) etkinleştir.
-        // Bu, gelecekte veri modeline yeni bir özellik eklendiğinde, Core Data'nın
-        // veritabanını otomatik olarak ve veri kaybı olmadan güncellemesini sağlar.
+
         guard let description = container.persistentStoreDescriptions.first else {
             fatalError("###< Persistence Error >### Failed to retrieve a persistent store description.")
         }
         description.shouldInferMappingModelAutomatically = true
         description.shouldMigrateStoreAutomatically = true
-        
+
         container.loadPersistentStores(completionHandler: { (storeDescription, error) in
             if let error = error as NSError? {
                 fatalError("Unresolved error \(error), \(error.userInfo)")

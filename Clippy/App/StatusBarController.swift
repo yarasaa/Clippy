@@ -5,6 +5,7 @@
 //  Created by Mehmet Akbaba on 17.09.2025.
 //
 
+
 import AppKit
 import SwiftUI
 import Combine
@@ -28,7 +29,6 @@ class StatusBarController: NSObject, NSPopoverDelegate {
         popover = NSPopover()
         super.init()        
 
-
         let hostingController = NSHostingController(rootView:
             ContentView()
                 .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
@@ -37,7 +37,7 @@ class StatusBarController: NSObject, NSPopoverDelegate {
         )
         popover.contentViewController = hostingController
         popover.behavior = .semitransient
-        
+
         let settings = SettingsManager.shared
         popover.contentSize = NSSize(width: settings.popoverWidth, height: settings.popoverHeight)
 
@@ -48,16 +48,16 @@ class StatusBarController: NSObject, NSPopoverDelegate {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         popover.delegate = self
-        
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleClosePopoverNotification),
             name: .closeClippyPopover,
             object: nil)
-        
+
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             guard let self = self, self.popover.isShown else { return }
-            
+
             if let popoverWindow = self.popover.contentViewController?.view.window {
                 let popoverFrame = popoverWindow.frame
                 if !popoverFrame.contains(event.locationInWindow) {
@@ -65,11 +65,10 @@ class StatusBarController: NSObject, NSPopoverDelegate {
                 }
             }
         }
-        
-        // ClipboardMonitor'daki değişiklikleri dinle ve ikonu güncelle.
+
         setupBindings()
     }
-    
+
     private func setupBindings() {
         clipboardMonitor.$isPastingFromQueue
             .combineLatest(clipboardMonitor.$sequentialPasteIndex, clipboardMonitor.$sequentialPasteQueueIDs)
@@ -78,22 +77,20 @@ class StatusBarController: NSObject, NSPopoverDelegate {
                 self?.updateStatusItem()
             }
             .store(in: &cancellables)
-        
+
         SettingsManager.shared.objectWillChange.receive(on: DispatchQueue.main).sink { [weak self] _ in
             self?.updatePopoverSize()
                 self?.updateStatusItem()
             }
             .store(in: &cancellables)
     }
-    
+
     private func updateStatusItem() {
         guard let button = statusItem.button else { return }
 
-        // Öncelik sırası: Kayıt > Yapıştırma > Normal
         if isRecording {
             button.image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Recording")
             button.title = ""
-            // Kırmızı renk uygula
             if let image = button.image {
                 image.isTemplate = false
                 let tinted = NSImage(size: image.size, flipped: false) { rect in
@@ -111,7 +108,6 @@ class StatusBarController: NSObject, NSPopoverDelegate {
         }
     }
 
-    /// Kayıt durumunu günceller ve ikonu değiştirir
     func updateRecordingState(isRecording: Bool) {
         self.isRecording = isRecording
         updateStatusItem()
@@ -121,10 +117,10 @@ class StatusBarController: NSObject, NSPopoverDelegate {
         let settings = SettingsManager.shared
         popover.contentSize = NSSize(width: settings.popoverWidth, height: settings.popoverHeight)
     }
-    
+
     @objc func togglePopover(_ sender: AnyObject?) {
         guard let button = statusItem.button else { return }
-        
+
         if let event = NSApp.currentEvent, event.type == .rightMouseUp {
             if let menu = rightClickMenu {
                 menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)

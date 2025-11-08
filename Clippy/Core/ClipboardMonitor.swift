@@ -5,6 +5,7 @@
 //  Created by Mehmet Akbaba on 17.09.2025.
 //
 
+
 import AppKit
 import Combine
 import SwiftUI
@@ -15,7 +16,6 @@ extension Notification.Name {
     static let keywordsDidChange = Notification.Name("com.yarasa.Clippy.keywordsDidChange")
 }
 
-/// Resimlerin birleştirilme yönünü belirtir.
 enum ImageOrientation {
     case vertical, horizontal
 }
@@ -26,7 +26,7 @@ class ClipboardMonitor: ObservableObject {
     @Published var selectedItemIDs: [UUID] = []
     weak var appDelegate: AppDelegate?
     @Published var sequentialPasteQueueIDs: [UUID] = []
-    
+
     @Published var sequentialPasteIndex: Int = 1
     @Published var isPastingFromQueue: Bool = false
     private var shouldAddToSequentialQueue = false
@@ -38,7 +38,7 @@ class ClipboardMonitor: ObservableObject {
     private var changeCount: Int
     private var monitoringTask: Task<Void, Error>?
     private var saveTask: Task<Void, Never>?
-    
+
     private let viewContext = PersistenceController.shared.container.viewContext
 
     init() {
@@ -71,7 +71,7 @@ class ClipboardMonitor: ObservableObject {
         let pb = NSPasteboard.general
         if pb.changeCount != changeCount {
             changeCount = pb.changeCount
-            
+
             if pb.types?.contains(PasteManager.pasteFromClippyType) == true {
                 return
             }
@@ -84,10 +84,10 @@ class ClipboardMonitor: ObservableObject {
                 let isCode = self.isLikelyCode(str)
                 let item = ClipboardItem(contentType: .text(str), date: Date(), isCode: isCode, sourceAppName: sourceAppName, sourceAppBundleIdentifier: sourceAppBundleIdentifier)
                 addNewItem(item)
-                
+
                 return
             }
-            
+
             if let image = pb.readObjects(forClasses: [NSImage.self], options: nil)?.first as? NSImage {
                 guard SettingsManager.shared.showImagesTab else {
                     print("ℹ️ Resim kaydetme ayarı kapalı. Kopyalanan resim yoksayıldı.")
@@ -113,7 +113,7 @@ class ClipboardMonitor: ObservableObject {
             try await Task(priority: .background) {
                 try pngData.write(to: fileURL)
             }.value
-            
+
             print("🖼️ Resim diske kaydedildi: \(fileName)")
             let item = ClipboardItem(contentType: .image(imagePath: fileName), date: Date(), sourceAppName: sourceAppName, sourceAppBundleIdentifier: sourceAppBundleIdentifier)
             self.addNewItem(item)
@@ -121,7 +121,7 @@ class ClipboardMonitor: ObservableObject {
             print("❌ Resim kaydetme hatası: \(error)")
         }
     }
-    
+
     func addImageToHistory(image: NSImage) {
         guard let newImagePath = saveImage(image) else {
             print("❌ Görüntü diske kaydedilemedi ve geçmişe eklenemedi.")
@@ -130,7 +130,7 @@ class ClipboardMonitor: ObservableObject {
         let newItem = ClipboardItem(contentType: .image(imagePath: newImagePath), date: Date(), sourceAppName: "Clippy Editor", sourceAppBundleIdentifier: "com.yarasa.Clippy.Editor")
         addNewItem(newItem)
     }
-    
+
     func saveEditedImage(_ image: NSImage, from originalItem: ClipboardItemEntity) {
         guard let imageData = image.tiffRepresentation,
               let imageRep = NSBitmapImageRep(data: imageData),
@@ -152,7 +152,7 @@ class ClipboardMonitor: ObservableObject {
             print("❌ Düzenlenmiş resmi kaydetme hatası: \(error)")
         }
     }
-    
+
     func recognizeText(for item: ClipboardItemEntity) async {
         guard item.contentType == "image",
               let imagePath = item.content,
@@ -170,37 +170,37 @@ class ClipboardMonitor: ObservableObject {
                 print("❌ OCR: Metin tanıma başarısız oldu - \(error?.localizedDescription ?? "Bilinmeyen hata")")
                 return
             }
-            
+
             let recognizedStrings = observations.compactMap { observation in
                 return observation.topCandidates(1).first?.string
             }
-            
+
             guard !recognizedStrings.isEmpty else {
                 print("ℹ️ OCR: Resimde metin bulunamadı.")
                 return
             }
-            
+
             let fullText = recognizedStrings.joined(separator: "\n")
-            
+
             let ocrItem = ClipboardItem(contentType: .text(fullText), date: Date(), isCode: self.isLikelyCode(fullText), sourceAppName: "Clippy OCR", sourceAppBundleIdentifier: "com.yarasa.Clippy.OCR")
             self.addNewItem(ocrItem)
             print("✅ OCR: Metin tanındı ve geçmişe eklendi.")
         }
-        
+
         var languages: [String] = []
         let currentLanguageCode = SettingsManager.shared.appLanguage
         if currentLanguageCode == "tr" {
             languages.append("tr-TR")
         }
         languages.append("en-US")
-        
+
         request.recognitionLevel = .accurate
         request.recognitionLanguages = languages
         print("ℹ️ OCR dilleri ayarlandı: \(languages)")
-        
+
         try? VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
     }
-    
+
     func addNewItem(_ item: ClipboardItem) {
         if self.shouldAddToSequentialQueue && self.isPastingFromQueue {
             self.sequentialPasteQueueIDs.removeAll()
@@ -223,7 +223,7 @@ class ClipboardMonitor: ObservableObject {
         newItemEntity.sourceAppName = item.sourceAppName
         newItemEntity.sourceAppBundleIdentifier = item.sourceAppBundleIdentifier
         newItemEntity.detectedDate = item.detectedDate
-        
+
         switch item.contentType {
         case .text(let text):
             newItemEntity.contentType = "text"
@@ -240,11 +240,11 @@ class ClipboardMonitor: ObservableObject {
     private func isDuplicateText(_ text: String) -> Bool {
         let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
         fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \ClipboardItemEntity.date, ascending: false)]
-        
+
         fetchRequest.predicate = NSPredicate(format: "isFavorite == NO AND contentType == 'text'")
-        
+
         fetchRequest.fetchLimit = 1
-        
+
         do {
             let lastItem = try viewContext.fetch(fetchRequest).first
             return lastItem?.content == text
@@ -253,12 +253,12 @@ class ClipboardMonitor: ObservableObject {
             return false
         }
     }
-    
+
     private func findEntity(for itemID: UUID) -> ClipboardItemEntity? {
         let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
         fetchRequest.predicate = NSPredicate(format: "id == %@", itemID as CVarArg)
         fetchRequest.fetchLimit = 1
-        
+
         do {
             let result = try viewContext.fetch(fetchRequest)
             return result.first
@@ -283,30 +283,25 @@ class ClipboardMonitor: ObservableObject {
                 }
             }
         }
-        
-        // Panoya, bu işlemin Clippy tarafından yapıldığını belirten özel bir tür ekle.
+
         pb.addTypes([PasteManager.pasteFromClippyType], owner: nil)
     }
 
-    // MARK: - Sequential Paste
-
-    /// Bir sonraki kopyalama işleminin sıralı yapıştırma kuyruğuna eklenmesi için monitörü hazırlar.
     func prepareForSequentialCopy() {
         shouldAddToSequentialQueue = true
         print("➡️ Sıralı kopyalama için hazır. Bir sonraki kopyalama kuyruğa eklenecek.")
     }
-    /// Sıradaki öğeyi yapıştırır.
     func pasteNextInSequence(completion: @escaping () -> Void) {
         guard !sequentialPasteQueueIDs.isEmpty else { return }
-        
+
         isPastingFromQueue = true
-        
+
         let itemID = sequentialPasteQueueIDs[sequentialPasteIndex]
         guard let itemToPaste = findEntity(for: itemID)?.toClipboardItem() else { return }
 
         PasteManager.shared.pasteItem(itemToPaste) { [weak self] in
             guard let self = self else { return }
-            
+
             if self.sequentialPasteIndex + 1 >= self.sequentialPasteQueueIDs.count {
                 self.clearSequentialPasteQueue()
             } else {
@@ -316,30 +311,25 @@ class ClipboardMonitor: ObservableObject {
         }
     }
 
-    /// Sıralı yapıştırma kuyruğunu ve ilgili durumları temizler.
     func clearSequentialPasteQueue() {
         sequentialPasteQueueIDs.removeAll()
         sequentialPasteIndex = 0
         isPastingFromQueue = false
         print("🧹 Sıralı yapıştırma kuyruğu temizlendi.")
     }
-    
-    /// Çoklu seçimle seçilen öğeleri, seçim sırasına göre sıralı yapıştırma kuyruğuna ekler.
+
     func addSelectionToSequentialQueue() {
         guard !selectedItemIDs.isEmpty else { return }
-        
-        // Mevcut kuyruğu temizle ve yeni seçimi kuyruk olarak ata.
+
         self.sequentialPasteQueueIDs = self.selectedItemIDs
-        
-        // Yapıştırma indeksini sıfırla ki baştan başlasın.
+
         self.sequentialPasteIndex = 0
         self.isPastingFromQueue = false
-        
+
         print("✅ \(selectedItemIDs.count) öğe sıralı yapıştırma kuyruğuna eklendi.")
-        
+
         clearSelection()
     }
-    // MARK: - Multi-select
 
     func toggleSelection(for itemID: UUID) {
         if let index = selectedItemIDs.firstIndex(of: itemID) {
@@ -361,7 +351,7 @@ class ClipboardMonitor: ObservableObject {
     func copySelectionToClipboard() {
         let pb = NSPasteboard.general
         pb.clearContents()
-        
+
         let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
         fetchRequest.predicate = NSPredicate(format: "id IN %@", selectedItemIDs)
         guard let selectedItems = try? viewContext.fetch(fetchRequest) else { return }
@@ -385,21 +375,18 @@ class ClipboardMonitor: ObservableObject {
         }
     }
 
-    /// Çoklu seçimdeki metin öğelerini birleştirerek sürükleme için bir NSItemProvider oluşturur.
     func createItemProviderForSelection() -> NSItemProvider {
         let combinedText = getCombinedTextForSelection()
-        
+
         return NSItemProvider(object: combinedText as NSString)
     }
 
-    /// Çoklu seçimdeki resim öğelerini belirtilen yönde birleştirir ve yeni bir öğe olarak geçmişe ekler.
     func combineSelectedImagesAsNewItem(orientation: ImageOrientation) {
         let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
         fetchRequest.predicate = NSPredicate(format: "id IN %@", selectedItemIDs)
-        
+
         guard let selectedItems = try? viewContext.fetch(fetchRequest) else { return }
 
-        // Resimleri, kullanıcının seçtiği sırayla yükle.
         let images = selectedItemIDs.compactMap { id -> (image: NSImage, sourceApp: String?)? in
             guard let item = selectedItems.first(where: { $0.id == id }),
                   item.contentType == "image",
@@ -411,7 +398,7 @@ class ClipboardMonitor: ObservableObject {
         }
 
         guard images.count > 1 else { return }
-        
+
         let imageList = images.map { $0.image }
         let combinedImage: NSImage?
 
@@ -441,28 +428,25 @@ class ClipboardMonitor: ObservableObject {
         scheduleSave()
     }
 
-    /// Bir öğenin şifreleme durumunu değiştirir (şifreler veya şifresini çözer).
     func toggleEncryption(for itemID: UUID) {
         guard let entity = findEntity(for: itemID) else { return }
         entity.isEncrypted.toggle()
         scheduleSave()
     }
 
-    /// Seçili olan tüm öğeleri siler.
     func deleteSelectedItems() {
         let idsToDelete = selectedItemIDs
-        
+
         let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
         fetchRequest.predicate = NSPredicate(format: "id IN %@", idsToDelete)
-        
+
         do {
             let itemsToDelete = try viewContext.fetch(fetchRequest)
             for item in itemsToDelete {
-                // `delete(item:)` içindeki mantığı yeniden kullanıyoruz.
                 delete(item: item, shouldSave: false)
             }
             clearSelection()
-            scheduleSave() // Tüm silme işlemleri bittikten sonra bir kez kaydet.
+            scheduleSave()
             print("🗑️ \(itemsToDelete.count) öğe silindi.")
         } catch {
             print("❌ Çoklu silme için öğeleri getirme hatası: \(error)")
@@ -478,12 +462,11 @@ class ClipboardMonitor: ObservableObject {
                 deleteImageFile(for: item)
             }
         }
-        
+
         viewContext.delete(item)
-        scheduleSave() // Tekli silme için hemen kaydet.
+        scheduleSave()
     }
 
-    /// Öğeyi siler ve isteğe bağlı olarak kaydetme işlemini zamanlar.
     private func delete(item: ClipboardItemEntity, shouldSave: Bool) {
         if item.contentType == "image" {
             if let path = item.content { imageCache.removeObject(forKey: path as NSString) }
@@ -514,7 +497,6 @@ class ClipboardMonitor: ObservableObject {
             predicates.append(NSPredicate(format: "(keyword == nil OR keyword == '')"))
             predicates.append(NSPredicate(format: "isFavorite == NO"))
             predicates.append(NSPredicate(format: "contentType == 'image'"))
-            // Resim dosyalarını da diskten sil
             let imagesFetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
             imagesFetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
             if let imagesToRemove = try? viewContext.fetch(imagesFetchRequest) {
@@ -522,7 +504,7 @@ class ClipboardMonitor: ObservableObject {
             }
         case .snippets:
             predicates.append(NSPredicate(format: "keyword != nil AND keyword != ''"))
-            
+
         case .favorites:
             let favFetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
             favFetchRequest.predicate = NSPredicate(format: "isFavorite == YES")
@@ -532,7 +514,7 @@ class ClipboardMonitor: ObservableObject {
             scheduleSave()
             return
         }
-        
+
         let fetchRequestToDelete: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
         fetchRequestToDelete.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
 
@@ -570,7 +552,7 @@ class ClipboardMonitor: ObservableObject {
                     let duplicateFetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
                     duplicateFetchRequest.predicate = NSPredicate(format: "content == %@", content)
                     duplicateFetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \ClipboardItemEntity.date, ascending: false)]
-                    
+
                     let items = try viewContext.fetch(duplicateFetchRequest)
                     for itemToDelete in items.dropFirst() {
                         viewContext.delete(itemToDelete)
@@ -594,7 +576,7 @@ class ClipboardMonitor: ObservableObject {
         let imageURL = appSupport
             .appendingPathComponent("Clippy/Images")
             .appendingPathComponent(path)
-        
+
         if let image = NSImage(contentsOf: imageURL) {
             imageCache.setObject(image, forKey: path as NSString)
             return image
@@ -602,19 +584,16 @@ class ClipboardMonitor: ObservableObject {
         return nil
     }
 
-    /// Bir resmin küçük boyutlu versiyonunu (thumbnail) yükler. Önce önbelleği kontrol eder.
     func loadThumbnail(from path: String) -> NSImage? {
         if let cachedThumbnail = thumbnailCache.object(forKey: path as NSString) {
             return cachedThumbnail
         }
 
-        // Eğer thumbnail önbellekte yoksa, orijinal resmi yükle.
         guard let originalImage = loadImage(from: path) else {
             return nil
         }
 
-        // Orijinal resimden bir thumbnail oluştur.
-        let thumbnailSize = NSSize(width: 80, height: 80) // Thumbnail boyutu
+        let thumbnailSize = NSSize(width: 80, height: 80)
         let thumbnail = NSImage(size: thumbnailSize)
         thumbnail.lockFocus()
         originalImage.draw(in: NSRect(origin: .zero, size: thumbnailSize),
@@ -623,7 +602,6 @@ class ClipboardMonitor: ObservableObject {
                            fraction: 1.0)
         thumbnail.unlockFocus()
 
-        // Oluşturulan thumbnail'i önbelleğe al ve döndür.
         thumbnailCache.setObject(thumbnail, forKey: path as NSString)
         return thumbnail
     }
@@ -639,7 +617,7 @@ class ClipboardMonitor: ObservableObject {
             if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
                 icon = NSWorkspace.shared.icon(forFile: appURL.path)
             }
-            
+
             if bundleIdentifier == "com.yarasa.Clippy.OCR" {
                 icon = NSImage(systemSymbolName: "text.viewfinder", accessibilityDescription: "OCR")
             }
@@ -655,11 +633,9 @@ class ClipboardMonitor: ObservableObject {
         }
     }
 
-    // MARK: - Content Transformation
-
     func transformText(for item: ClipboardItem, transformation: (String) -> String?) {
         guard item.isText, let transformedText = transformation(item.content) else { return }
-        
+
         let newItem = ClipboardItem(contentType: .text(transformedText),
                                     date: Date(),
                                     isCode: self.isLikelyCode(transformedText),
@@ -670,7 +646,7 @@ class ClipboardMonitor: ObservableObject {
     func updateText(for itemID: UUID, transformation: (String) -> String) {
         guard let entity = findEntity(for: itemID),
               let originalText = entity.content else { return }
-        
+
         let transformedText = transformation(originalText)
         entity.content = transformedText
         entity.isCode = self.isLikelyCode(transformedText)
@@ -689,24 +665,23 @@ class ClipboardMonitor: ObservableObject {
 
     func generateUUID() {
         let uuidString = UUID().uuidString
-        
+
         copyTextToClipboard(uuidString)
-        
+
         let item = ClipboardItem(contentType: .text(uuidString), date: Date(), isCode: true)
-        
+
         addNewItem(item)
     }
 
     func generateLoremIpsum() {
         let loremIpsumText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-        
+
         copyTextToClipboard(loremIpsumText)
-        
+
         let item = ClipboardItem(contentType: .text(loremIpsumText), date: Date())
         addNewItem(item)
     }
 
-    /// Belirtilen bir öğenin içeriğini "minified" JSON formatına dönüştürür ve günceller.
     func minifyJSON(for itemID: UUID) {
         guard let entity = findEntity(for: itemID),
               let originalText = entity.content,
@@ -756,13 +731,13 @@ class ClipboardMonitor: ObservableObject {
 
     func createCalendarEvent(for item: ClipboardItemEntity) {
         guard let startDate = item.detectedDate, let title = item.content else { return }
-        
+
         let endDate = startDate.addingTimeInterval(3600)
 
         let icsString = """
         BEGIN:VCALENDAR
         VERSION:2.0
-        PRODID:-//Yarasa//Clippy//EN
+        PRODID:-
         BEGIN:VEVENT
         UID:\(UUID().uuidString)
         DTSTAMP:\(formattedDate(Date()))
@@ -772,10 +747,10 @@ class ClipboardMonitor: ObservableObject {
         END:VEVENT
         END:VCALENDAR
         """
-        
+
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).ics")
         try? icsString.write(to: tempURL, atomically: true, encoding: .utf8)
-        
+
         NSWorkspace.shared.open(tempURL)
     }
     private func copyTextToClipboard(_ text: String) {
@@ -825,7 +800,7 @@ class ClipboardMonitor: ObservableObject {
     func rgbToHex(from rgb: String) -> String? {
         let pattern = #"rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)"#
         guard let match = rgb.range(of: pattern, options: .regularExpression) else { return nil }
-        
+
         let components = rgb[match]
             .replacingOccurrences(of: "rgba", with: "")
             .replacingOccurrences(of: "rgb", with: "")
@@ -837,7 +812,7 @@ class ClipboardMonitor: ObservableObject {
         guard components.count >= 3 else { return nil }
         return String(format: "#%02X%02X%02X", components[0], components[1], components[2])
     }
-    
+
     private func deleteImageFile(for item: ClipboardItemEntity) {
         guard item.contentType == "image", let imagePath = item.content,
               let imageDir = getImagesDirectory() else { return }
@@ -867,7 +842,7 @@ class ClipboardMonitor: ObservableObject {
         compositeImage.unlockFocus()
         return compositeImage
     }
-    
+
     private func combineImagesHorizontally(_ images: [NSImage]) -> NSImage? {
         guard !images.isEmpty else { return nil }
 
@@ -887,7 +862,7 @@ class ClipboardMonitor: ObservableObject {
         compositeImage.unlockFocus()
         return compositeImage
     }
-    
+
     private func saveImage(_ image: NSImage) -> String? {
         guard let imageData = image.tiffRepresentation,
               let imageRep = NSBitmapImageRep(data: imageData),
@@ -908,7 +883,6 @@ class ClipboardMonitor: ObservableObject {
             return nil
         }
     }
-
 
     func isLikelyCode(_ text: String) -> Bool {
         let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -941,7 +915,7 @@ class ClipboardMonitor: ObservableObject {
             }
         }
         if content.filter({ $0 == ":" }).count > 1 { score += 1 }
-        if content.contains("//") || content.contains("/*") || content.contains("*/") || content.contains("# ") {
+        if content.contains("//") || content.contains("") || content.contains("# ") {
             score += 3
         }
 
@@ -961,7 +935,6 @@ class ClipboardMonitor: ObservableObject {
             score += 2
         }
 
-        // 6. Girintileme ve Çoklu Satırlar
         let lines = content.split(separator: "\n")
         let hasIndentation = lines.contains { $0.starts(with: "    ") || $0.starts(with: "\t") }
         if hasIndentation { score += 2 } 
@@ -969,7 +942,6 @@ class ClipboardMonitor: ObservableObject {
 
         return score >= 4
     }
-    // MARK: - Persistence
      func getImagesDirectory() -> URL? {
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return nil
@@ -980,17 +952,16 @@ class ClipboardMonitor: ObservableObject {
         }
         return dir
     }
-    /// Tarihleri iCalendar formatına dönüştürmek için yardımcı fonksiyon.
     private func formattedDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         return formatter.string(from: date)
     }
-    
+
     func scheduleSave() {
         saveTask?.cancel()
-        
+
         saveTask = Task {
             do {
                 try await Task.sleep(for: .seconds(0.5))
@@ -1001,7 +972,7 @@ class ClipboardMonitor: ObservableObject {
 
     func saveContext() {
         guard viewContext.hasChanges else { return }
-        
+
         do {
             try viewContext.save()
             print("✅ Core Data context kaydedildi.")
@@ -1013,14 +984,14 @@ class ClipboardMonitor: ObservableObject {
     }
     private func applyLimits() {
         let settings = SettingsManager.shared
-        
+
         applyLimit(for: "text", isFavorite: false, limit: settings.historyLimit)
-        
+
         applyLimit(for: "image", isFavorite: false, limit: settings.imagesLimit, deleteFiles: true)
-        
+
         applyLimit(for: nil, isFavorite: true, limit: settings.favoritesLimit, deleteFiles: true)
     }
-    
+
     private func applyLimit(for contentType: String?, isFavorite: Bool, limit: Int, deleteFiles: Bool = false) {
         let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
         var predicates = [NSPredicate(format: "isFavorite == %@", NSNumber(value: isFavorite))]
@@ -1029,7 +1000,7 @@ class ClipboardMonitor: ObservableObject {
         }
         fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
         fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \ClipboardItemEntity.date, ascending: false)]
-        
+
         do {
             let results = try viewContext.fetch(fetchRequest)
             if results.count > limit {

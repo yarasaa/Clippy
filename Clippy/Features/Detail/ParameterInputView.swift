@@ -5,9 +5,9 @@
 //  Created by Gemini Code Assist on 4.10.2025.
 //
 
+
 import SwiftUI
 
-/// Parametre string'ini ayrıştırarak adı, tipi, varsayılan değeri ve seçenekleri içeren bir yapı.
 nonisolated struct ParameterDefinition {
     let rawValue: String
     let name: String
@@ -17,16 +17,14 @@ nonisolated struct ParameterDefinition {
 
     init(parameterString: String) {
         self.rawValue = parameterString
-        
-        // Varsayılan değeri ayır: {isim=değer:tip}
+
         let defaultValueParts = parameterString.split(separator: "=", maxSplits: 1).map(String.init)
         let mainPart = defaultValueParts[0]
         self.defaultValue = defaultValueParts.count > 1 ? defaultValueParts[1] : nil
 
-        // Tip ve seçenekleri ayır: {isim:tip:seçenekler}
         let typeParts = mainPart.split(separator: ":", maxSplits: 2).map(String.init)
         self.name = typeParts[0]
-        
+
         self.type = typeParts.count > 1 ? typeParts[1].lowercased() : "text"
 
         if self.type == "choice", typeParts.count > 2 {
@@ -50,7 +48,6 @@ struct ParameterInputView: View {
 
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        // ISO 8601 formatı, farklı lokasyonlarda tutarlılık sağlar.
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
@@ -66,12 +63,10 @@ struct ParameterInputView: View {
         self.parameters = parameters
         self.onConfirm = onConfirm
         self.onCancel = onCancel
-        
-        // Açık bir closure ile, nonisolated initializer’ı çağır.
+
         let defs = parameters.map { ParameterDefinition(parameterString: $0) }
         self.definitions = defs
-        
-        // Varsayılan değerleri ata
+
         _values = State(initialValue: defs.map { $0.defaultValue ?? "" })
     }
 
@@ -105,7 +100,6 @@ struct ParameterInputView: View {
         .padding(20)
         .frame(minWidth: 300)
         .onAppear {
-            // İlk alanı otomatik olarak odakla
             focusedField = 0
         }
     }
@@ -115,7 +109,7 @@ struct ParameterInputView: View {
         VStack(alignment: .leading) {
             Text(definition.name.capitalized)
                 .font(.headline)
-            
+
             switch definition.type {
             case "date":
                 DatePicker(
@@ -127,7 +121,7 @@ struct ParameterInputView: View {
                     displayedComponents: .date)
                     .labelsHidden()
                     .onAppear { if values[index].isEmpty { values[index] = dateFormatter.string(from: Date()) } }
-            
+
             case "time":
                 DatePicker(
                     "",
@@ -138,7 +132,7 @@ struct ParameterInputView: View {
                     displayedComponents: .hourAndMinute)
                     .labelsHidden()
                     .onAppear { if values[index].isEmpty { values[index] = timeFormatter.string(from: Date()) } }
-            
+
             case "choice":
                 Picker("", selection: $values[index]) {
                     ForEach(definition.options, id: \.self) { option in
@@ -148,7 +142,7 @@ struct ParameterInputView: View {
                 .labelsHidden()
                 .onAppear { if values[index].isEmpty { values[index] = definition.options.first ?? "" } }
 
-            default: // "text" ve diğer her şey
+            default:
                 TextField("", text: $values[index])
                     .textFieldStyle(.roundedBorder)
                     .focused($focusedField, equals: index)

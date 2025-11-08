@@ -5,6 +5,7 @@
 //  Created by Mehmet Akbaba on 21.09.2025.
 //
 
+
 import SwiftUI
 
 struct DiffView: View {
@@ -13,7 +14,7 @@ struct DiffView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var settings: SettingsManager
     @EnvironmentObject var monitor: ClipboardMonitor
-    
+
     @State private var copiedSide: Side?
 
     struct SplitDiffLine: Identifiable {
@@ -175,7 +176,7 @@ struct DiffView: View {
         pasteboard.setString(text, forType: .string)
         pasteboard.addTypes([PasteManager.pasteFromClippyType], owner: nil)
     }
-    
+
     private func handleCopy(for text: String, side: Side) {
         copyToClipboard(text)
         withAnimation {
@@ -187,6 +188,6 @@ struct DiffView: View {
             }
         }
     }
-    
+
     enum Side { case left, right }
 }
