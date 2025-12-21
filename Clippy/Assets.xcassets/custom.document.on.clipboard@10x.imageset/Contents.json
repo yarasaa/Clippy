@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "custom.document.on.clipboard@10x.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

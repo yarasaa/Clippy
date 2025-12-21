@@ -1,0 +1,48 @@
+import AppKit
+
+actor WindowCaptureService {
+
+    func captureWindows(for pid: pid_t) async -> [CapturedWindow] {
+        print("📸 WindowCaptureService: Capturing windows for PID \(pid)...")
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            print("🚫 WindowCaptureService: Failed to get window list from system.")
+            return []
+        }
+
+        var capturedWindows: [CapturedWindow] = []
+
+        for windowInfo in windowList {
+            guard let windowPID = windowInfo[kCGWindowOwnerPID as String] as? pid_t, windowPID == pid else {
+                continue
+            }
+
+            guard let app = NSRunningApplication(processIdentifier: windowPID) else {
+                continue
+            }
+
+            guard let layer = windowInfo[kCGWindowLayer as String] as? Int, layer == 0 else {
+                continue
+            }
+
+            guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                  let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: Any],
+                  let frame = CGRect(dictionaryRepresentation: boundsDict as CFDictionary) else {
+                continue
+            }
+
+            guard frame.width > 50 && frame.height > 50 else {
+                continue
+            }
+
+            let title = windowInfo[kCGWindowName as String] as? String
+            let ownerName = app.localizedName ?? "Bilinmeyen"
+            if let image = CGWindowListCreateImage(.null, .optionIncludingWindow, windowID, [.boundsIgnoreFraming, .bestResolution]) {
+                capturedWindows.append(CapturedWindow(image: image, windowID: windowID, frame: frame, title: title, ownerName: ownerName, pid: windowPID, ownerIcon: app.icon))
+            }
+        }
+
+        print("✅ WindowCaptureService: Finished capture. Found \(capturedWindows.count) valid windows for PID \(pid).")
+        return capturedWindows
+    }
+}

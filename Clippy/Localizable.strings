@@ -1,0 +1,347 @@
+/* 
+  Localizable.strings
+  Clippy
+
+  Created by Mehmet Akbaba on 4.10.2025.
+*/
+
+
+"About Clippy" = "Clippy Hakkında";
+"A powerful clipboard manager for macOS." = "macOS için güçlü bir pano yöneticisi.";
+"Add to Calendar" = "Takvime Ekle";
+"Add to Sequential Queue" = "Sıralı Kuyruğa Ekle";
+"Advanced" = "Gelişmiş";
+"All Lowercase" = "Tümü Küçük Harf";
+"All Uppercase" = "Tümü Büyük Harf";
+"Annotate or edit this image" = "Bu resmi düzenle veya not ekle";
+"Base64 Decode" = "Base64 Kod Çöz";
+"Base64 Encode" = "Base64 Kodla";
+"Buy me a coffee" = "Bana bir kahve ısmarla";
+"Cancel" = "İptal";
+"Capture Area" = "Alan Yakala";
+"Capture Screen" = "Ekran Yakala";
+"Capture Window" = "Pencere Yakala";
+"Characters" = "Karakter";
+"Clear items in current tab" = "Geçerli sekmedeki öğeleri temizle";
+"Clear Selection" = "Seçimi Temizle";
+"Clear Sequential Queue" = "Sıralı Kuyruğu Temizle";
+"Clippy" = "Clippy";
+"Clippy Combiner" = "Clippy Birleştirici";
+"Clippy Diff" = "Clippy Fark";
+"Clippy Editor" = "Clippy Düzenleyici";
+"Clippy OCR" = "Clippy Metin Tanıma";
+"Clippy Settings" = "Clippy Ayarları";
+"Close" = "Kapat";
+"History" = "Geçmiş";
+"Code" = "Kod";
+"Favorites" = "Favoriler";
+"Images" = "Resimler";
+"Combine Horizontally" = "Yatay Birleştir";
+"Combine Images" = "Resimleri Birleştir";
+"Combine Vertically" = "Dikey Birleştir";
+"Compare (select 2 text items)" = "Karşılaştır (2 metin öğesi seçin)";
+"Compare Differences" = "Farklılıkları Karşılaştır";
+"Compare..." = "Karşılaştır...";
+"Copied" = "Kopyalandı";
+"Copy" = "Kopyala";
+"Copy Key \"%@\"" = "Anahtarı Kopyala: \"%@\"";
+"Copy New Text" = "Yeni Metni Kopyala";
+"Copy Old Text" = "Eski Metni Kopyala";
+"Copy Path" = "Yolu Kopyala";
+"Copy Value" = "Değeri Kopyala";
+"Could not encode text to UTF-8." = "Metin UTF-8 olarak kodlanamadı.";
+"Decrypt Item" = "Şifreyi Çöz";
+"Delayed Screenshot (3s)" = "Gecikmeli Ekran Görüntüsü (3s)";
+"Delete" = "Sil";
+"Delete %d Items" = "%d Öğeyi Sil";
+"Detail" = "Detay";
+"e.g., ;imza" = "örn: ;imza";
+"Edit Image" = "Resmi Düzenle";
+"Edit Raw Text" = "Ham Metni Düzenle";
+"Editor" = "Düzenleyici";
+"Enable Keyword Expansion" = "Anahtar Kelime Genişletmeyi Etkinleştir";
+"Encode as JSON String" = "JSON String Olarak Kodla";
+"Decode from JSON String" = "JSON String Kodunu Çöz";
+"Encrypted Content" = "Şifreli İçerik";
+"Encrypt Item" = "Şifrele";
+"English" = "İngilizce";
+"Enter a title... (optional)" = "Bir başlık girin... (isteğe bağlı)";
+"Favorites Limit: %d" = "Favori Limiti: %d";
+"Format JSON" = "JSON Formatla";
+"General" = "Genel";
+"Search in clipboard history..." = "Pano geçmişinde ara...";
+"Search..." = "Ara...";
+"Generate" = "Oluştur";
+"Generate UUID" = "UUID Oluştur";
+"Generate Lorem Ipsum" = "Lorem Ipsum Oluştur";
+"GitHub Repository" = "GitHub Deposu";
+"History Limit: %d" = "Geçmiş Limiti: %d";
+"Image Limit: %d" = "Resim Limiti: %d";
+"Invalid JSON" = "Geçersiz JSON";
+"%d items selected" = "%d öğe seçildi";
+"Join All Lines" = "Tüm Satırları Birleştir";
+"JSON" = "JSON";
+"Key" = "Tuş";
+"Keyword:" = "Anahtar Kelime:";
+"Keyword Expansion" = "Anahtar Kelime Genişletme";
+"Language" = "Dil";
+"Launch Clippy on login" = "Oturum açıldığında Clippy'yi başlat";
+"Line Operations" = "Satır İşlemleri";
+"Lines" = "Satır";
+"Minify JSON" = "JSON Küçült";
+"Merge All" = "Tümünü Birleştir";
+"Merge all content from old to new" = "Tüm içeriği eskiden yeniye birleştir";
+"New Text" = "Yeni Metin";
+"OCR" = "Metin Tanıma";
+"Old Text" = "Eski Metin";
+"Open URL in Browser" = "URL'yi Tarayıcıda Aç";
+"Paste" = "Yapıştır";
+"Paste All" = "Hepsini Yapıştır";
+"Paste Selected" = "Seçilenleri Yapıştır";
+"Pause Keyword Expansion" = "Kelime Genişletmeyi Duraklat";
+"Quit Clippy" = "Clippy'den Çık";
+"Quality" = "Kalite";
+"Low" = "Düşük";
+"Medium" = "Orta";
+"High" = "Yüksek";
+"Frame Rate (FPS)" = "Kare Hızı (FPS)";
+"Recording" = "Kayıt";
+"Recording Options" = "Kayıt Seçenekleri";
+"Show Mouse Cursor" = "Fare İmlecini Göster";
+"Countdown" = "Geri Sayım";
+"None" = "Yok";
+"3 Seconds" = "3 Saniye";
+"5 Seconds" = "5 Saniye";
+"Recognize text in this image" = "Bu resimdeki metni tanı";
+"Record GIF or Video" = "GIF veya Video Kaydet";
+"Record GIF or Video..." = "GIF veya Video Kaydet...";
+"Remove Duplicate Lines" = "Yinelenen Satırları Sil";
+"Resume Keyword Expansion" = "Kelime Genişletmeye Devam Et";
+"Save" = "Kaydet";
+"Save & Close" = "Kaydet ve Kapat";
+"Scan Text" = "Metni Tara";
+"Sequential Copy" = "Sıralı Kopyala";
+"Sequential Paste" = "Sıralı Yapıştır";
+"Select an area to record\nESC to cancel" = "Kaydetmek istediğiniz alanı seçin\nESC ile iptal";
+"Settings" = "Ayarlar";
+"Show Code Tab" = "Kod Sekmesini Göster";
+"Show Favorites Tab" = "Favoriler Sekmesini Göster";
+"Show Images Tab" = "Resimler Sekmesini Göster";
+"Show Tree View" = "Ağaç Görünümünü Göster";
+"Show/Hide App" = "Uygulamayı Göster/Gizle";
+"Shortcuts" = "Kısayollar";
+"Storage Limits" = "Depolama Limitleri";
+"System Default" = "Sistem Varsayılanı";
+"Tab Visibility" = "Sekme Görünürlüğü";
+"Tabs" = "Sekmeler";
+"Title Case" = "Başlık Stili";
+"Toggle Keyword Expansion" = "Kelime Genişletmeyi Aç/Kapat";
+"Tool" = "Araç";
+"Tools" = "Araçlar";
+"Transform Text" = "Metni Dönüştür";
+"Trim Whitespace" = "Boşlukları Temizle";
+"Turkish" = "Türkçe";
+"Type this keyword in any app to paste the content." = "İçeriği yapıştırmak için bu anahtar kelimeyi herhangi bir uygulamada yazın.";
+"Undo last action" = "Son eylemi geri al";
+"Unknown App" = "Bilinmeyen Uygulama";
+"Valid JSON" = "Geçerli JSON";
+"Version %@ (%@)" = "Sürüm %@ (%@)";
+"When enabled, typing a keyword (e.g., ;sig) will automatically replace it with the corresponding content." = "Etkinleştirildiğinde, bir anahtar kelime (örn: ;imza) yazmak, onu otomatik olarak ilgili içerikle değiştirir.";
+"Words" = "Kelime";
+"Select Applications" = "Uygulama Seç";
+"Select the applications where this snippet will be active. If no app is selected, it will work in all apps." = "Bu snippet'in aktif olacağı uygulamaları seçin. Hiçbir uygulama seçilmezse, tüm uygulamalarda çalışır.";
+"Done" = "Bitti";
+"Apps" = "Uygulamalar";
+"All Apps" = "Tüm Uygulamalar";
+"Select..." = "Seç...";
+"Set Application Rules" = "Uygulama Kurallarını Ayarla";
+"Enter Snippet Values" = "Snippet Değerlerini Girin";
+"Fill in the Parameters" = "Parametreleri Doldurun";
+"Appearance" = "Görünüm";
+"Theme" = "Tema";
+"Light" = "Açık";
+"Dark" = "Koyu";
+"Popover Width: %d" = "Pencere Genişliği: %d";
+"Popover Height: %d" = "Pencere Yüksekliği: %d";
+"Snippets" = "Snippet'lar";
+
+/* Screenshot Editor */
+"Shapes" = "Şekiller";
+"Apply" = "Uygula";
+"Apply annotations to image" = "Notları resme uygula";
+"Clear All" = "Tümünü Temizle";
+"Remove all annotations" = "Tüm notları kaldır";
+"Save to a file..." = "Dosyaya kaydet...";
+"Close Editor" = "Düzenleyiciyi Kapat";
+"Copy Text from Image (OCR)" = "Resimden Metin Kopyala (OCR)";
+"Save to Clippy History" = "Clippy Geçmişine Kaydet";
+"Reset Pin" = "Pini Sıfırla";
+"Click to copy Hex code" = "Hex kodunu kopyalamak için tıkla";
+"Line Width" = "Çizgi Kalınlığı";
+"Small" = "İnce";
+"Medium" = "Orta";
+"Large" = "Kalın";
+"Shape" = "Şekil";
+"Color" = "Renk";
+
+/* Effects Panel */
+"Inset" = "İç Boşluk";
+"Shadow" = "Gölge";
+"Outer Radius" = "Dış Yarıçap";
+"Inner Radius" = "İç Yarıçap";
+"Color Type" = "Renk Tipi";
+"Solid" = "Düz Renk";
+"Colormix" = "Renk Karışımı";
+"Image" = "Resim";
+"Custom Color" = "Özel Renk";
+"Presets" = "Hazır Ayarlar";
+"Custom Gradient" = "Özel Degrade";
+"Start" = "Başlangıç";
+"End" = "Bitiş";
+"Direction" = "Yön";
+"Select an image for the backdrop" = "Arka plan için bir resim seçin";
+"Browse..." = "Gözat...";
+"Remove" = "Kaldır";
+"Ok" = "Tamam";
+"Top Left" = "Sol Üst";
+"Top" = "Üst";
+"Top Right" = "Sağ Üst";
+"Left" = "Sol";
+"Center" = "Orta";
+"Right" = "Sağ";
+"Bottom Left" = "Sol Alt";
+"Bottom" = "Alt";
+"Bottom Right" = "Sağ Alt";
+
+/* Fill Modes */
+"Stroke" = "Kenarlık";
+"Fill" = "Dolgu";
+"Both" = "İkisi de";
+
+/* Tools */
+"Pin" = "İğnele";
+"Select" = "Seç";
+"Move" = "Taşı";
+"Arrow" = "Ok";
+"Rectangle" = "Dikdörtgen";
+"Ellipse" = "Elips";
+"Line" = "Çizgi";
+"Text" = "Metin";
+"Pin" = "Pin";
+"Pixelate" = "Bulanıklaştır";
+"Eraser" = "Silgi";
+"Highlighter" = "İşaretleyici";
+"Spotlight" = "Spotlight";
+"Emoji" = "Emoji";
+"Pen" = "Kalem";
+
+/* Brush Styles */
+"Solid" = "Düz";
+"Dashed" = "Kesikli";
+"Marker" = "Marker";
+
+/* Snippet Features */
+"Preview" = "Önizleme";
+"Export Selected Snippet" = "Seçili Snippet'i Dışa Aktar";
+"Export All Snippets" = "Tüm Snippet'ları Dışa Aktar";
+"Import Snippets" = "Snippet'ları İçe Aktar";
+"Export Successful" = "Dışa Aktarma Başarılı";
+"Export Failed" = "Dışa Aktarma Başarısız";
+"Import Successful" = "İçe Aktarma Başarılı";
+"Import Failed" = "İçe Aktarma Başarısız";
+"Usage" = "Kullanım";
+"Last" = "Son";
+
+/* Export/Import Messages */
+"%d snippets were exported successfully." = "%d snippet başarıyla dışa aktarıldı.";
+"1 snippet was exported successfully." = "1 snippet başarıyla dışa aktarıldı.";
+"Failed to export snippet: %@" = "Snippet dışa aktarılamadı: %@";
+"Failed to export snippets: %@" = "Snippet'lar dışa aktarılamadı: %@";
+"%d snippets were imported successfully." = "%d snippet başarıyla içe aktarıldı.";
+"1 snippet was imported successfully." = "1 snippet başarıyla içe aktarıldı.";
+"Failed to import snippets: %@" = "Snippet'lar içe aktarılamadı: %@";
+"Select snippets JSON file to import" = "İçe aktarılacak snippet JSON dosyasını seçin";
+"Export snippet to JSON file" = "Snippet'i JSON dosyasına aktar";
+"Export snippets to JSON file" = "Snippet'ları JSON dosyasına aktar";
+
+/* Color Converter */
+"Convert Color" = "Rengi Dönüştür";
+
+/* Snippet Variables */
+"Variables" = "Değişkenler";
+"Snippet Variables" = "Snippet Değişkenleri";
+"Define global variables to use across all snippets" = "Tüm snippet'larda kullanmak için global değişkenler tanımlayın";
+"Variable Name (e.g., MY_NAME)" = "Değişken Adı (örn: ADIM)";
+"Value" = "Değer";
+"Add" = "Ekle";
+"Usage Example:" = "Kullanım Örneği:";
+"(empty)" = "(boş)";
+"No variables defined" = "Tanımlı değişken yok";
+"Name" = "Ad";
+"Edit" = "Düzenle";
+"Value (can use {{DATE}}, {{UUID}}, etc.)" = "Değer ({{DATE}}, {{UUID}}, vb. kullanılabilir)";
+"Tip: Use {{DATE}}, {{TIME}}, {{UUID}}, {{CLIPBOARD}} in values for dynamic content" = "İpucu: Dinamik içerik için değerlerde {{DATE}}, {{TIME}}, {{UUID}}, {{CLIPBOARD}} kullanabilirsiniz";
+
+/* Snippet Categories */
+"Categories" = "Kategoriler";
+"Snippet Categories" = "Snippet Kategorileri";
+"Organize your snippets with custom categories" = "Snippet'larınızı özel kategorilerle düzenleyin";
+"Category Name (e.g., Work)" = "Kategori Adı (örn: İş)";
+"Category" = "Kategori";
+"All" = "Tümü";
+"Email" = "Email";
+"Work" = "İş";
+"Personal" = "Kişisel";
+"Templates" = "Şablonlar";
+"Default" = "Varsayılan";
+"Tip: Click the icon to choose from common emojis" = "İpucu: Yaygın emojilerden seçmek için ikona tıklayın";
+"Enable Category System" = "Kategori Sistemini Etkinleştir";
+"When disabled, all snippets will be shown without category filtering" = "Kapatıldığında, tüm snippet'lar kategori filtresi olmadan gösterilir";
+
+/* Advanced Settings - Snippet */
+"Snippet Timeout: %.1f seconds" = "Snippet Zaman Aşımı: %.1f saniye";
+"Show Snippets Tab" = "Snippet'lar Sekmesini Göster";
+
+/* Advanced Settings - Dock Preview */
+"Dock Preview" = "Dock Önizleme";
+"Enable Dock Preview" = "Dock Önizleme'yi Etkinleştir";
+"Show window previews when hovering over dock icons" = "Dock simgelerinin üzerine gelindiğinde pencere önizlemeleri göster";
+"Animation Style" = "Animasyon Stili";
+"Spring" = "Yay";
+"Ease In Out" = "Yumuşak";
+"Linear" = "Doğrusal";
+"Preview Size" = "Önizleme Boyutu";
+"Extra Large" = "Ekstra Büyük";
+"Extra Extra Large" = "Çok Büyük";
+"Hover Delay:" = "Bekleme Süresi:";
+"Time to wait before showing preview (0s = instant)" = "Önizlemeyi göstermeden önce bekleme süresi (0s = anında)";
+"Show Window Titles" = "Pencere Başlıklarını Göster";
+"Enable Keyboard Shortcuts" = "Klavye Kısayollarını Etkinleştir";
+"Use 1-9, arrows, Enter, ESC to navigate window previews" = "Pencere önizlemelerinde gezinmek için 1-9, oklar, Enter, ESC kullanın";
+"Enable Trackpad Gestures" = "Trackpad Hareketlerini Etkinleştir";
+"Swipe Up Action" = "Yukarı Kaydırma Eylemi";
+"Swipe Down Action" = "Aşağı Kaydırma Eylemi";
+"Close Window" = "Pencereyi Kapat";
+"Minimize Window" = "Pencereyi Küçült";
+"Select Window" = "Pencereyi Seç";
+"Middle Click Action" = "Orta Tıklama Eylemi";
+"Enable Window Caching" = "Pencere Önbelleğini Etkinleştir";
+"Cache window previews for better performance" = "Daha iyi performans için pencere önizlemelerini önbelleğe al";
+"Performance & Memory" = "Performans ve Bellek";
+"Max Cache Size" = "Maksimum Önbellek Boyutu";
+"Unlimited" = "Sınırsız";
+"Auto-Clear on Memory Pressure" = "Bellek Baskısında Otomatik Temizle";
+"Automatically clear cache when system memory is low" = "Sistem belleği düşük olduğunda önbelleği otomatik temizle";
+"Clear Cache Now" = "Önbelleği Şimdi Temizle";
+"Manually clear all cached window previews" = "Önbelleğe alınmış tüm pencere önizlemelerini manuel olarak temizle";
+"Live Preview" = "Canlı Önizleme";
+"Enable Live Preview" = "Canlı Önizleme'yi Etkinleştir";
+"Show real-time live preview using ScreenCaptureKit (macOS 12.3+)" = "ScreenCaptureKit kullanarak gerçek zamanlı canlı önizleme göster (macOS 12.3+)";
+"Live preview uses ScreenCaptureKit to stream window content in real-time at 15 FPS. Perfect for monitoring Teams messages, videos, and dynamic content." = "Canlı önizleme, pencere içeriğini gerçek zamanlı olarak 15 FPS'de akıtmak için ScreenCaptureKit kullanır. Teams mesajları, videolar ve dinamik içerikleri izlemek için mükemmeldir.";
+
+/* Menu Items */
+"Disable Dock Preview & Switcher" = "Dock Önizleme ve Değiştiriciyi Devre Dışı Bırak";
+"Enable Dock Preview & Switcher" = "Dock Önizleme ve Değiştiriciyi Etkinleştir";
+"Take Screenshot" = "Ekran Görüntüsü Al";
+"App Switcher" = "Uygulama Değiştirici";
+"Maximum memory to use for caching window previews" = "Pencere önizlemelerini önbelleğe almak için kullanılacak maksimum bellek";
