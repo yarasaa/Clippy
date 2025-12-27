@@ -167,13 +167,18 @@ class PreviewPanelController {
         print("🖥️ [PreviewPanel] Positioning on screen: \(screen.localizedName)")
         let screenFrame = screen.visibleFrame
 
+        // Center horizontally around the dock icon or mouse position
         var x = point.x - (panelSize.width / 2)
 
+        // Position panel above the dock (10px from bottom of visible frame)
+        // This correctly handles different screens by using the screen's own frame
         var y = screenFrame.minY + 10
 
+        // Keep panel within screen bounds
         x = max(screenFrame.minX, min(x, screenFrame.maxX - panelSize.width))
         y = max(screenFrame.minY, min(y, screenFrame.maxY - panelSize.height))
 
+        print("📍 [PreviewPanel] Point: \(point), Screen frame: \(screenFrame), Panel position: (\(x), \(y))")
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
