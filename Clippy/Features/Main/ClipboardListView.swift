@@ -10,14 +10,13 @@ struct ClipboardListView: View {
 
     var body: some View {
         List {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            ForEach(items, id: \.id) { item in
                 ClipboardRowView(
                     item: item,
                     items: items,
                     comparisonData: $comparisonData,
                     monitor: monitor,
-                    selectedTab: selectedTab,
-                    itemIndex: index
+                    selectedTab: selectedTab
                 )
             }
         }

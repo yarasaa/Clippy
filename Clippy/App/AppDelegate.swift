@@ -29,6 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var sequentialPasteHotKey: HotKey?
     var clearQueueHotKey: HotKey?
     var screenshotHotKey: HotKey?
+    var quickPreviewHotKey: HotKey?
 
     private var dockPreviewCoordinator: DockPreviewCoordinator?
     private var dockPreviewCancellable: AnyCancellable?
@@ -202,32 +203,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @MainActor
     func requestAccessibilityPermissions() {
-        // Bu, kullanıcıya daha önce sorulmadıysa sistem istemini gösterir.
-        // Eğer daha önce reddedildiyse, hiçbir şey yapmaz, bu yüzden kendi uyarımızı göstermemiz gerekir.
+        // macOS'un kendi izin dialogunu tetikle (prompt: true).
+        // İlk seferde sistem dialogu gösterilir. Daha önce reddedildiyse
+        // macOS dialog göstermez ama Sistem Ayarları'nı otomatik açarız.
         let options: [String: Bool] = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-        if !AXIsProcessTrustedWithOptions(options as CFDictionary) {
-            let alert = NSAlert()
-            alert.messageText = "Erişilebilirlik İzni Gerekli"
-            alert.informativeText = "Clippy'nin bu özelliği kullanabilmesi için Erişilebilirlik iznine ihtiyacı var. Lütfen Sistem Ayarları'nda izni verin."
-            alert.addButton(withTitle: "Sistem Ayarları'nı Aç")
-            alert.addButton(withTitle: "İptal")
-            if alert.runModal() == .alertFirstButtonReturn {
-                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
-            }
-        }
+        _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
     }
 
     @MainActor
     func requestScreenCapturePermission() {
-        let alert = NSAlert()
-        alert.messageText = "Ekran Kaydı İzni Gerekli"
-        alert.informativeText = "Canlı pencere önizlemeleri özelliğinin çalışması için Clippy'nin Ekran Kaydı iznine ihtiyacı var. Lütfen Sistem Ayarları'nda izni verin."
-        alert.addButton(withTitle: "Sistem Ayarları'nı Aç")
-        alert.addButton(withTitle: "İptal")
-        if alert.runModal() == .alertFirstButtonReturn {
-            // Kullanıcıyı doğrudan Ekran Kaydı ayarlarına yönlendir.
-            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
-        }
+        // Kullanıcıyı doğrudan Ekran Kaydı ayarlarına yönlendir.
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
         // İzin verilmediği için özelliği devre dışı bırak.
         SettingsManager.shared.enableDockPreview = false
     }
@@ -239,6 +225,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateSequentialPasteHotkey()
         updateClearQueueHotkey()
         updateScreenshotHotkey()
+        updateQuickPreviewHotkey()
         // updateSwitcherHotkey() artık kullanılmıyor.
     }
 
@@ -302,7 +289,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func updateSequentialCopyHotkey() {
         let settings = SettingsManager.shared
-        guard !settings.sequentialCopyHotkeyKey.isEmpty, let key = Key(string: settings.sequentialCopyHotkeyKey.lowercased()) else {
+        guard settings.enableSequentialPaste,
+              !settings.sequentialCopyHotkeyKey.isEmpty,
+              let key = Key(string: settings.sequentialCopyHotkeyKey.lowercased()) else {
+            sequentialCopyHotKey = nil
             return
         }
         let modifiers = NSEvent.ModifierFlags(rawValue: settings.sequentialCopyHotkeyModifiers)
@@ -325,7 +315,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func updateSequentialPasteHotkey() {
         let settings = SettingsManager.shared
-        guard !settings.sequentialPasteHotkeyKey.isEmpty, let key = Key(string: settings.sequentialPasteHotkeyKey.lowercased()) else {
+        guard settings.enableSequentialPaste,
+              !settings.sequentialPasteHotkeyKey.isEmpty,
+              let key = Key(string: settings.sequentialPasteHotkeyKey.lowercased()) else {
+            sequentialPasteHotKey = nil
             return
         }
         let modifiers = NSEvent.ModifierFlags(rawValue: settings.sequentialPasteHotkeyModifiers)
@@ -344,7 +337,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func updateClearQueueHotkey() {
         let settings = SettingsManager.shared
-        guard !settings.clearQueueHotkeyKey.isEmpty, let key = Key(string: settings.clearQueueHotkeyKey.lowercased()) else {
+        guard settings.enableSequentialPaste,
+              !settings.clearQueueHotkeyKey.isEmpty,
+              let key = Key(string: settings.clearQueueHotkeyKey.lowercased()) else {
+            clearQueueHotKey = nil
             return
         }
         let modifiers = NSEvent.ModifierFlags(rawValue: settings.clearQueueHotkeyModifiers)
@@ -359,8 +355,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func updateScreenshotHotkey() {
         let settings = SettingsManager.shared
-        guard !settings.screenshotHotkeyKey.isEmpty, let key = Key(string: settings.screenshotHotkeyKey.lowercased()) else {
-            print("Geçersiz 'Ekran Görüntüsü Al' kısayol tuşu: \(settings.screenshotHotkeyKey)")
+        guard settings.enableScreenshot,
+              !settings.screenshotHotkeyKey.isEmpty,
+              let key = Key(string: settings.screenshotHotkeyKey.lowercased()) else {
             screenshotHotKey = nil
             return
         }
@@ -374,6 +371,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         print("✅ 'Ekran Görüntüsü Al' kısayolu güncellendi: \(modifiers) + \(key)")
     }
 
+    func updateQuickPreviewHotkey() {
+        let settings = SettingsManager.shared
+        guard settings.enableQuickPreview,
+              !settings.quickPreviewHotkeyKey.isEmpty,
+              let key = Key(string: settings.quickPreviewHotkeyKey.lowercased()) else {
+            quickPreviewHotKey = nil
+            return
+        }
+        let modifiers = NSEvent.ModifierFlags(rawValue: settings.quickPreviewHotkeyModifiers)
+
+        quickPreviewHotKey = nil
+        quickPreviewHotKey = HotKey(key: key, modifiers: modifiers)
+        quickPreviewHotKey?.keyDownHandler = {
+            QuickPreviewPanelController.shared.toggle()
+        }
+        print("✅ 'Hızlı Önizleme' kısayolu güncellendi: \(modifiers) + \(key)")
+    }
+
     private func createMenu() {
         let menu = NSMenu()
 
@@ -381,23 +396,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         aboutItem.target = self
         menu.addItem(aboutItem)
 
-        menu.addItem(NSMenuItem.separator())
+        if SettingsManager.shared.enableScreenshot {
+            menu.addItem(NSMenuItem.separator())
 
-        let captureAreaItem = NSMenuItem(title: L("Capture Area", settings: SettingsManager.shared), action: #selector(captureArea), keyEquivalent: "")
-        captureAreaItem.target = self
-        menu.addItem(captureAreaItem)
+            let captureAreaItem = NSMenuItem(title: L("Capture Area", settings: SettingsManager.shared), action: #selector(captureArea), keyEquivalent: "")
+            captureAreaItem.target = self
+            menu.addItem(captureAreaItem)
 
-        let captureScreenItem = NSMenuItem(title: L("Capture Screen", settings: SettingsManager.shared), action: #selector(captureFullScreen), keyEquivalent: "")
-        captureScreenItem.target = self
-        menu.addItem(captureScreenItem)
+            let captureScreenItem = NSMenuItem(title: L("Capture Screen", settings: SettingsManager.shared), action: #selector(captureFullScreen), keyEquivalent: "")
+            captureScreenItem.target = self
+            menu.addItem(captureScreenItem)
 
-        let captureWindowItem = NSMenuItem(title: L("Capture Window", settings: SettingsManager.shared), action: #selector(captureWindow), keyEquivalent: "")
-        captureWindowItem.target = self
-        menu.addItem(captureWindowItem)
+            let captureWindowItem = NSMenuItem(title: L("Capture Window", settings: SettingsManager.shared), action: #selector(captureWindow), keyEquivalent: "")
+            captureWindowItem.target = self
+            menu.addItem(captureWindowItem)
 
-        let captureDelayedItem = NSMenuItem(title: L("Delayed Screenshot (3s)", settings: SettingsManager.shared), action: #selector(captureDelayed), keyEquivalent: "")
-        captureDelayedItem.target = self
-        menu.addItem(captureDelayedItem)
+            let captureDelayedItem = NSMenuItem(title: L("Delayed Screenshot (3s)", settings: SettingsManager.shared), action: #selector(captureDelayed), keyEquivalent: "")
+            captureDelayedItem.target = self
+            menu.addItem(captureDelayedItem)
+        }
 
         menu.addItem(NSMenuItem.separator())
 
@@ -411,9 +428,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         toggleKeywordExpansionItem.target = self
         menu.addItem(toggleKeywordExpansionItem)
 
-        let clearQueueItem = NSMenuItem(title: L("Clear Sequential Queue", settings: SettingsManager.shared), action: #selector(clearSequentialQueue), keyEquivalent: "")
-        clearQueueItem.target = self
-        menu.addItem(clearQueueItem)
+        if SettingsManager.shared.enableSequentialPaste {
+            let clearQueueItem = NSMenuItem(title: L("Clear Sequential Queue", settings: SettingsManager.shared), action: #selector(clearSequentialQueue), keyEquivalent: "")
+            clearQueueItem.target = self
+            menu.addItem(clearQueueItem)
+        }
 
         menu.addItem(NSMenuItem.separator())
 

@@ -24,7 +24,13 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
 
 ![1762463406364](image/README/1762463406364.png)
 
-![1762464567469](image/README.tr/1762464567469.png)✨ Features
+![1762464567469](image/README.tr/1762464567469.png)
+
+![1771060978684](image/README/1771060978684.jpg)
+
+![1771061200942](image/README/1771061200942.jpg)
+
+✨ Features
 
 ### 📋 Core Clipboard Management
 
@@ -49,6 +55,59 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
 - **Combine Images:** Select multiple images with `Cmd`, right-click, and combine them into a single new image, either vertically or horizontally.
 - **Direct Paste:** Paste directly into the active application using the "Paste" button next to each item.
 
+### 🔮 Quick Preview Overlay
+
+A floating overlay panel that gives you instant access to your most recent clipboard items without opening the main window.
+
+- **Hotkey Activated:** Press `Cmd+Option+V` (customizable) to toggle the overlay from anywhere.
+- **Recent Items:** Shows your last N clipboard items (configurable 3-15, default 10).
+- **Click to Paste:** Click any item to paste it directly into the previously active application.
+- **Drag & Drop:** Drag items from the overlay directly into any application.
+- **Keyboard Navigation:** Press `ESC` to dismiss the overlay.
+- **Auto-close:** Automatically closes after pasting (configurable in Settings).
+- **Liquid Glass Design:** Modern translucent design that adapts to Light/Dark mode with smooth animations.
+- **Draggable Panel:** Drag the panel by its header to reposition it on screen.
+
+### 🤖 AI Smart Paste
+
+Transform your clipboard content with AI-powered text processing. Supports multiple providers including free local options.
+
+#### Supported Providers
+
+| Provider          | Cost             | Notes                                                |
+| ----------------- | ---------------- | ---------------------------------------------------- |
+| **Ollama**        | Free (Local)     | Runs on your machine. Install from ollama.com        |
+| **OpenAI**        | API Key Required | GPT-4o Mini, GPT-4o, GPT-4.1, o3-mini                |
+| **Anthropic**     | API Key Required | Claude Sonnet 4.5, Claude Haiku 4.5, Claude Opus 4.6 |
+| **Google Gemini** | API Key Required | Gemini 2.0 Flash, Gemini 2.5 Pro, Gemini 2.5 Flash   |
+
+#### Available AI Actions
+
+**Text Transformations:**
+
+- **Summarize** - Condense long text into a concise summary
+- **Expand** - Elaborate on short text while keeping the same tone
+- **Fix Grammar** - Correct grammar, spelling, and punctuation errors
+- **Translate** - Translate to 30+ languages (English, Turkish, Spanish, French, German, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, Hindi, and more)
+- **Bullet Points** - Convert text into organized bullet points
+- **Draft Email** - Transform notes into professional email format
+- **Free Prompt** - Write your own custom instructions for the AI
+
+**Code Operations (appears for code items):**
+
+- **Explain Code** - Get a clear explanation of what the code does
+- **Add Comments** - Automatically add helpful comments to code
+- **Find Bugs** - Analyze code for potential bugs and issues
+- **Optimize Code** - Get an optimized version with better performance
+
+#### How to Use
+
+1. Go to **Settings > AI** and enable AI features.
+2. Choose your provider and configure your API key (or Ollama URL).
+3. Use the **Test Connection** button to verify your setup.
+4. In the main list, click the wand icon (`✨`) on any text item to access AI actions.
+5. Results appear in a popover with **Copy Result** and **Replace Original** buttons.
+
 ### 🪟 Window Management
 
 - **Dock Preview:** Hover over any dock icon to see live previews of all open windows for that application
@@ -71,6 +130,7 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
   - Navigate with arrow keys or `Tab`
   - Press `Enter` to switch to selected application
   - Press `ESC` to cancel
+
 - **Quick Text Preview:** Hover over a text item to see its full content in the system's standard help tooltip.
 - **Encryption:** Encrypt sensitive data with a single click from the context menu. The content of encrypted items remains hidden until you decrypt them.
 - **Smart Detection:**
@@ -83,6 +143,7 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
     - **RGB/RGBA:** `rgb(255, 87, 51)`, `rgba(255, 87, 51, 0.8)`
     - **HSL/HSLA:** `hsl(9, 100%, 60%)`, `hsla(9, 100%, 60%, 0.8)`
     - Click the color preview to view and copy the color automatically converted to all formats
+
 - **Text Transformations:** Instantly transform text by clicking the `✨` icon:
   - All Uppercase
   - All Lowercase
@@ -92,6 +153,7 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
   - Remove Duplicate Lines
   - Join All Lines
   - **JSON String Encode/Decode:** Convert a raw string into a valid JSON string literal (`"text"`) for pasting into a JSON file, or reverse the process.
+
 - **Tools Menu:** Generate test data (UUID, Lorem Ipsum) or delete all items in the active tab from a single menu.
 - **Detailed Text Statistics:** View live character, word, and line counts in the detail screen for any text item.
 
@@ -103,7 +165,24 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
 - **Tab Management:** Hide the "Code," "Images," "Snippets," or "Favorites" tabs if you don't need them.
 - **Limit Settings:** Define the maximum number of items to keep in your history and favorites.
 - **Launch at Login:** Have Clippy start automatically when you log in to your Mac.
-- **Modern Settings Window:** Settings are grouped under "General," "Shortcuts," and "Advanced" tabs for a cleaner and more user-friendly experience.
+- **Modern Settings Window:** Settings are organized into **8 tabs** for easy navigation:
+  1. **General** - Launch at login, language, tab visibility, storage limits
+  2. **Appearance** - Theme (Light/Dark/System), window dimensions
+  3. **Shortcuts** - All keyboard shortcuts (fully customizable)
+  4. **Features** - Toggle individual features on/off:
+     - Auto Code Detection
+     - Content Detection (URLs, colors, dates, JSON)
+     - Duplicate Detection
+     - Source App Tracking
+     - Sequential Copy/Paste
+     - Screenshot Capture
+     - OCR Text Recognition
+     - Quick Preview Overlay
+     - Max Text Storage Length (50K - Unlimited)
+  5. **AI** - AI provider configuration, model selection, test connection
+  6. **Advanced** - Keyword expansion settings, Dock Preview configuration, performance & memory
+  7. **Variables** - Global snippet variable management
+  8. **Categories** - Snippet category management with emoji icons
 - **Sleep Mode Support:** After your computer wakes from sleep, all of Clippy's features (clipboard monitoring, shortcuts, keyword expansion) are automatically restarted and continue to work seamlessly.
 - **Advanced Window Management:** When the Settings or About window is open in the background, right-clicking the menu bar icon and selecting the same option again will automatically bring the window to the front. This feature works for minimized windows and correctly brings windows across different workspaces.
 
@@ -111,7 +190,6 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
 
 - **Capture with a Shortcut:** Take a screenshot of any area of your screen with a customizable keyboard shortcut.
 - **Rich Annotation Tools:**
-
   - **Select & Move:** Universal selection tool - select any annotation to move, edit, or delete it
   - **Arrow & Line:** Draw arrows and lines with customizable colors and thickness
   - **Shapes (Rectangle, Ellipse):** Add shapes with fill, stroke, or both modes, plus adjustable corner radius
@@ -125,7 +203,6 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
   - **Eraser:** Remove any annotation with a click
 
 - **Universal Annotation Interaction:**
-
   - **Click & Drag:** Click any annotation to select it, then drag to move it anywhere
   - **Double-Click Text:** Double-click text annotations to edit them instantly
   - **Resize Handles:** Most annotations have corner/edge handles for resizing
@@ -133,19 +210,16 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
   - **Auto-Switch to Select:** After creating shapes, automatically switches to select mode for easy editing
 
 - **Visual Effects Panel:**
-
   - **Backdrop:** Add solid color or gradient backdrops to your screenshot
   - **Inset:** Create an aesthetic margin between the image and the backdrop
   - **Shadow & Corner Radius:** Add depth and a modern look to your image and its backdrop
 
 - **Fluent Navigation:**
-
   - Precisely zoom in/out to your cursor's position with `Cmd` + Mouse Wheel
   - Pan around the image with the mouse wheel
   - Hover over any annotation to see the move cursor
 
 - **Smart Text Rendering:**
-
   - Text boxes auto-grow as you type (horizontally and vertically)
   - Multi-line text support with Enter key
   - Font size adjustments automatically resize the text box
@@ -171,7 +245,11 @@ This approach is heavily inspired by the elegant functionality of the beloved op
 
 ### ⚡️ Performance & Optimization
 
-- **Efficient Loading:** With Core Data batch fetching and thumbnail caching, the app now loads and scrolls through long lists of items, especially images, much faster and with significantly less memory usage.
+- **CoreData Indexes:** Optimized database queries with indexes on date, contentType, isFavorite, isPinned, keyword, isCode, and a compound index.
+- **Smart Caching:** NSCache with configurable memory limits for images (100MB), thumbnails (20MB), and app icons.
+- **Long Text Handling:** Automatic text truncation and size guards prevent freezes when copying very large text content.
+- **Efficient Loading:** Core Data batch fetching and thumbnail caching for fast scrolling through large lists.
+- **Memory Pressure Handling:** Automatic cache clearing when system memory is low.
 
 ### ⌨️ Keyword Expansion (Snippet Expansion)
 
@@ -433,7 +511,6 @@ These statistics help you see which snippets you use frequently and optimize you
 You can backup or share your snippets across different devices:
 
 - **Export:**
-
   - While in the Snippets tab, **right-click** on any snippet
   - **"Export Selected Snippet"** - Exports only that snippet
   - **"Export All Snippets"** - Saves all your snippets to a single JSON file
@@ -483,32 +560,44 @@ You can backup or share your snippets across different devices:
 - **Single Item:** Hover over an item and click the "Paste" button.
 - **Multiple Items:** Hold down `Cmd (⌘)` and click to select the items you want. Click the **"Paste All"** button that appears at the bottom of the window or use its shortcut (`Cmd (⌘) + Shift (⇧) + P`).
 
-3. **Other Actions (Right-Click Menu):**
+3. **Quick Preview:**
 
-- Right-click on an item to access all advanced actions like **Copy, Encrypt/Decrypt, Compare, Delete**, etc.
+- Press `Cmd+Option+V` to open the Quick Preview overlay.
+- Click any item to paste, or drag items to other applications.
 
-4. **Favoriting and Pinning:**
+4. **AI Transformations:**
+
+- Click the wand icon (`✨`) on any text item.
+- Select an AI action from the menu (Summarize, Translate, Fix Grammar, etc.).
+
+5. **Other Actions (Right-Click Menu):**
+
+- Right-click on an item to access all advanced actions like **Copy, Encrypt/Decrypt, AI Transform, Compare, Delete**, etc.
+
+6. **Favoriting and Pinning:**
 
 - Click the star (`☆`) icon to the left of any item to add or remove it from your favorites.
 - Click the pin (`📌`) icon next to the star to pin important items to the top of the list.
 
-5. **Settings:**
+7. **Settings:**
 
 - **Right-click** the Clippy icon in the menu bar and select "Settings...".
 - Or, use the standard macOS shortcut `Cmd (⌘) + ,`.
 
 ## ⌨️ Default Shortcuts
 
-| Action                  | Shortcut                      |
-| ----------------------- | ----------------------------- |
-| Show/Hide App           | `Cmd (⌘)` + `Shift (⇧)` + `V` |
-| Paste Selected          | `Cmd (⌘)` + `Shift (⇧)` + `P` |
-| Add to Sequential Queue | `Cmd (⌘)` + `Shift (⇧)` + `C` |
-| Paste Next in Sequence  | `Cmd (⌘)` + `Shift (⇧)` + `B` |
-| Clear Sequential Queue  | `Cmd (⌘)` + `Shift (⇧)` + `K` |
-| Take Screenshot         | `Cmd (⌘)` + `Shift (⇧)` + `1` |
-| Multi-Item Selection    | `Cmd (⌘)` + Click             |
-| Open Settings           | `Cmd (⌘)` + `,`               |
+| Action                  | Shortcut                       |
+| ----------------------- | ------------------------------ |
+| Show/Hide App           | `Cmd (⌘)` + `Shift (⇧)` + `V`  |
+| Paste Selected          | `Cmd (⌘)` + `Shift (⇧)` + `P`  |
+| Add to Sequential Queue | `Cmd (⌘)` + `Shift (⇧)` + `C`  |
+| Paste Next in Sequence  | `Cmd (⌘)` + `Shift (⇧)` + `B`  |
+| Clear Sequential Queue  | `Cmd (⌘)` + `Shift (⇧)` + `K`  |
+| Take Screenshot         | `Cmd (⌘)` + `Shift (⇧)` + `1`  |
+| Quick Preview Overlay   | `Cmd (⌘)` + `Option (⌥)` + `V` |
+| Window Switcher         | `Option (⌥)` + `Tab`           |
+| Multi-Item Selection    | `Cmd (⌘)` + Click              |
+| Open Settings           | `Cmd (⌘)` + `,`                |
 
 > **Note:** All keyboard shortcuts are fully customizable in the Settings menu.
 
@@ -524,7 +613,9 @@ Clippy needs **Accessibility** permission to paste text into other applications.
 
 The app will automatically show you a system prompt when it needs this permission. You can click the **"Open System Settings"** button in the prompt to go directly to the relevant settings menu and enable permission for Clippy.
 
-> **Privacy:** Clippy never sends your clipboard data to the internet. All your data is stored securely on your computer in the `~/Library/Application Support/Clippy/` folder, within a **Core Data** database (`Clippy.sqlite`).
+For **Dock Preview** with live window previews, **Screen Recording** permission is also required.
+
+> **Privacy:** Clippy never sends your clipboard data to the internet. All your data is stored securely on your computer in the `~/Library/Application Support/Clippy/` folder, within a **Core Data** database (`Clippy.sqlite`). AI features only send data when you explicitly trigger an AI action, and only to the provider you configured.
 
 ## 💖 Support & Contribute
 

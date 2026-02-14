@@ -9,6 +9,10 @@
 import Foundation
 import SwiftUI
 
+/// Maximum text length for running expensive detection functions (URL, color, date, JSON).
+/// Texts longer than this are treated as plain text to prevent UI freezes.
+private let kMaxDetectionLength = 50_000
+
 struct ClipboardItem: Identifiable, Equatable, Hashable, Codable {
     enum ContentType: Codable {
         case text(String)
@@ -57,15 +61,15 @@ struct ClipboardItem: Identifiable, Equatable, Hashable, Codable {
     }
 
     var isJSON: Bool {
-        guard isText,
-              let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines) as String?,
-              (trimmedContent.hasPrefix("{") && trimmedContent.hasSuffix("}")) || (trimmedContent.hasPrefix("[") && trimmedContent.hasSuffix("]")),
+        guard isText, content.count <= kMaxDetectionLength else { return false }
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (trimmedContent.hasPrefix("{") && trimmedContent.hasSuffix("}")) || (trimmedContent.hasPrefix("[") && trimmedContent.hasSuffix("]")),
               let data = trimmedContent.data(using: .utf8) else { return false }
 
         return (try? JSONSerialization.jsonObject(with: data, options: [])) != nil
     }
 
-    init(id: UUID = UUID(), contentType: ContentType, date: Date, isFavorite: Bool = false, isCode: Bool = false, title: String? = nil, isPinned: Bool = false, isEncrypted: Bool = false, keyword: String? = nil, sourceAppName: String? = nil, sourceAppBundleIdentifier: String? = nil, category: String? = nil, usageCount: Int32 = 0, lastUsedDate: Date? = nil) {
+    init(id: UUID = UUID(), contentType: ContentType, date: Date, isFavorite: Bool = false, isCode: Bool = false, title: String? = nil, isPinned: Bool = false, isEncrypted: Bool = false, keyword: String? = nil, sourceAppName: String? = nil, sourceAppBundleIdentifier: String? = nil, category: String? = nil, usageCount: Int32 = 0, lastUsedDate: Date? = nil, enableContentDetection: Bool = true) {
         let contentString: String
         if case .text(let string) = contentType {
             contentString = string
@@ -88,10 +92,18 @@ struct ClipboardItem: Identifiable, Equatable, Hashable, Codable {
         self.usageCount = usageCount
         self.lastUsedDate = lastUsedDate
 
-        self.isURL = Self.checkIfURL(contentString)
-        self.isHexColor = Self.checkIfHexColor(contentString)
-        self.detectedDate = Self.detectDate(in: contentString)
-        self.color = Self.createColor(from: contentString)
+        // Skip detection if disabled or text is too long
+        if enableContentDetection && contentString.count <= kMaxDetectionLength {
+            self.isURL = Self.checkIfURL(contentString)
+            self.isHexColor = Self.checkIfHexColor(contentString)
+            self.detectedDate = Self.detectDate(in: contentString)
+            self.color = Self.createColor(from: contentString)
+        } else {
+            self.isURL = false
+            self.isHexColor = false
+            self.detectedDate = nil
+            self.color = nil
+        }
     }
 
     init(content: String, date: Date) {
@@ -140,9 +152,15 @@ extension ClipboardItem {
         self.lastUsedDate = try container.decodeIfPresent(Date.self, forKey: .lastUsedDate)
         self.detectedDate = try container.decodeIfPresent(Date.self, forKey: .detectedDate)
 
-        self.isURL = Self.checkIfURL(contentString)
-        self.isHexColor = Self.checkIfHexColor(contentString)
-        self.color = Self.createColor(from: contentString)
+        if contentString.count <= kMaxDetectionLength {
+            self.isURL = Self.checkIfURL(contentString)
+            self.isHexColor = Self.checkIfHexColor(contentString)
+            self.color = Self.createColor(from: contentString)
+        } else {
+            self.isURL = false
+            self.isHexColor = false
+            self.color = nil
+        }
     }
 
     func encode(to encoder: Encoder) throws {

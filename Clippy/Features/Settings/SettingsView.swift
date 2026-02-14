@@ -33,6 +33,18 @@ struct SettingsView: View {
                 }
                 .tag("Shortcuts")
 
+            featuresSettings
+                .tabItem {
+                    Label(L("Features", settings: settings), systemImage: "checklist")
+                }
+                .tag("Features")
+
+            aiSettings
+                .tabItem {
+                    Label(L("AI", settings: settings), systemImage: "brain")
+                }
+                .tag("AI")
+
             advancedSettings
                 .tabItem {
                     Label(L("Advanced", settings: settings), systemImage: "sparkles")
@@ -114,9 +126,67 @@ struct SettingsView: View {
             Divider()
             shortcutRow(label: L("Take Screenshot", settings: settings), key: $settings.screenshotHotkeyKey, modifiers: $settings.screenshotHotkeyModifiers)
             Divider()
+            shortcutRow(label: L("Quick Preview", settings: settings), key: $settings.quickPreviewHotkeyKey, modifiers: $settings.quickPreviewHotkeyModifiers)
+            Divider()
             shortcutRow(label: L("App Switcher", settings: settings), key: $settings.switcherHotkeyKey, modifiers: $settings.switcherHotkeyModifiers)
         }
         .padding()
+    }
+
+    private var featuresSettings: some View {
+        ScrollView {
+            Form {
+                Section(header: Text(L("Clipboard Monitoring", settings: settings))) {
+                    Toggle(L("Auto Code Detection", settings: settings), isOn: $settings.enableAutoCodeDetection)
+                        .help(L("Automatically detect code snippets when copying text", settings: settings))
+
+                    Toggle(L("Content Detection", settings: settings), isOn: $settings.enableContentDetection)
+                        .help(L("Detect URLs, colors, dates, and JSON in clipboard content", settings: settings))
+
+                    Toggle(L("Duplicate Detection", settings: settings), isOn: $settings.enableDuplicateDetection)
+                        .help(L("Skip saving duplicate clipboard entries", settings: settings))
+
+                    Toggle(L("Source App Tracking", settings: settings), isOn: $settings.enableSourceAppTracking)
+                        .help(L("Track which application the content was copied from", settings: settings))
+                }
+
+                Section(header: Text(L("Tools", settings: settings))) {
+                    Toggle(L("Sequential Copy/Paste", settings: settings), isOn: $settings.enableSequentialPaste)
+                        .help(L("Enable sequential copy and paste queue", settings: settings))
+
+                    Toggle(L("Screenshot", settings: settings), isOn: $settings.enableScreenshot)
+                        .help(L("Enable screenshot capture feature", settings: settings))
+
+                    Toggle(L("OCR Text Recognition", settings: settings), isOn: $settings.enableOCR)
+                        .help(L("Enable text recognition from images", settings: settings))
+
+                    Toggle(L("Quick Preview Overlay", settings: settings), isOn: $settings.enableQuickPreview)
+                        .help(L("Show a floating panel with recent clipboard items via hotkey", settings: settings))
+
+                    if settings.enableQuickPreview {
+                        Stepper(String(format: L("Quick Preview Items: %d", settings: settings), settings.quickPreviewItemCount), value: $settings.quickPreviewItemCount, in: 3...15)
+
+                        Toggle(L("Auto-close after paste", settings: settings), isOn: $settings.quickPreviewAutoClose)
+                    }
+                }
+
+                Section(header: Text(L("Performance", settings: settings))) {
+                    Picker(L("Max Text Storage Length", settings: settings), selection: $settings.maxTextStorageLength) {
+                        Text("50K").tag(50_000)
+                        Text("100K").tag(100_000)
+                        Text("500K").tag(500_000)
+                        Text("1M").tag(1_000_000)
+                        Text(L("Unlimited", settings: settings)).tag(Int.max)
+                    }
+                    .help(L("Maximum character length for storing clipboard text. Longer texts will be truncated.", settings: settings))
+
+                    Text(L("Shorter limits improve performance with large texts", settings: settings))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding()
+        }
     }
 
     private var advancedSettings: some View {
@@ -254,6 +324,191 @@ struct SettingsView: View {
             }
             }
             .padding()
+        }
+    }
+
+    @State private var aiValidationState: AIValidationState = .idle
+    @State private var aiValidationMessage: String = ""
+    @State private var aiUseCustomModel: Bool = false
+
+    private enum AIValidationState {
+        case idle, testing, success, failure
+    }
+
+    private var modelsForProvider: [(name: String, label: String)] {
+        switch settings.aiProvider {
+        case "openai":
+            return [
+                ("gpt-4o-mini", "GPT-4o Mini (fast & cheap)"),
+                ("gpt-4o", "GPT-4o (best quality)"),
+                ("gpt-4.1-mini", "GPT-4.1 Mini"),
+                ("gpt-4.1", "GPT-4.1"),
+                ("o3-mini", "o3-mini (reasoning)"),
+            ]
+        case "anthropic":
+            return [
+                ("claude-sonnet-4-5-20250929", "Claude Sonnet 4.5"),
+                ("claude-haiku-4-5-20251001", "Claude Haiku 4.5 (fast)"),
+                ("claude-opus-4-6", "Claude Opus 4.6"),
+            ]
+        case "google":
+            return [
+                ("gemini-2.0-flash", "Gemini 2.0 Flash (fast)"),
+                ("gemini-2.5-pro", "Gemini 2.5 Pro (best)"),
+                ("gemini-2.5-flash", "Gemini 2.5 Flash"),
+            ]
+        default:
+            return []
+        }
+    }
+
+    private var isCustomModel: Bool {
+        let knownModels = modelsForProvider.map { $0.name }
+        return !knownModels.contains(settings.aiModel) && !settings.aiModel.isEmpty
+    }
+
+    private var aiSettings: some View {
+        ScrollView {
+            Form {
+                Section(header: Text(L("AI Assistant", settings: settings))) {
+                    Toggle(L("Enable AI Features", settings: settings), isOn: $settings.enableAI)
+                        .help(L("Enable AI-powered text transformations and analysis", settings: settings))
+                }
+
+                if settings.enableAI {
+                    Section(header: Text(L("Provider", settings: settings))) {
+                        Picker(L("AI Provider", settings: settings), selection: $settings.aiProvider) {
+                            Text("Ollama (\(L("Free, Local", settings: settings)))").tag("ollama")
+                            Text("OpenAI").tag("openai")
+                            Text("Anthropic").tag("anthropic")
+                            Text("Google Gemini").tag("google")
+                        }
+                        .onChange(of: settings.aiProvider) { _ in
+                            aiValidationState = .idle
+                            aiValidationMessage = ""
+                            aiUseCustomModel = false
+                            // Set default model for new provider
+                            if settings.aiProvider != "ollama" {
+                                let models = modelsForProvider
+                                if !models.isEmpty {
+                                    settings.aiModel = models[0].name
+                                }
+                            }
+                        }
+
+                        if settings.aiProvider == "ollama" {
+                            TextField(L("Ollama URL", settings: settings), text: $settings.ollamaURL)
+                                .textFieldStyle(.roundedBorder)
+
+                            TextField(L("Model", settings: settings), text: $settings.ollamaModel)
+                                .textFieldStyle(.roundedBorder)
+
+                            Text(L("Install Ollama from ollama.com and run: ollama pull llama3.2", settings: settings))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else {
+                            SecureField(L("API Key", settings: settings), text: $settings.aiAPIKey)
+                                .textFieldStyle(.roundedBorder)
+
+                            // Model picker with known models + custom option
+                            Picker(L("Model", settings: settings), selection: $settings.aiModel) {
+                                ForEach(modelsForProvider, id: \.name) { model in
+                                    Text(model.label).tag(model.name)
+                                }
+                                Divider()
+                                if isCustomModel || aiUseCustomModel {
+                                    Text(settings.aiModel).tag(settings.aiModel)
+                                }
+                                Text(L("Custom...", settings: settings)).tag("__custom__")
+                            }
+                            .onChange(of: settings.aiModel) { newValue in
+                                if newValue == "__custom__" {
+                                    aiUseCustomModel = true
+                                    settings.aiModel = ""
+                                } else {
+                                    aiUseCustomModel = false
+                                }
+                            }
+
+                            if aiUseCustomModel || isCustomModel {
+                                TextField(L("Custom Model Name", settings: settings), text: $settings.aiModel)
+                                    .textFieldStyle(.roundedBorder)
+                            }
+                        }
+
+                        // Test Connection Button
+                        HStack(spacing: 8) {
+                            Button {
+                                aiValidationState = .testing
+                                aiValidationMessage = ""
+                                Task {
+                                    let error = await AIService.shared.validateConnection()
+                                    await MainActor.run {
+                                        if let error = error {
+                                            aiValidationState = .failure
+                                            aiValidationMessage = error
+                                        } else {
+                                            aiValidationState = .success
+                                            aiValidationMessage = L("Connection successful!", settings: settings)
+                                        }
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    if aiValidationState == .testing {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    }
+                                    Text(L("Test Connection", settings: settings))
+                                }
+                            }
+                            .disabled(aiValidationState == .testing)
+
+                            switch aiValidationState {
+                            case .success:
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                            case .failure:
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.red)
+                            default:
+                                EmptyView()
+                            }
+                        }
+
+                        if !aiValidationMessage.isEmpty {
+                            Text(aiValidationMessage)
+                                .font(.caption)
+                                .foregroundColor(aiValidationState == .success ? .green : .red)
+                                .textSelection(.enabled)
+                        }
+                    }
+
+                    Section(header: Text(L("Available AI Actions", settings: settings))) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            aiActionRow(icon: "text.bubble", title: L("Summarize", settings: settings))
+                            aiActionRow(icon: "arrow.up.left.and.arrow.down.right", title: L("Expand", settings: settings))
+                            aiActionRow(icon: "checkmark.circle", title: L("Fix Grammar", settings: settings))
+                            aiActionRow(icon: "globe", title: L("Translate (any language)", settings: settings))
+                            aiActionRow(icon: "list.bullet", title: L("Convert to Bullet Points", settings: settings))
+                            aiActionRow(icon: "envelope", title: L("Draft Email", settings: settings))
+                            aiActionRow(icon: "chevron.left.forwardslash.chevron.right", title: L("Explain Code", settings: settings))
+                            aiActionRow(icon: "text.cursor", title: L("Free Prompt", settings: settings))
+                        }
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding()
+        }
+    }
+
+    private func aiActionRow(icon: String, title: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .frame(width: 16)
+            Text(title)
         }
     }
 

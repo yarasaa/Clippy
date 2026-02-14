@@ -28,7 +28,7 @@ struct ClipboardDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             Group {
-                if item.toClipboardItem().isJSON, let content = item.content {
+                if let content = item.content, content.count <= 50_000, item.toClipboardItem().isJSON {
                     JSONDetailView(
                         initialText: content,
                         onSave: { newText in
@@ -67,8 +67,8 @@ struct ClipboardDetailView: View {
             }
 
             HStack {
-                // Color preview on the left side
-                if let color = item.toClipboardItem().color {
+                // Color preview on the left side (only for short content that could be a color value)
+                if let content = item.content, content.count <= 50, let color = item.toClipboardItem().color {
                     color
                         .frame(width: 50, height: 50)
                         .cornerRadius(8)
@@ -152,7 +152,7 @@ struct ClipboardDetailView: View {
                     }
                 }
 
-                if item.contentType == "image" {
+                if item.contentType == "image" && settings.enableOCR {
                     Button {
                         isScanning = true
                         Task {

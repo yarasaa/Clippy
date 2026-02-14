@@ -244,7 +244,7 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
                 Spacer()
 
-                if monitor.selectedItemIDs.count > 1 {
+                if settings.enableSequentialPaste && monitor.selectedItemIDs.count > 1 {
                     Button {
                         monitor.addSelectionToSequentialQueue()
                     } label: {
@@ -275,6 +275,14 @@ struct ContentView: View {
 
 }
 
+struct AITransformState: Identifiable {
+    let id = UUID()
+    let text: String
+    let action: AIAction
+    var targetLanguage: String?
+    var customPrompt: String?
+}
+
 struct ComparisonData: Identifiable {
     let id = UUID()
     let oldItem: ClipboardItem
@@ -297,9 +305,18 @@ struct ClipboardRowView: View {
     @ObservedObject var monitor: ClipboardMonitor
     @EnvironmentObject var settings: SettingsManager
     let selectedTab: ContentView.Tab
-    var itemIndex: Int
 
     @State private var didCopy = false
+    @State private var aiTransformState: AITransformState? = nil
+
+    private let commonLanguages = [
+        "English", "Turkish", "Spanish", "French", "German",
+        "Italian", "Portuguese", "Russian", "Chinese", "Japanese",
+        "Korean", "Arabic", "Hindi", "Dutch", "Polish",
+        "Swedish", "Norwegian", "Danish", "Finnish", "Greek",
+        "Czech", "Romanian", "Hungarian", "Ukrainian", "Thai",
+        "Vietnamese", "Indonesian", "Malay", "Filipino", "Hebrew"
+    ]
 
     var body: some View {
         rowContent
@@ -327,7 +344,7 @@ struct ClipboardRowView: View {
 
             VStack {
                 if itemToShow.contentType == "text" {
-                    Text(itemToShow.content ?? "")
+                    Text(String((itemToShow.content ?? "").prefix(1000)))
                         .lineLimit(15)
                         .font(.body)
                 } else if itemToShow.contentType == "image", let imagePath = itemToShow.content {
@@ -368,7 +385,8 @@ struct ClipboardRowView: View {
 
             HStack(spacing: 0) {
                 if item.contentType == "text" {
-                    if item.toClipboardItem().isURL, let content = item.content, let url = URL(string: content) {
+                    if let content = item.content, content.count <= 2048,
+                       let url = URL(string: content), let scheme = url.scheme, ["http", "https"].contains(scheme) {
                         Button { NSWorkspace.shared.open(url) } label: {
                             Image(systemName: "safari")
                         }
@@ -400,6 +418,24 @@ struct ClipboardRowView: View {
             }
         }
         .contextMenu { contextMenuItems }
+        .popover(item: $aiTransformState) { state in
+            AITransformView(
+                text: state.text,
+                action: state.action,
+                targetLanguage: state.targetLanguage,
+                customPrompt: state.customPrompt,
+                onResult: { result in
+                    if let itemID = item.id {
+                        monitor.updateText(for: itemID, transformation: { _ in result })
+                    }
+                    aiTransformState = nil
+                },
+                onDismiss: {
+                    aiTransformState = nil
+                }
+            )
+            .environmentObject(settings)
+        }
     }
 
     @ViewBuilder
@@ -421,7 +457,7 @@ struct ClipboardRowView: View {
         }
         .buttonStyle(.plain)
         .overlay(alignment: .topTrailing) {
-            if monitor.isPastingFromQueue, let id = item.id, let queueIndex = monitor.sequentialPasteQueueIDs.firstIndex(of: id) {
+            if settings.enableSequentialPaste && monitor.isPastingFromQueue, let id = item.id, let queueIndex = monitor.sequentialPasteQueueIDs.firstIndex(of: id) {
                 let isNext = (queueIndex == monitor.sequentialPasteIndex % monitor.sequentialPasteQueueIDs.count)
 
                 Text("\(queueIndex + 1)")
@@ -467,16 +503,19 @@ struct ClipboardRowView: View {
                 }.font(.body)
             } else if item.contentType == "text" {
                 HStack(alignment: .center) {
-                    Text((item.content ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
+                    Text(String((item.content ?? "").trimmingCharacters(in: .whitespacesAndNewlines).prefix(500)))
                         .lineLimit(3)
                         .font(.body)
 
-                    if let color = item.toClipboardItem().color {
-                        SwiftUI.Rectangle()
-                            .fill(color)
-                            .frame(width: 18, height: 18)
-                            .cornerRadius(4)
-                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary, lineWidth: 0.5))
+                    // Only attempt color detection for short content (likely a color value)
+                    if let content = item.content, content.count <= 50 {
+                        if let color = item.toClipboardItem().color {
+                            SwiftUI.Rectangle()
+                                .fill(color)
+                                .frame(width: 18, height: 18)
+                                .cornerRadius(4)
+                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary, lineWidth: 0.5))
+                        }
                     }
                 }
             } else if item.contentType == "image" {
@@ -792,10 +831,37 @@ struct ClipboardRowView: View {
                         Button(L("Decode from JSON String", settings: settings)) { monitor.decodeFromJSONString(for: itemID) }
                     }
 
-                    if item.toClipboardItem().isJSON {
+                    // Only check JSON for reasonably sized text to prevent freezes
+                    if let content = item.content, content.count <= 50_000, item.toClipboardItem().isJSON {
                         Section(header: Text(L("JSON", settings: settings))) {
                             Button(L("Format JSON", settings: settings)) { monitor.formatJSON(for: itemID) }
                             Button(L("Minify JSON", settings: settings)) { monitor.minifyJSON(for: itemID) }
+                        }
+                    }
+
+                    // AI Transformations
+                    if settings.enableAI, AIService.shared.isConfigured, let content = item.content, !content.isEmpty {
+                        Divider()
+                        Section(header: Text(L("AI", settings: settings))) {
+                            Button(L("Summarize", settings: settings)) { runAIAction(.summarize, text: content) }
+                            Button(L("Expand", settings: settings)) { runAIAction(.expand, text: content) }
+                            Button(L("Fix Grammar", settings: settings)) { runAIAction(.fixGrammar, text: content) }
+                            Button(L("Convert to Bullet Points", settings: settings)) { runAIAction(.bulletPoints, text: content) }
+                            Button(L("Draft Email", settings: settings)) { runAIAction(.draftEmail, text: content) }
+
+                            Menu(L("Translate to...", settings: settings)) {
+                                ForEach(commonLanguages, id: \.self) { lang in
+                                    Button(lang) { runAIAction(.translate, text: content, targetLanguage: lang) }
+                                }
+                            }
+
+                            if item.isCode {
+                                Divider()
+                                Button(L("Explain Code", settings: settings)) { runAIAction(.explainCode, text: content) }
+                                Button(L("Add Comments", settings: settings)) { runAIAction(.addComments, text: content) }
+                                Button(L("Find Bugs", settings: settings)) { runAIAction(.findBugs, text: content) }
+                                Button(L("Optimize Code", settings: settings)) { runAIAction(.optimizeCode, text: content) }
+                            }
                         }
                     }
                 }
@@ -821,6 +887,10 @@ struct ClipboardRowView: View {
             }
         }
         return NSItemProvider()
+    }
+
+    private func runAIAction(_ action: AIAction, text: String, targetLanguage: String? = nil, customPrompt: String? = nil) {
+        aiTransformState = AITransformState(text: text, action: action, targetLanguage: targetLanguage, customPrompt: customPrompt)
     }
 
     private func getItemsToCompare() -> (ClipboardItemEntity, ClipboardItemEntity)? {

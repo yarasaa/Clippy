@@ -31,9 +31,23 @@ class ClipboardMonitor: ObservableObject {
     @Published var isPastingFromQueue: Bool = false
     private var shouldAddToSequentialQueue = false
 
-    private let imageCache = NSCache<NSString, NSImage>()
-    private let thumbnailCache = NSCache<NSString, NSImage>()
-    private let appIconCache = NSCache<NSString, NSImage>()
+    private let imageCache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 50
+        cache.totalCostLimit = 100 * 1024 * 1024 // 100MB
+        return cache
+    }()
+    private let thumbnailCache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 100
+        cache.totalCostLimit = 20 * 1024 * 1024 // 20MB
+        return cache
+    }()
+    private let appIconCache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 200
+        return cache
+    }()
 
     // Cached arrays for code detection (performance optimization)
     private static let codeKeywords = ["func", "class", "struct", "let", "var", "const", "import", "return", "if", "else", "for", "while", "public", "private", "static", "async", "await", "try", "catch", "extension", "protocol"]
@@ -84,9 +98,21 @@ class ClipboardMonitor: ObservableObject {
             let sourceAppName = frontmostApp?.localizedName
             let sourceAppBundleIdentifier = frontmostApp?.bundleIdentifier
 
-            if let str = pb.string(forType: .string), !str.isEmpty, !isDuplicateText(str) {
-                let isCode = self.isLikelyCode(str)
-                let item = ClipboardItem(contentType: .text(str), date: Date(), isCode: isCode, sourceAppName: sourceAppName, sourceAppBundleIdentifier: sourceAppBundleIdentifier)
+            let settings = SettingsManager.shared
+
+            if let str = pb.string(forType: .string), !str.isEmpty {
+                // Check duplicates if enabled
+                if settings.enableDuplicateDetection && isDuplicateText(str) {
+                    return
+                }
+
+                // Truncate extremely long texts based on settings
+                let maxStorageLength = settings.maxTextStorageLength
+                let textToStore = (maxStorageLength != Int.max && str.count > maxStorageLength) ? String(str.prefix(maxStorageLength)) : str
+                let isCode = settings.enableAutoCodeDetection ? self.isLikelyCode(textToStore) : false
+                let appName = settings.enableSourceAppTracking ? sourceAppName : nil
+                let appBundle = settings.enableSourceAppTracking ? sourceAppBundleIdentifier : nil
+                let item = ClipboardItem(contentType: .text(textToStore), date: Date(), isCode: isCode, sourceAppName: appName, sourceAppBundleIdentifier: appBundle, enableContentDetection: settings.enableContentDetection)
                 addNewItem(item)
 
                 return
@@ -250,8 +276,19 @@ class ClipboardMonitor: ObservableObject {
         fetchRequest.fetchLimit = 1
 
         do {
-            let lastItem = try viewContext.fetch(fetchRequest).first
-            return lastItem?.content == text
+            guard let lastItem = try viewContext.fetch(fetchRequest).first,
+                  let lastContent = lastItem.content else { return false }
+
+            // Quick length check before expensive string comparison
+            guard lastContent.count == text.count else { return false }
+
+            // For very long texts, compare prefix + suffix + length instead of full comparison
+            if text.count > 100_000 {
+                return lastContent.prefix(1000) == text.prefix(1000) &&
+                       lastContent.suffix(1000) == text.suffix(1000)
+            }
+
+            return lastContent == text
         } catch {
             print("❌ Yinelenen öğe kontrolü hatası: \(error)")
             return false
@@ -593,21 +630,42 @@ class ClipboardMonitor: ObservableObject {
             return cachedThumbnail
         }
 
-        guard let originalImage = loadImage(from: path) else {
+        guard let originalImage = loadImage(from: path),
+              let cgImage = originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             return nil
         }
 
         let thumbnailSize = NSSize(width: 80, height: 80)
-        let thumbnail = NSImage(size: thumbnailSize)
-        thumbnail.lockFocus()
-        originalImage.draw(in: NSRect(origin: .zero, size: thumbnailSize),
-                           from: NSRect(origin: .zero, size: originalImage.size),
-                           operation: .sourceOver,
-                           fraction: 1.0)
-        thumbnail.unlockFocus()
+        let bitmapRep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(thumbnailSize.width),
+            pixelsHigh: Int(thumbnailSize.height),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        )
 
-        thumbnailCache.setObject(thumbnail, forKey: path as NSString)
-        return thumbnail
+        if let bitmapRep = bitmapRep {
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmapRep)
+            NSImage(cgImage: cgImage, size: originalImage.size)
+                .draw(in: NSRect(origin: .zero, size: thumbnailSize),
+                      from: NSRect(origin: .zero, size: originalImage.size),
+                      operation: .sourceOver,
+                      fraction: 1.0)
+            NSGraphicsContext.restoreGraphicsState()
+
+            let thumbnail = NSImage(size: thumbnailSize)
+            thumbnail.addRepresentation(bitmapRep)
+            thumbnailCache.setObject(thumbnail, forKey: path as NSString)
+            return thumbnail
+        }
+
+        return nil
     }
 
     func loadIcon(for bundleIdentifier: String, completion: @escaping (NSImage?) -> Void) {
@@ -889,7 +947,14 @@ class ClipboardMonitor: ObservableObject {
     }
 
     func isLikelyCode(_ text: String) -> Bool {
-        let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // For very long texts, only analyze the first portion to prevent freezes
+        let maxAnalysisLength = 10_000
+        let content: String
+        if text.count > maxAnalysisLength {
+            content = String(text.prefix(maxAnalysisLength)).trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            content = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
 
         if let url = URL(string: content),
            let scheme = url.scheme,
@@ -929,18 +994,21 @@ class ClipboardMonitor: ObservableObject {
             score += 4
         }
 
-        let uuidPattern = "[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}"
-        if content.range(of: uuidPattern, options: .regularExpression) != nil {
-            score += 5
-        }
-        let camelCaseOrSnakeCase = "[a-z]+[A-Z][a-zA-Z]*|[a-z]+_[a-z]+"
-        if content.range(of: camelCaseOrSnakeCase, options: .regularExpression) != nil {
-            score += 2
+        // Only run regex on manageable text sizes
+        if content.count <= 5_000 {
+            let uuidPattern = "[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}"
+            if content.range(of: uuidPattern, options: .regularExpression) != nil {
+                score += 5
+            }
+            let camelCaseOrSnakeCase = "[a-z]+[A-Z][a-zA-Z]*|[a-z]+_[a-z]+"
+            if content.range(of: camelCaseOrSnakeCase, options: .regularExpression) != nil {
+                score += 2
+            }
         }
 
         let lines = content.split(separator: "\n")
         let hasIndentation = lines.contains { $0.starts(with: "    ") || $0.starts(with: "\t") }
-        if hasIndentation { score += 2 } 
+        if hasIndentation { score += 2 }
         if lines.count > 2 { score += 1 }
 
         return score >= 4
@@ -955,11 +1023,15 @@ class ClipboardMonitor: ObservableObject {
         }
         return dir
     }
-    private func formattedDate(_ date: Date) -> String {
+    private static let isoDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private func formattedDate(_ date: Date) -> String {
+        Self.isoDateFormatter.string(from: date)
     }
 
     func scheduleSave() {

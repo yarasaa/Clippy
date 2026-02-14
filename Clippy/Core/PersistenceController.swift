@@ -13,6 +13,12 @@ struct PersistenceController {
 
     let container: NSPersistentContainer
 
+    func newBackgroundContext() -> NSManagedObjectContext {
+        let context = container.newBackgroundContext()
+        context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        return context
+    }
+
     init(inMemory: Bool = false) {
         container = NSPersistentContainer(name: "Clippy")
         if inMemory {

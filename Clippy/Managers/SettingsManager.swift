@@ -157,6 +157,72 @@ class SettingsManager: ObservableObject {
         didSet { UserDefaults.standard.set(enableAutoRefresh, forKey: "enableAutoRefresh") }
     }
 
+    // MARK: - Feature Toggles
+
+    @Published var enableAutoCodeDetection: Bool {
+        didSet { UserDefaults.standard.set(enableAutoCodeDetection, forKey: "enableAutoCodeDetection") }
+    }
+    @Published var enableContentDetection: Bool {
+        didSet { UserDefaults.standard.set(enableContentDetection, forKey: "enableContentDetection") }
+    }
+    @Published var enableSequentialPaste: Bool {
+        didSet { UserDefaults.standard.set(enableSequentialPaste, forKey: "enableSequentialPaste") }
+    }
+    @Published var enableScreenshot: Bool {
+        didSet { UserDefaults.standard.set(enableScreenshot, forKey: "enableScreenshot") }
+    }
+    @Published var enableOCR: Bool {
+        didSet { UserDefaults.standard.set(enableOCR, forKey: "enableOCR") }
+    }
+    @Published var enableDuplicateDetection: Bool {
+        didSet { UserDefaults.standard.set(enableDuplicateDetection, forKey: "enableDuplicateDetection") }
+    }
+    @Published var enableSourceAppTracking: Bool {
+        didSet { UserDefaults.standard.set(enableSourceAppTracking, forKey: "enableSourceAppTracking") }
+    }
+    @Published var maxTextStorageLength: Int {
+        didSet { UserDefaults.standard.set(maxTextStorageLength, forKey: "maxTextStorageLength") }
+    }
+
+    // MARK: - Quick Preview Overlay
+
+    @Published var enableQuickPreview: Bool {
+        didSet { UserDefaults.standard.set(enableQuickPreview, forKey: "enableQuickPreview") }
+    }
+    @Published var quickPreviewHotkeyKey: String {
+        didSet { UserDefaults.standard.set(quickPreviewHotkeyKey, forKey: "quickPreviewHotkeyKey") }
+    }
+    @Published var quickPreviewHotkeyModifiers: UInt {
+        didSet { UserDefaults.standard.set(quickPreviewHotkeyModifiers, forKey: "quickPreviewHotkeyModifiers") }
+    }
+    @Published var quickPreviewItemCount: Int {
+        didSet { UserDefaults.standard.set(quickPreviewItemCount, forKey: "quickPreviewItemCount") }
+    }
+    @Published var quickPreviewAutoClose: Bool {
+        didSet { UserDefaults.standard.set(quickPreviewAutoClose, forKey: "quickPreviewAutoClose") }
+    }
+
+    // MARK: - AI Settings
+
+    @Published var enableAI: Bool {
+        didSet { UserDefaults.standard.set(enableAI, forKey: "enableAI") }
+    }
+    @Published var aiProvider: String {
+        didSet { UserDefaults.standard.set(aiProvider, forKey: "aiProvider") }
+    }
+    @Published var aiAPIKey: String {
+        didSet { UserDefaults.standard.set(aiAPIKey, forKey: "aiAPIKey") }
+    }
+    @Published var aiModel: String {
+        didSet { UserDefaults.standard.set(aiModel, forKey: "aiModel") }
+    }
+    @Published var ollamaURL: String {
+        didSet { UserDefaults.standard.set(ollamaURL, forKey: "ollamaURL") }
+    }
+    @Published var ollamaModel: String {
+        didSet { UserDefaults.standard.set(ollamaModel, forKey: "ollamaModel") }
+    }
+
     private init() {
         self.showCodeTab = UserDefaults.standard.object(forKey: "showCodeTab") as? Bool ?? true
         self.showImagesTab = UserDefaults.standard.object(forKey: "showImagesTab") as? Bool ?? true
@@ -206,6 +272,31 @@ class SettingsManager: ObservableObject {
 
         // Live Preview Settings (ScreenCaptureKit)
         self.enableAutoRefresh = UserDefaults.standard.object(forKey: "enableAutoRefresh") as? Bool ?? false
+
+        // Feature Toggles
+        self.enableAutoCodeDetection = UserDefaults.standard.object(forKey: "enableAutoCodeDetection") as? Bool ?? true
+        self.enableContentDetection = UserDefaults.standard.object(forKey: "enableContentDetection") as? Bool ?? true
+        self.enableSequentialPaste = UserDefaults.standard.object(forKey: "enableSequentialPaste") as? Bool ?? true
+        self.enableScreenshot = UserDefaults.standard.object(forKey: "enableScreenshot") as? Bool ?? true
+        self.enableOCR = UserDefaults.standard.object(forKey: "enableOCR") as? Bool ?? true
+        self.enableDuplicateDetection = UserDefaults.standard.object(forKey: "enableDuplicateDetection") as? Bool ?? true
+        self.enableSourceAppTracking = UserDefaults.standard.object(forKey: "enableSourceAppTracking") as? Bool ?? true
+        self.maxTextStorageLength = UserDefaults.standard.object(forKey: "maxTextStorageLength") as? Int ?? 500000
+
+        // Quick Preview Overlay
+        self.enableQuickPreview = UserDefaults.standard.object(forKey: "enableQuickPreview") as? Bool ?? false
+        self.quickPreviewHotkeyKey = UserDefaults.standard.string(forKey: "quickPreviewHotkeyKey") ?? "v"
+        self.quickPreviewHotkeyModifiers = UserDefaults.standard.object(forKey: "quickPreviewHotkeyModifiers") as? UInt ?? 1572864 // Cmd+Option
+        self.quickPreviewItemCount = UserDefaults.standard.object(forKey: "quickPreviewItemCount") as? Int ?? 10
+        self.quickPreviewAutoClose = UserDefaults.standard.object(forKey: "quickPreviewAutoClose") as? Bool ?? true
+
+        // AI Settings
+        self.enableAI = UserDefaults.standard.object(forKey: "enableAI") as? Bool ?? false
+        self.aiProvider = UserDefaults.standard.string(forKey: "aiProvider") ?? "ollama"
+        self.aiAPIKey = UserDefaults.standard.string(forKey: "aiAPIKey") ?? ""
+        self.aiModel = UserDefaults.standard.string(forKey: "aiModel") ?? ""
+        self.ollamaURL = UserDefaults.standard.string(forKey: "ollamaURL") ?? "http://localhost:11434"
+        self.ollamaModel = UserDefaults.standard.string(forKey: "ollamaModel") ?? "llama3.2"
 
         loadSnippetVariables()
         loadSnippetCategories()

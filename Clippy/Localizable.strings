@@ -345,3 +345,76 @@
 "Take Screenshot" = "Ekran Görüntüsü Al";
 "App Switcher" = "Uygulama Değiştirici";
 "Maximum memory to use for caching window previews" = "Pencere önizlemelerini önbelleğe almak için kullanılacak maksimum bellek";
+
+/* Feature Toggles */
+"Features" = "Özellikler";
+"Clipboard Monitoring" = "Pano İzleme";
+"Auto Code Detection" = "Otomatik Kod Algılama";
+"Automatically detect code snippets when copying text" = "Metin kopyalarken kod parçacıklarını otomatik olarak algıla";
+"Content Detection" = "İçerik Algılama";
+"Detect URLs, colors, dates, and JSON in clipboard content" = "Pano içeriğinde URL, renk, tarih ve JSON algıla";
+"Duplicate Detection" = "Yinelenen Algılama";
+"Skip saving duplicate clipboard entries" = "Yinelenen pano girişlerini kaydetmeyi atla";
+"Source App Tracking" = "Kaynak Uygulama Takibi";
+"Track which application the content was copied from" = "İçeriğin hangi uygulamadan kopyalandığını takip et";
+"Sequential Copy/Paste" = "Sıralı Kopyala/Yapıştır";
+"Enable sequential copy and paste queue" = "Sıralı kopyalama ve yapıştırma kuyruğunu etkinleştir";
+"Screenshot" = "Ekran Görüntüsü";
+"Enable screenshot capture feature" = "Ekran görüntüsü yakalama özelliğini etkinleştir";
+"OCR Text Recognition" = "OCR Metin Tanıma";
+"Enable text recognition from images" = "Resimlerden metin tanımayı etkinleştir";
+"Performance" = "Performans";
+"Max Text Storage Length" = "Maksimum Metin Saklama Uzunluğu";
+"Maximum character length for storing clipboard text. Longer texts will be truncated." = "Pano metnini saklamak için maksimum karakter uzunluğu. Daha uzun metinler kısaltılacaktır.";
+"Shorter limits improve performance with large texts" = "Daha kısa limitler büyük metinlerde performansı artırır";
+"Pin Item" = "Öğeyi Sabitle";
+"Unpin Item" = "Sabitlemeyi Kaldır";
+
+/* Quick Preview Overlay */
+"Quick Preview" = "Hızlı Önizleme";
+"Press 1-%d to paste, ESC to close" = "Yapıştırmak için 1-%d, kapatmak için ESC";
+"ESC to close" = "ESC ile kapat";
+"Quick Preview Overlay" = "Hızlı Önizleme Paneli";
+"Show a floating panel with recent clipboard items via hotkey" = "Kısayol tuşuyla son pano öğelerini gösteren yüzen panel";
+"Quick Preview Items: %d" = "Hızlı Önizleme Öğe Sayısı: %d";
+"Auto-close after paste" = "Yapıştırdıktan sonra otomatik kapat";
+
+/* AI Features */
+"AI" = "Yapay Zeka";
+"AI Assistant" = "Yapay Zeka Asistanı";
+"Enable AI Features" = "Yapay Zeka Özelliklerini Etkinleştir";
+"Enable AI-powered text transformations and analysis" = "Yapay zeka destekli metin dönüşümleri ve analizini etkinleştir";
+"Provider" = "Sağlayıcı";
+"AI Provider" = "Yapay Zeka Sağlayıcısı";
+"Free, Local" = "Ücretsiz, Yerel";
+"Ollama URL" = "Ollama URL";
+"Model" = "Model";
+"API Key" = "API Anahtarı";
+"Install Ollama from ollama.com and run: ollama pull llama3.2" = "ollama.com'dan Ollama'yı kurun ve çalıştırın: ollama pull llama3.2";
+"Recommended: gpt-4o-mini (fast & cheap) or gpt-4o (best quality)" = "Önerilen: gpt-4o-mini (hızlı ve ucuz) veya gpt-4o (en iyi kalite)";
+"Recommended: claude-sonnet-4-5-20250929 or claude-haiku-4-5-20251001" = "Önerilen: claude-sonnet-4-5-20250929 veya claude-haiku-4-5-20251001";
+"Recommended: gemini-2.0-flash or gemini-2.5-pro" = "Önerilen: gemini-2.0-flash veya gemini-2.5-pro";
+"Available AI Actions" = "Kullanılabilir AI İşlemleri";
+"Summarize" = "Özetle";
+"Expand" = "Genişlet";
+"Fix Grammar" = "Dilbilgisini Düzelt";
+"Translate (any language)" = "Çevir (herhangi bir dil)";
+"Convert to Bullet Points" = "Madde İşaretlerine Dönüştür";
+"Draft Email" = "E-posta Taslağı Oluştur";
+"Explain Code" = "Kodu Açıkla";
+"Free Prompt" = "Serbest Komut";
+"Add Comments" = "Yorum Ekle";
+"Find Bugs" = "Hata Bul";
+"Optimize Code" = "Kodu Optimize Et";
+"Translate to..." = "Şuna çevir...";
+"Processing with AI..." = "Yapay zeka ile işleniyor...";
+"AI Error" = "Yapay Zeka Hatası";
+"AI Result" = "Yapay Zeka Sonucu";
+"Copy Result" = "Sonucu Kopyala";
+"Replace Original" = "Orijinali Değiştir";
+"Test Connection" = "Bağlantıyı Test Et";
+"Connection successful!" = "Bağlantı başarılı!";
+"Custom..." = "Özel...";
+"Custom Model Name" = "Özel Model Adı";
+"Next to Paste" = "Sıradaki Yapıştırma";
+"Coding" = "Kodlama";

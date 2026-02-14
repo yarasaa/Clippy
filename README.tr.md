@@ -24,7 +24,7 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 
 ![1762463406364](image/README/1762463406364.png)
 
-![1762464567469](image/README.tr/1762464567469.png)
+![1762464567469](image/README.tr/1762464567469.png)![1771060978684](https://file+.vscode-resource.vscode-cdn.net/Users/arzuozsoy/Documents/Projects/Clippy/image/README/1771060978684.jpg)
 
 ✨ Özellikler
 
@@ -74,6 +74,59 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 - **Araçlar Menüsü:** Tek bir menüden test verileri (UUID, Lorem Ipsum) oluşturun veya aktif sekmedeki tüm öğeleri silin.
 - **Detaylı Metin İstatistikleri:** Bir metin öğesinin detay ekranında karakter, kelime ve satır sayılarını anlık olarak görün.
 
+### 🔮 Hızlı Önizleme Paneli (Quick Preview Overlay)
+
+Ana pencereyi açmadan, en son kopyaladığınız öğelere anında erişmenizi sağlayan yüzen bir panel.
+
+- **Kısayolla Açılır:** `Cmd+Option+V` (özelleştirilebilir) ile paneli istediğiniz yerden açıp kapatın.
+- **Son Öğeler:** Son N pano öğenizi gösterir (3-15 arası ayarlanabilir, varsayılan 10).
+- **Tıkla ve Yapıştır:** Herhangi bir öğeye tıklayarak doğrudan önceki aktif uygulamaya yapıştırın.
+- **Sürükle & Bırak:** Paneldeki öğeleri sürükleyip herhangi bir uygulamaya bırakın.
+- **Klavye Navigasyonu:** `ESC` tuşu ile paneli kapatın.
+- **Otomatik Kapanma:** Yapıştırma sonrası otomatik kapanır (Ayarlardan açılıp kapatılabilir).
+- **Liquid Glass Tasarım:** Açık/Koyu moda uyum sağlayan modern yarı saydam tasarım.
+- **Sürüklenebilir Panel:** Başlık çubuğundan tutarak paneli ekranda istediğiniz yere taşıyın.
+
+### 🤖 Yapay Zeka ile Akıllı Yapıştırma (AI Smart Paste)
+
+Pano içeriğinizi yapay zeka destekli metin işleme ile dönüştürün. Ücretsiz yerel seçenekler dahil birden fazla sağlayıcı destekler.
+
+#### Desteklenen Sağlayıcılar
+
+| Sağlayıcı         | Maliyet          | Notlar                                                   |
+| ----------------- | ---------------- | -------------------------------------------------------- |
+| **Ollama**        | Ücretsiz (Yerel) | Bilgisayarınızda çalışır. ollama.com adresinden yükleyin |
+| **OpenAI**        | API Key Gerekli  | GPT-4o Mini, GPT-4o, GPT-4.1, o3-mini                    |
+| **Anthropic**     | API Key Gerekli  | Claude Sonnet 4.5, Claude Haiku 4.5, Claude Opus 4.6     |
+| **Google Gemini** | API Key Gerekli  | Gemini 2.0 Flash, Gemini 2.5 Pro, Gemini 2.5 Flash       |
+
+#### Kullanılabilir AI İşlemleri
+
+**Metin Dönüştürme:**
+
+- **Özetle** - Uzun metni kısa ve öz bir özete dönüştürür
+- **Genişlet** - Kısa metni aynı tonu koruyarak detaylandırır
+- **Dilbilgisi Düzelt** - Gramer, yazım ve noktalama hatalarını düzeltir
+- **Çevir** - 30'dan fazla dile çeviri (İngilizce, Türkçe, İspanyolca, Fransızca, Almanca, İtalyanca, Portekizce, Rusça, Çince, Japonca, Korece, Arapça, Hintçe ve daha fazlası)
+- **Madde İşaretleri** - Metni düzenli madde işaretli listeye dönüştürür
+- **E-posta Taslağı** - Notları profesyonel e-posta formatına dönüştürür
+- **Serbest Prompt** - AI'ya kendi özel talimatlarınızı yazın
+
+**Kod İşlemleri (kod öğeleri için görünür):**
+
+- **Kodu Açıkla** - Kodun ne yaptığına dair net bir açıklama alın
+- **Yorum Ekle** - Koda otomatik olarak açıklayıcı yorumlar ekleyin
+- **Hata Bul** - Koddaki olası hataları ve sorunları analiz edin
+- **Kodu Optimize Et** - Daha iyi performanslı optimize edilmiş bir versiyon alın
+
+#### Nasıl Kullanılır
+
+1. **Ayarlar > AI** bölümüne gidin ve AI özelliklerini etkinleştirin.
+2. Sağlayıcınızı seçin ve API anahtarınızı (veya Ollama URL'sini) yapılandırın.
+3. **Bağlantıyı Test Et** butonu ile kurulumunuzu doğrulayın.
+4. Ana listede, herhangi bir metin öğesindeki sihirli değnek ikonuna (`✨`) tıklayarak AI işlemlerine erişin.
+5. Sonuçlar bir açılır pencerede **Sonucu Kopyala** ve **Orijinali Değiştir** butonlarıyla gösterilir.
+
 ### 🖼️ Window Switcher: Uygulama Pencereleriniz için Geçici bir Dock
 
 macOS'in `⌘+Tab` kısayolu uygulamalar arasında geçiş yapmak için harika olsa da, _aynı uygulamanın_ birden çok penceresiyle (örneğin, birkaç Finder penceresi veya kod projesi) çalışırken yetersiz kalır. Bu özellik, aktif uygulamanızın pencereleri için geçici, anında açılan bir "dock" görevi görerek size kristal netliğinde bir genel bakış ve ışık hızında klavye navigasyonu sunar.
@@ -84,7 +137,6 @@ Bu yaklaşım, çok sevilen açık kaynaklı bir uygulama olan **DockDoor**'un z
 - **Basılı Tut-Bırak İş Akışı:** Panel, yalnızca `Option` tuşunu basılı tuttuğunuz sürece görünür kalır. Tuşu bıraktığınız an panel kaybolur ve seçtiğiniz pencereye geçiş yaparsınız. Bu, iş akışınızın önüne asla geçmeyen bir yöntemdir.
 - **Akıcı Klavye Navigasyonu:** `Option` tuşunu basılı tutarken, pencereleriniz arasında geçiş yapmak için `Tab` tuşuna basmanız yeterlidir. Hızlı, verimli ve ellerinizi klavyeden ayırmanıza gerek bırakmaz.
 - **Akıllı ve Hızlı:** Panel, anlık bir his vermesi için son derece optimize edilmiştir. Yanlışlıkla geçişi önlemek için paneli açan ilk `Tab` tuşunu akıllıca yok sayar ve her seferinde hızlı bir deneyim sağlamak için bileşenlerini yeniden kullanır.
-
 - **Araçlar Menüsü:** Tek bir menüden test verileri (UUID, Lorem Ipsum) oluşturun veya aktif sekmedeki tüm öğeleri silin.
 - **Detaylı Metin İstatistikleri:** Bir metin öğesinin detay ekranında karakter, kelime ve satır sayılarını anlık olarak görün.
 
@@ -92,7 +144,6 @@ Bu yaklaşım, çok sevilen açık kaynaklı bir uygulama olan **DockDoor**'un z
 
 - **Kısayolla Yakalama:** Özelleştirilebilir bir klavye kısayolu ile ekranın istediğiniz bir alanının görüntüsünü alın.
 - **Zengin Çizim Araçları:**
-
   - **Seç & Taşı:** Evrensel seçim aracı - herhangi bir çizimi seçerek taşıyın, düzenleyin veya silin
   - **Ok & Çizgi:** Özelleştirilebilir renk ve kalınlıkta oklar ve çizgiler çizin
   - **Şekiller (Dikdörtgen, Elips):** Dolgu, çizgi veya her ikisi modu ile şekiller ekleyin, köşe yuvarlatma ayarlanabilir
@@ -106,7 +157,6 @@ Bu yaklaşım, çok sevilen açık kaynaklı bir uygulama olan **DockDoor**'un z
   - **Silgi:** Herhangi bir çizimi tek tıkla kaldırın
 
 - **Evrensel Çizim Etkileşimi:**
-
   - **Tıkla & Sürükle:** Herhangi bir çizime tıklayarak seçin, ardından istediğiniz yere sürükleyin
   - **Çift Tıklama ile Düzenleme:** Metin çizilerine çift tıklayarak anında düzenleyin
   - **Boyutlandırma Tutamaçları:** Çoğu çizimde boyutlandırmak için köşe/kenar tutamaçları bulunur
@@ -114,19 +164,16 @@ Bu yaklaşım, çok sevilen açık kaynaklı bir uygulama olan **DockDoor**'un z
   - **Otomatik Seçim Moduna Geçiş:** Şekiller oluşturduktan sonra, kolay düzenleme için otomatik olarak seçim moduna geçer
 
 - **Görsel Efektler Paneli:**
-
   - **Arka Plan:** Ekran görüntünüze düz renk veya gradyan (degrade) arka planlar ekleyin
   - **İç Boşluk (Inset):** Görüntü ile arka plan arasında estetik bir boşluk bırakın
   - **Gölge & Köşe Yuvarlatma:** Görüntünüze ve arka planınıza derinlik ve modern bir görünüm katın
 
 - **Akıcı Gezinme:**
-
   - `Cmd` + Fare tekerleği ile imlecinizin olduğu noktaya hassas bir şekilde yakınlaşın/uzaklaşın
   - Fare tekerleği ile görüntüde gezinin
   - Herhangi bir çizimin üzerine gelin ve taşıma imlecini görün
 
 - **Akıllı Metin Oluşturma:**
-
   - Siz yazarken metin kutuları otomatik olarak büyür (yatay ve dikey)
   - Enter tuşu ile çok satırlı metin desteği
   - Yazı tipi boyutu ayarlamaları otomatik olarak metin kutusunu yeniden boyutlandırır
@@ -140,7 +187,29 @@ Bu yaklaşım, çok sevilen açık kaynaklı bir uygulama olan **DockDoor**'un z
 - **Sekme Yönetimi:** İhtiyaç duymadığınız "Kod", "Resimler", "Snippet'lar" veya "Favoriler" sekmelerini gizleyin.
 - **Limit Ayarları:** Geçmişte ve favorilerde tutulacak maksimum öğe sayısını belirleyin.
 - **Oturumda Başlatma:** Mac'iniz açıldığında Clippy'nin otomatik olarak başlamasını sağlayın.
-- **Modern Ayarlar Penceresi:** Ayarlar, "Genel", "Kısayollar" ve "Gelişmiş" sekmeleri altında gruplanarak daha düzenli ve kullanıcı dostu bir hale getirildi.
+
+Clippy'nin ayarları, kolay erişim için **8 sekme** halinde düzenlenmiştir:
+
+1. **Genel** - Oturumda başlatma, dil, sekme görünürlüğü, saklama limitleri
+2. **Görünüm** - Tema (Açık/Koyu/Sistem), pencere boyutları
+3. **Kısayollar** - Tüm klavye kısayolları (tamamen özelleştirilebilir)
+4. **Özellikler** - Bireysel özellikleri açma/kapatma:
+   - Otomatik Kod Algılama
+   - İçerik Algılama (URL, renk, tarih, JSON)
+   - Kopya Algılama
+   - Kaynak Uygulama Takibi
+   - Sıralı Kopyala/Yapıştır
+   - Ekran Görüntüsü Yakalama
+   - OCR Metin Tanıma
+   - Hızlı Önizleme Paneli
+   - Maksimum Metin Saklama Uzunluğu (50K - Sınırsız)
+5. **AI** - AI sağlayıcı yapılandırması, model seçimi, bağlantı testi
+6. **Gelişmiş** - Anahtar kelime genişletme ayarları, Dock Preview yapılandırması, performans ve bellek
+7. **Değişkenler** - Global snippet değişken yönetimi
+8. **Kategoriler** - Emoji ikonları ile snippet kategori yönetimi
+
+**Ek Ayar Özellikleri:**
+
 - **Uyku Modu Desteği:** Bilgisayarınız uyku modundan çıktıktan sonra, Clippy'nin tüm özellikleri (pano izleme, kısayollar, anahtar kelime genişletme) otomatik olarak yeniden başlatılır ve sorunsuz bir şekilde çalışmaya devam eder.
 - **Gelişmiş Pencere Yönetimi:** Ayarlar veya Hakkında penceresi arka planda açıkken, menü çubuğu ikonuna sağ tıklayarak aynı seçeneği tekrar seçerseniz, pencere otomatik olarak ön plana gelir. Bu özellik minimize edilmiş pencereler için de çalışır ve farklı çalışma alanları (workspace) arasında bile pencereleri doğru şekilde getirir.
 
@@ -155,7 +224,13 @@ Bu yaklaşım, çok sevilen açık kaynaklı bir uygulama olan **DockDoor**'un z
 
 ### ⚡️ Performans & Optimizasyon
 
-- **Verimli Yükleme:** Core Data toplu getirme (batch fetching) ve küçük resim önbellekleme (thumbnail caching) sayesinde, uygulama artık uzun öğe listelerini, özellikle de resimleri, çok daha hızlı ve önemli ölçüde daha az bellek kullanarak yükler ve kaydırır.
+- **CoreData İndeksleri:** date, contentType, isFavorite, isPinned, keyword, isCode ve bileşik indeksler ile optimize edilmiş veritabanı sorguları.
+- **Akıllı Önbellekleme:** Resimler (100MB), küçük resimler (20MB) ve uygulama ikonları için yapılandırılabilir bellek limitli NSCache.
+- **Uzun Metin İşleme:** Çok büyük metinler kopyalanırken donmaları önleyen otomatik metin kırpma ve boyut korumaları.
+- **Verimli Yükleme:** Core Data toplu getirme ve küçük resim önbellekleme ile büyük listelerde hızlı kaydırma.
+- **Bellek Baskısı Yönetimi:** Sistem belleği azaldığında otomatik önbellek temizleme.
+- **Araçlar Menüsü:** Tek bir menüden test verileri (UUID, Lorem Ipsum) oluşturun veya aktif sekmedeki tüm öğeleri silin.
+- **Detaylı Metin İstatistikleri:** Herhangi bir metin öğesinin detay ekranında canlı karakter, kelime ve satır sayılarını görün.
 
 ### ⌨️ Anahtar Kelime ile Yapıştırma (Snippet Genişletme)
 
@@ -417,7 +492,6 @@ Bu istatistikler, hangi snippet'ları sıklıkla kullandığınızı görmenizi 
 Snippet'larınızı yedekleyebilir veya farklı cihazlar arasında paylaşabilirsiniz:
 
 - **Export (Dışa Aktarma):**
-
   - Snippet'lar sekmesindeyken, herhangi bir snippet'e **sağ tıklayın**
   - **"Seçili Snippet'i Dışa Aktar"** - Sadece o snippet'i dışa aktarır
   - **"Tüm Snippet'ları Dışa Aktar"** - Tüm snippet'larınızı tek bir JSON dosyasına kaydeder
@@ -458,41 +532,46 @@ Snippet'larınızı yedekleyebilir veya farklı cihazlar arasında paylaşabilir
 ## 🚀 Kullanım
 
 1. **Uygulamayı Açma:**
-
    - Menü çubuğundaki Clippy simgesine tıklayın.
    - Veya varsayılan kısayol olan `Cmd (⌘) + Shift (⇧) + V` tuşlarına basın.
 
 2. **Öğe Yapıştırma:**
-
    - **Tek Öğe:** Öğenin üzerine gelin ve "Yapıştır" butonuna tıklayın.
    - **Çoklu Öğe:** `Cmd (⌘)` tuşuna basılı tutarak istediğiniz öğeleri seçin. Pencerenin alt kısmında beliren **"Hepsini Yapıştır"** butonuna tıklayın veya kısayolunu (`Cmd (⌘) + Shift (⇧) + P`) kullanın.
 
-3. **Diğer Eylemler (Sağ Tık Menüsü):**
+3. **Hızlı Önizleme:**
+   - `Cmd+Option+V` ile Hızlı Önizleme panelini açın.
+   - Herhangi bir öğeye tıklayarak yapıştırın veya öğeleri diğer uygulamalara sürükleyin.
 
-   - Bir öğenin üzerine sağ tıklayarak **Kopyala, Şifrele/Çöz, Farkları Karşılaştır, Sil** gibi tüm gelişmiş eylemlere erişin.
+4. **AI Dönüşümleri:**
+   - Herhangi bir metin öğesindeki sihirli değnek ikonuna (`✨`) tıklayın.
+   - Menüden bir AI işlemi seçin (Özetle, Çevir, Dilbilgisi Düzelt, vb.).
 
-4. **Favorilere Ekleme ve Sabitleme:**
+5. **Diğer Eylemler (Sağ Tık Menüsü):**
+   - Bir öğenin üzerine sağ tıklayarak **Kopyala, Şifrele/Çöz, AI Dönüştür, Farkları Karşılaştır, Sil** gibi tüm gelişmiş eylemlere erişin.
 
+6. **Favorilere Ekleme ve Sabitleme:**
    - Her öğenin solundaki yıldız (`☆`) simgesine tıklayarak favorilerinize ekleyin veya çıkarın.
    - Yıldızın yanındaki pin (`📌`) simgesine tıklayarak önemli öğeleri listenin en üstüne sabitleyin.
 
-5. **Ayarlar:**
-
+7. **Ayarlar:**
    - Menü çubuğundaki Clippy simgesine **sağ tıklayın** ve "Ayarlar..." seçeneğini seçin.
    - Veya standart macOS kısayolu olan `Cmd (⌘) + ,` tuşlarını kullanın.
 
 ## ⌨️ Varsayılan Kısayollar
 
-| Eylem                   | Kısayol                       |
-| ----------------------- | ----------------------------- |
-| Uygulamayı Göster/Gizle | `Cmd (⌘)` + `Shift (⇧)` + `V` |
-| Seçilenleri Yapıştır    | `Cmd (⌘)` + `Shift (⇧)` + `P` |
-| Sıraya Ekle             | `Cmd (⌘)` + `Shift (⇧)` + `C` |
-| Sıradakini Yapıştır     | `Cmd (⌘)` + `Shift (⇧)` + `B` |
-| Sıralı Kuyruğu Temizle  | `Cmd (⌘)` + `Shift (⇧)` + `K` |
-| Ekran Görüntüsü Al      | `Cmd (⌘)` + `Shift (⇧)` + `1` |
-| Çoklu Öğe Seçimi        | `Cmd (⌘)` + Tıklama           |
-| Ayarları Aç             | `Cmd (⌘)` + `,`               |
+| Eylem                   | Kısayol                        |
+| ----------------------- | ------------------------------ |
+| Uygulamayı Göster/Gizle | `Cmd (⌘)` + `Shift (⇧)` + `V`  |
+| Seçilenleri Yapıştır    | `Cmd (⌘)` + `Shift (⇧)` + `P`  |
+| Sıraya Ekle             | `Cmd (⌘)` + `Shift (⇧)` + `C`  |
+| Sıradakini Yapıştır     | `Cmd (⌘)` + `Shift (⇧)` + `B`  |
+| Sıralı Kuyruğu Temizle  | `Cmd (⌘)` + `Shift (⇧)` + `K`  |
+| Ekran Görüntüsü Al      | `Cmd (⌘)` + `Shift (⇧)` + `1`  |
+| Hızlı Önizleme Paneli   | `Cmd (⌘)` + `Option (⌥)` + `V` |
+| Window Switcher         | `Option (⌥)` + `Tab`           |
+| Çoklu Öğe Seçimi        | `Cmd (⌘)` + Tıklama            |
+| Ayarları Aç             | `Cmd (⌘)` + `,`                |
 
 > **Not:** Tüm klavye kısayolları, Ayarlar menüsünden tamamen özelleştirilebilir.
 
@@ -504,11 +583,11 @@ En son `.dmg` dosyasını Releases sayfasından indirin. DMG dosyasını açın 
 
 ### Güvenlik İzinleri
 
-Clippy'nin diğer uygulamalara metin yapıştırabilmesi için **Erişilebilirlik** iznine ihtiyacı vardır.
+Clippy'nin diğer uygulamalara metin yapıştırabilmesi için **Erişilebilirlik** iznine ihtiyacı vardır. Uygulama, bu izne ihtiyaç duyduğunda size otomatik olarak bir sistem penceresi gösterecektir.
 
-Uygulama, bu izne ihtiyaç duyduğunda size otomatik olarak bir sistem penceresi gösterecektir. Bu penceredeki **"Sistem Ayarlarını Aç"** butonuna tıklayarak doğrudan ilgili ayar menüsüne gidebilir ve Clippy için izni etkinleştirebilirsiniz.
+**Dock Preview** ile canlı pencere önizlemeleri için **Ekran Kaydı** izni de gereklidir.
 
-> **Gizlilik:** Clippy, pano verilerinizi asla internete göndermez. Tüm verileriniz, bilgisayarınızdaki `~/Library/Application Support/Clippy/` klasöründe, **Core Data** veritabanı (`Clippy.sqlite`) içinde güvenli bir şekilde saklanır.
+> **Gizlilik:** Clippy, pano verilerinizi asla internete göndermez. Tüm verileriniz, bilgisayarınızdaki `~/Library/Application Support/Clippy/` klasöründe, **Core Data** veritabanı (`Clippy.sqlite`) içinde güvenli bir şekilde saklanır. AI özellikleri, yalnızca siz bir AI işlemini açıkça tetiklediğinizde ve yalnızca yapılandırdığınız sağlayıcıya veri gönderir.
 
 ## 💖 Destek Olun & Katkıda Bulunun
 

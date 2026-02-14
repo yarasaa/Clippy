@@ -18,5 +18,27 @@
         <attribute name="sourceAppName" optional="YES" attributeType="String"/>
         <attribute name="title" optional="YES" attributeType="String"/>
         <attribute name="usageCount" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <fetchIndex name="byDateIndex">
+            <fetchIndexElement property="date" type="Binary" order="descending"/>
+        </fetchIndex>
+        <fetchIndex name="byContentTypeIndex">
+            <fetchIndexElement property="contentType" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byIsFavoriteIndex">
+            <fetchIndexElement property="isFavorite" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byIsPinnedIndex">
+            <fetchIndexElement property="isPinned" type="Binary" order="descending"/>
+        </fetchIndex>
+        <fetchIndex name="byKeywordIndex">
+            <fetchIndexElement property="keyword" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byIsCodeIndex">
+            <fetchIndexElement property="isCode" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="compoundTabIndex">
+            <fetchIndexElement property="isPinned" type="Binary" order="descending"/>
+            <fetchIndexElement property="date" type="Binary" order="descending"/>
+        </fetchIndex>
     </entity>
 </model>
