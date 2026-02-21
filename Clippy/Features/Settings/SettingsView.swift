@@ -72,11 +72,6 @@ struct SettingsView: View {
         Form {
             Section {
                 Toggle(L("Launch Clippy on login", settings: settings), isOn: $launchManager.isEnabled)
-                Picker(L("Language", settings: settings), selection: $settings.appLanguage) {
-                    Text(L("System Default", settings: settings)).tag("system")
-                    Text(L("English", settings: settings)).tag("en")
-                    Text(L("Turkish", settings: settings)).tag("tr")
-                }
             }
 
             Section(header: Text(L("Tab Visibility", settings: settings))) {
@@ -159,6 +154,9 @@ struct SettingsView: View {
 
                     Toggle(L("OCR Text Recognition", settings: settings), isOn: $settings.enableOCR)
                         .help(L("Enable text recognition from images", settings: settings))
+
+                    Toggle(L("File Converter", settings: settings), isOn: $settings.enableFileConverter)
+                        .help(L("Convert files between formats (images, documents, audio, video, data)", settings: settings))
 
                     Toggle(L("Quick Preview Overlay", settings: settings), isOn: $settings.enableQuickPreview)
                         .help(L("Show a floating panel with recent clipboard items via hotkey", settings: settings))

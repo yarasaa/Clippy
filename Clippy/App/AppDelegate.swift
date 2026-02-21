@@ -436,6 +436,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        if SettingsManager.shared.enableFileConverter {
+            let fileConverterItem = NSMenuItem(title: "File Converter", action: #selector(openFileConverter), keyEquivalent: "")
+            fileConverterItem.target = self
+            menu.addItem(fileConverterItem)
+        }
+
+        menu.addItem(NSMenuItem.separator())
+
         let dockPreviewToggleItem = NSMenuItem(title: "Dock Preview & Switcher", action: #selector(toggleDockPreview), keyEquivalent: "")
         dockPreviewToggleItem.target = self
         menu.addItem(dockPreviewToggleItem)
@@ -530,6 +538,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         window.makeKeyAndOrderFront(nil)
 
         self.aboutWindow = window
+    }
+
+    @objc func openFileConverter() {
+        FileConverterPanelController.shared.show()
     }
 
     @objc func toggleDockPreview() {
@@ -645,7 +657,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         .environmentObject(SettingsManager.shared)
 
         let window = NSWindow(contentViewController: NSHostingController(rootView: previewView))
-        window.title = "Snippet Önizleme"
+        window.title = "Snippet Preview"
         window.styleMask = [.titled, .closable]
         window.delegate = self
         window.center()

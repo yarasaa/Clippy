@@ -21,6 +21,6 @@ struct ClipboardListView: View {
             }
         }
         .listStyle(.inset(alternatesRowBackgrounds: true))
-        .searchable(text: $searchText, prompt: "Pano geçmişinde ara...")
+        .searchable(text: $searchText, prompt: "Search clipboard history...")
     }
 }

@@ -62,11 +62,11 @@ class ScreenshotManager: NSObject {
 
     private func showSuccessNotification(url: URL) {
         let alert = NSAlert()
-        alert.messageText = "✅ Başarıyla Kaydedildi"
-        alert.informativeText = "Dosya: \(url.lastPathComponent)\n\nKlasörde görmek ister misiniz?"
+        alert.messageText = "Saved Successfully"
+        alert.informativeText = "File: \(url.lastPathComponent)\n\nWould you like to show it in Finder?"
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "Finder'da Göster")
-        alert.addButton(withTitle: "Tamam")
+        alert.addButton(withTitle: "Show in Finder")
+        alert.addButton(withTitle: "OK")
 
         if alert.runModal() == .alertFirstButtonReturn {
             NSWorkspace.shared.activateFileViewerSelecting([url])

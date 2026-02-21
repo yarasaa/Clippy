@@ -100,7 +100,7 @@ final class WindowSwitcherCoordinator {
                   let image = CGWindowListCreateImage(.null, .optionIncludingWindow, windowID, [.boundsIgnoreFraming, .bestResolution])
             else { continue }
 
-            capturedWindows.append(CapturedWindow(image: image, windowID: windowID, frame: frame, title: name, ownerName: app.localizedName ?? "Bilinmeyen", pid: windowPID, ownerIcon: app.icon))
+            capturedWindows.append(CapturedWindow(image: image, windowID: windowID, frame: frame, title: name, ownerName: app.localizedName ?? "Unknown", pid: windowPID, ownerIcon: app.icon))
         }
 
         let switcherItems = await withTaskGroup(of: SwitcherItem?.self, returning: [SwitcherItem].self) { group in

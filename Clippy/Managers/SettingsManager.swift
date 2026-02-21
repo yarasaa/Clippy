@@ -180,6 +180,9 @@ class SettingsManager: ObservableObject {
     @Published var enableSourceAppTracking: Bool {
         didSet { UserDefaults.standard.set(enableSourceAppTracking, forKey: "enableSourceAppTracking") }
     }
+    @Published var enableFileConverter: Bool {
+        didSet { UserDefaults.standard.set(enableFileConverter, forKey: "enableFileConverter") }
+    }
     @Published var maxTextStorageLength: Int {
         didSet { UserDefaults.standard.set(maxTextStorageLength, forKey: "maxTextStorageLength") }
     }
@@ -281,6 +284,7 @@ class SettingsManager: ObservableObject {
         self.enableOCR = UserDefaults.standard.object(forKey: "enableOCR") as? Bool ?? true
         self.enableDuplicateDetection = UserDefaults.standard.object(forKey: "enableDuplicateDetection") as? Bool ?? true
         self.enableSourceAppTracking = UserDefaults.standard.object(forKey: "enableSourceAppTracking") as? Bool ?? true
+        self.enableFileConverter = UserDefaults.standard.object(forKey: "enableFileConverter") as? Bool ?? true
         self.maxTextStorageLength = UserDefaults.standard.object(forKey: "maxTextStorageLength") as? Int ?? 500000
 
         // Quick Preview Overlay

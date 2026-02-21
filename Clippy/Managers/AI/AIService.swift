@@ -115,19 +115,19 @@ class AIService {
             case "ollama":
                 return await validateOllama()
             case "openai":
-                if settings.aiAPIKey.isEmpty { return "API Key boş." }
+                if settings.aiAPIKey.isEmpty { return "API Key is empty." }
                 _ = try await callOpenAI(system: "Reply with OK", user: "test")
                 return nil
             case "anthropic":
-                if settings.aiAPIKey.isEmpty { return "API Key boş." }
+                if settings.aiAPIKey.isEmpty { return "API Key is empty." }
                 _ = try await callAnthropic(system: "Reply with OK", user: "test")
                 return nil
             case "google":
-                if settings.aiAPIKey.isEmpty { return "API Key boş." }
+                if settings.aiAPIKey.isEmpty { return "API Key is empty." }
                 _ = try await callGoogle(system: "Reply with OK", user: "test")
                 return nil
             default:
-                return "Bilinmeyen sağlayıcı."
+                return "Unknown provider."
             }
         } catch let error as AIError {
             return error.errorDescription
@@ -140,12 +140,12 @@ class AIService {
         let settings = SettingsManager.shared
         let baseURL = settings.ollamaURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard let url = URL(string: "\(baseURL)/api/tags") else {
-            return "Geçersiz Ollama URL."
+            return "Invalid Ollama URL."
         }
         do {
             let (data, response) = try await session.data(for: URLRequest(url: url))
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                return "Ollama bağlantısı başarısız (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0))."
+                return "Ollama connection failed (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0))."
             }
             // Check if model exists
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -153,12 +153,12 @@ class AIService {
                 let names = models.compactMap { $0["name"] as? String }
                 let targetModel = settings.ollamaModel
                 if !names.contains(where: { $0.hasPrefix(targetModel) }) {
-                    return "'\(targetModel)' modeli bulunamadı. Mevcut modeller: \(names.joined(separator: ", "))"
+                    return "Model '\(targetModel)' not found. Available models: \(names.joined(separator: ", "))"
                 }
             }
             return nil
         } catch {
-            return "Ollama'ya bağlanılamadı: \(error.localizedDescription)"
+            return "Could not connect to Ollama: \(error.localizedDescription)"
         }
     }
 

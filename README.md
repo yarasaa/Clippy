@@ -30,6 +30,10 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
 
 ![1771061200942](image/README/1771061200942.jpg)
 
+![1771684611477](image/README/1771684611477.png)
+
+![1771684625154](image/README/1771684625154.png)
+
 ✨ Features
 
 ### 📋 Core Clipboard Management
@@ -108,6 +112,28 @@ Transform your clipboard content with AI-powered text processing. Supports multi
 4. In the main list, click the wand icon (`✨`) on any text item to access AI actions.
 5. Results appear in a popover with **Copy Result** and **Replace Original** buttons.
 
+### 📁 File Format Converter
+
+A built-in file format converter that lets you quickly convert files between formats without leaving Clippy. No third-party dependencies — all conversions use native macOS APIs.
+
+- **Separate Floating Window:** Opens as its own window, accessible from the menu bar. Optionally pin it on top with the pin button.
+- **Drag & Drop:** Drag files directly into the left panel, or use the file picker to add multiple files at once.
+- **Dynamic Format Options:** The right panel shows available output formats based on the selected file's type.
+- **Custom Output Names:** Rename output files directly in the converter before converting.
+- **Batch Conversion:** Convert all files at once with "Convert All", or just the selected file with "Convert Selected".
+- **Per-File Progress:** Each file shows its own progress bar and percentage during conversion.
+- **Choose Save Location:** Pick the output folder before conversion starts.
+
+#### Supported Formats
+
+| Category     | Input Formats                                   | Output Formats                       |
+| ------------ | ----------------------------------------------- | ------------------------------------ |
+| **Image**    | PNG, JPEG, TIFF, BMP, GIF, HEIC, ICO, SVG, WEBP | PNG, JPEG, TIFF, BMP, GIF, HEIC, PDF |
+| **Document** | RTF, HTML, TXT, RTFD, Markdown, DOCX            | TXT, HTML, RTF, PDF                  |
+| **Audio**    | M4A, WAV, AAC, AIFF, MP3, FLAC                  | M4A, WAV, CAF, AIFF                  |
+| **Video**    | MOV, MP4, M4V, AVI                              | MP4, MOV, M4V                        |
+| **Data**     | JSON, XML, PLIST, CSV                           | JSON, XML, CSV, PLIST                |
+
 ### 🪟 Window Management
 
 - **Dock Preview:** Hover over any dock icon to see live previews of all open windows for that application
@@ -178,6 +204,7 @@ Transform your clipboard content with AI-powered text processing. Supports multi
      - Screenshot Capture
      - OCR Text Recognition
      - Quick Preview Overlay
+     - File Format Converter
      - Max Text Storage Length (50K - Unlimited)
   5. **AI** - AI provider configuration, model selection, test connection
   6. **Advanced** - Keyword expansion settings, Dock Preview configuration, performance & memory

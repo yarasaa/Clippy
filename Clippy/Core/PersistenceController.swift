@@ -47,7 +47,7 @@ struct PersistenceController {
             newItem.id = UUID()
             newItem.date = Date().addingTimeInterval(Double(-i * 3600))
             newItem.contentType = "text"
-            newItem.content = "Örnek Metin \(i)"
+            newItem.content = "Sample Text \(i)"
             newItem.isFavorite = (i % 3 == 0)
             newItem.isCode = (i % 4 == 0)
             newItem.isPinned = (i == 0)

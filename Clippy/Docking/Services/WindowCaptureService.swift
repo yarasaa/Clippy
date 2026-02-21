@@ -37,7 +37,7 @@ actor WindowCaptureService {
             }
 
             let title = windowInfo[kCGWindowName as String] as? String
-            let ownerName = app.localizedName ?? "Bilinmeyen"
+            let ownerName = app.localizedName ?? "Unknown"
             if let image = CGWindowListCreateImage(.null, .optionIncludingWindow, windowID, [.boundsIgnoreFraming, .bestResolution]) {
                 capturedWindows.append(CapturedWindow(image: image, windowID: windowID, frame: frame, title: title, ownerName: ownerName, pid: windowPID, ownerIcon: app.icon))
             }

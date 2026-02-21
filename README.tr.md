@@ -26,6 +26,12 @@ Clippy, pano geçmişinizi yönetmenizi sağlayan, geliştiriciler ve sık metin
 
 ![1762464567469](image/README.tr/1762464567469.png)![1771060978684](https://file+.vscode-resource.vscode-cdn.net/Users/arzuozsoy/Documents/Projects/Clippy/image/README/1771060978684.jpg)
 
+![1771684673645](image/README.tr/1771684673645.jpg)
+
+![1771684684185](image/README.tr/1771684684185.png)
+
+![1771684691048](image/README.tr/1771684691048.png)
+
 ✨ Özellikler
 
 ### 📋 Temel Pano Yönetimi
@@ -127,6 +133,28 @@ Pano içeriğinizi yapay zeka destekli metin işleme ile dönüştürün. Ücret
 4. Ana listede, herhangi bir metin öğesindeki sihirli değnek ikonuna (`✨`) tıklayarak AI işlemlerine erişin.
 5. Sonuçlar bir açılır pencerede **Sonucu Kopyala** ve **Orijinali Değiştir** butonlarıyla gösterilir.
 
+### 📁 Dosya Format Dönüştürücü
+
+Clippy'den ayrılmadan dosyalarınızı farklı formatlara dönüştürmenizi sağlayan yerleşik bir araç. Üçüncü parti bağımlılık yok — tüm dönüşümler native macOS API'leri ile yapılır.
+
+- **Ayrı Yüzen Pencere:** Menü çubuğundan erişilebilen kendi penceresiyle açılır. Pin butonu ile isteğe bağlı olarak en üstte sabitlenebilir.
+- **Sürükle & Bırak:** Dosyaları doğrudan sol panele sürükleyin veya dosya seçici ile birden fazla dosya ekleyin.
+- **Dinamik Format Seçenekleri:** Sağ panel, seçili dosyanın türüne göre kullanılabilir çıktı formatlarını gösterir.
+- **Özel Çıktı İsimleri:** Dönüştürmeden önce çıktı dosyalarını doğrudan dönüştürücüde yeniden adlandırın.
+- **Toplu Dönüşüm:** "Convert All" ile tüm dosyaları, "Convert Selected" ile sadece seçili dosyayı dönüştürün.
+- **Dosya Bazlı İlerleme:** Dönüşüm sırasında her dosya kendi ilerleme çubuğunu ve yüzdesini gösterir.
+- **Kayıt Konumu Seçimi:** Dönüşüm başlamadan önce çıktı klasörünü seçin.
+
+#### Desteklenen Formatlar
+
+| Kategori  | Giriş Formatları                                | Çıkış Formatları                     |
+| --------- | ----------------------------------------------- | ------------------------------------ |
+| **Resim** | PNG, JPEG, TIFF, BMP, GIF, HEIC, ICO, SVG, WEBP | PNG, JPEG, TIFF, BMP, GIF, HEIC, PDF |
+| **Belge** | RTF, HTML, TXT, RTFD, Markdown, DOCX            | TXT, HTML, RTF, PDF                  |
+| **Ses**   | M4A, WAV, AAC, AIFF, MP3, FLAC                  | M4A, WAV, CAF, AIFF                  |
+| **Video** | MOV, MP4, M4V, AVI                              | MP4, MOV, M4V                        |
+| **Veri**  | JSON, XML, PLIST, CSV                           | JSON, XML, CSV, PLIST                |
+
 ### 🖼️ Window Switcher: Uygulama Pencereleriniz için Geçici bir Dock
 
 macOS'in `⌘+Tab` kısayolu uygulamalar arasında geçiş yapmak için harika olsa da, _aynı uygulamanın_ birden çok penceresiyle (örneğin, birkaç Finder penceresi veya kod projesi) çalışırken yetersiz kalır. Bu özellik, aktif uygulamanızın pencereleri için geçici, anında açılan bir "dock" görevi görerek size kristal netliğinde bir genel bakış ve ışık hızında klavye navigasyonu sunar.
@@ -202,6 +230,7 @@ Clippy'nin ayarları, kolay erişim için **8 sekme** halinde düzenlenmiştir:
    - Ekran Görüntüsü Yakalama
    - OCR Metin Tanıma
    - Hızlı Önizleme Paneli
+   - Dosya Format Dönüştürücü
    - Maksimum Metin Saklama Uzunluğu (50K - Sınırsız)
 5. **AI** - AI sağlayıcı yapılandırması, model seçimi, bağlantı testi
 6. **Gelişmiş** - Anahtar kelime genişletme ayarları, Dock Preview yapılandırması, performans ve bellek

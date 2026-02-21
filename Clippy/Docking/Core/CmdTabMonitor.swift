@@ -86,7 +86,7 @@ final class CmdTabMonitor {
 
         lastPolledPID = pid
 
-        print("🎯 CmdTabMonitor: Polled selection: \(app.localizedName ?? "Bilinmeyen") (PID: \(pid))")
+        print("🎯 CmdTabMonitor: Polled selection: \(app.localizedName ?? "Unknown") (PID: \(pid))")
 
         // Get application frame from screen position
         let screens = NSScreen.screens

@@ -10,13 +10,13 @@ struct SnippetPreviewView: View {
     var body: some View {
         VStack(spacing: 16) {
             HStack {
-                Text("Snippet Önizleme")
+                Text("Snippet Preview")
                     .font(.headline)
                 Spacer()
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Anahtar Kelime:")
+                Text("Keyword:")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Text(keyword)
@@ -27,7 +27,7 @@ struct SnippetPreviewView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("İçerik:")
+                Text("Content:")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 ScrollView {
@@ -43,13 +43,13 @@ struct SnippetPreviewView: View {
 
             HStack(spacing: 12) {
                 Button(action: onCancel) {
-                    Text("İptal")
+                    Text("Cancel")
                         .frame(maxWidth: .infinity)
                 }
                 .keyboardShortcut(.escape, modifiers: [])
 
                 Button(action: onConfirm) {
-                    Text("Yapıştır")
+                    Text("Paste")
                         .frame(maxWidth: .infinity)
                 }
                 .keyboardShortcut(.return, modifiers: [])

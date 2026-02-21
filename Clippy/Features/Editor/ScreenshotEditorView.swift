@@ -116,8 +116,8 @@ enum DrawingTool: String, CaseIterable, Identifiable {
 }
 
 enum BrushStyle: String, CaseIterable, Identifiable {
-    case solid = "Düz"
-    case dashed = "Kesikli"
+    case solid = "Solid"
+    case dashed = "Dashed"
     case marker = "Marker"
 
     var id: String { self.rawValue }
@@ -3201,11 +3201,11 @@ struct EmojiPickerView: View {
     @State private var selectedCategory: EmojiCategory = .symbols
 
     enum EmojiCategory: String, CaseIterable {
-        case symbols = "Semboller"
-        case smileys = "Yüzler"
-        case hands = "Eller"
-        case arrows = "Oklar"
-        case nature = "Doğa"
+        case symbols = "Symbols"
+        case smileys = "Smileys"
+        case hands = "Hands"
+        case arrows = "Arrows"
+        case nature = "Nature"
 
         var icon: String {
             switch self {
@@ -3235,7 +3235,7 @@ struct EmojiPickerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Text("Emoji Seç")
+            Text("Choose Emoji")
                 .font(.headline)
                 .padding(.horizontal, 12)
                 .padding(.top, 12)
