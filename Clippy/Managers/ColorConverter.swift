@@ -21,6 +21,10 @@ struct ConvertedColor {
     let rgba: String
     let hsl: String
     let hsla: String
+    let hsb: String
+    let swiftUI: String
+    let nsColor: String
+    let cssHex: String
     let originalColor: NSColor
 }
 
@@ -76,6 +80,10 @@ struct ColorConverter {
                 rgba: "rgba(0, 0, 0, 1.0)",
                 hsl: "hsl(0, 0%, 0%)",
                 hsla: "hsla(0, 0%, 0%, 1.0)",
+                hsb: "hsb(0, 0%, 0%)",
+                swiftUI: "Color(red: 0.00, green: 0.00, blue: 0.00)",
+                nsColor: "NSColor(red: 0.00, green: 0.00, blue: 0.00, alpha: 1.00)",
+                cssHex: "#000000",
                 originalColor: color
             )
         }
@@ -98,6 +106,19 @@ struct ColorConverter {
         let hsl = String(format: "hsl(%d, %d%%, %d%%)", h, s, l)
         let hsla = String(format: "hsla(%d, %d%%, %d%%, %.2f)", h, s, l, a)
 
+        // HSB
+        let hue = Int(rgbColor.hueComponent * 360)
+        let sat = Int(rgbColor.saturationComponent * 100)
+        let bri = Int(rgbColor.brightnessComponent * 100)
+        let hsb = String(format: "hsb(%d, %d%%, %d%%)", hue, sat, bri)
+
+        // SwiftUI / NSColor
+        let swiftUI = String(format: "Color(red: %.2f, green: %.2f, blue: %.2f)", rgbColor.redComponent, rgbColor.greenComponent, rgbColor.blueComponent)
+        let nsColorStr = String(format: "NSColor(red: %.2f, green: %.2f, blue: %.2f, alpha: %.2f)", rgbColor.redComponent, rgbColor.greenComponent, rgbColor.blueComponent, a)
+
+        // CSS hex (lowercase)
+        let cssHex = String(format: "#%02x%02x%02x", r, g, b)
+
         return ConvertedColor(
             hex: hex,
             hexWithAlpha: hexWithAlpha,
@@ -105,6 +126,10 @@ struct ColorConverter {
             rgba: rgba,
             hsl: hsl,
             hsla: hsla,
+            hsb: hsb,
+            swiftUI: swiftUI,
+            nsColor: nsColorStr,
+            cssHex: cssHex,
             originalColor: color
         )
     }

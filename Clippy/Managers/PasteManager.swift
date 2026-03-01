@@ -68,7 +68,6 @@ class PasteManager {
 
     private func paste(using pasteBlock: @escaping () -> Void, targetApp: NSRunningApplication?, completion: (() -> Void)? = nil) {
         guard AXIsProcessTrusted() else {
-            print("Erişilebilirlik izni yok. Yapıştırma işlemi engellendi.")
             (NSApp.delegate as? AppDelegate)?.requestAccessibilityPermissions()
             return
         }

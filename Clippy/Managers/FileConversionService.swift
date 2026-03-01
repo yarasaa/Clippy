@@ -80,17 +80,19 @@ class FileConversionService {
         "avi":  [.mp4, .mov, .m4v],
 
         // Data
-        "json":  [.xml, .csv, .plist],
-        "xml":   [.json, .plist],
-        "plist": [.json, .xml],
-        "csv":   [.json],
+        "json":  [.yaml, .xml, .csv, .plist],
+        "yaml":  [.json, .xml, .plist],
+        "yml":   [.json, .xml, .plist],
+        "xml":   [.json, .yaml, .plist],
+        "plist": [.json, .yaml, .xml],
+        "csv":   [.json, .yaml],
     ]
 
     private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "tiff", "tif", "bmp", "gif", "heic", "heif", "ico", "svg", "webp"]
     private static let documentExtensions: Set<String> = ["rtf", "html", "htm", "txt", "rtfd", "md", "markdown", "docx"]
     private static let audioExtensions: Set<String> = ["m4a", "wav", "aac", "aiff", "aif", "mp3", "flac"]
     private static let videoExtensions: Set<String> = ["mov", "mp4", "m4v", "avi"]
-    private static let dataExtensions: Set<String> = ["json", "xml", "plist", "csv"]
+    private static let dataExtensions: Set<String> = ["json", "yaml", "yml", "xml", "plist", "csv"]
 
     // MARK: - Public API
 
@@ -450,6 +452,11 @@ class FileConversionService {
         switch inputExtension {
         case "json":
             object = try JSONSerialization.jsonObject(with: inputData, options: [.fragmentsAllowed])
+        case "yaml", "yml":
+            guard let yamlString = String(data: inputData, encoding: .utf8) else {
+                throw ConversionError.invalidData("Could not read YAML as UTF-8")
+            }
+            object = try parseYAML(yamlString)
         case "xml":
             object = try parseXMLToDictionary(data: inputData)
         case "plist":
@@ -465,6 +472,12 @@ class FileConversionService {
         switch outputExtension {
         case "json":
             outputData = try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
+        case "yaml", "yml":
+            let yamlString = objectToYAML(object, indent: 0)
+            guard let data = yamlString.data(using: .utf8) else {
+                throw ConversionError.writeFailed("Could not encode YAML as UTF-8")
+            }
+            outputData = data
         case "xml":
             let xmlString = objectToXML(object, rootElement: "root")
             guard let data = xmlString.data(using: .utf8) else {
@@ -650,5 +663,316 @@ class FileConversionService {
             return "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
         }
         return value
+    }
+
+    // MARK: - YAML Serialization
+
+    private func objectToYAML(_ object: Any, indent: Int) -> String {
+        let prefix = String(repeating: "  ", count: indent)
+
+        if let dict = object as? [String: Any] {
+            if dict.isEmpty { return "{}" }
+            var lines: [String] = []
+            for key in dict.keys.sorted() {
+                let value = dict[key]!
+                if let arr = value as? [Any] {
+                    lines.append("\(prefix)\(yamlKey(key)):")
+                    for item in arr {
+                        if item is [String: Any] || item is [Any] {
+                            let sub = objectToYAML(item, indent: indent + 2)
+                            lines.append("\(prefix)  -")
+                            lines.append(sub)
+                        } else {
+                            lines.append("\(prefix)  - \(yamlScalar(item))")
+                        }
+                    }
+                } else if let subDict = value as? [String: Any] {
+                    lines.append("\(prefix)\(yamlKey(key)):")
+                    lines.append(objectToYAML(subDict, indent: indent + 1))
+                } else {
+                    lines.append("\(prefix)\(yamlKey(key)): \(yamlScalar(value))")
+                }
+            }
+            return lines.joined(separator: "\n")
+        } else if let arr = object as? [Any] {
+            if arr.isEmpty { return "[]" }
+            var lines: [String] = []
+            for item in arr {
+                if item is [String: Any] || item is [Any] {
+                    let sub = objectToYAML(item, indent: indent + 1)
+                    lines.append("\(prefix)-")
+                    lines.append(sub)
+                } else {
+                    lines.append("\(prefix)- \(yamlScalar(item))")
+                }
+            }
+            return lines.joined(separator: "\n")
+        } else {
+            return "\(prefix)\(yamlScalar(object))"
+        }
+    }
+
+    private func yamlKey(_ key: String) -> String {
+        if key.contains(":") || key.contains("#") || key.contains("'") || key.contains("\"") ||
+           key.hasPrefix("- ") || key.hasPrefix("? ") {
+            return "'\(key.replacingOccurrences(of: "'", with: "''"))'"
+        }
+        return key
+    }
+
+    private func yamlScalar(_ value: Any) -> String {
+        if value is NSNull { return "null" }
+        if let b = value as? Bool { return b ? "true" : "false" }
+        if let n = value as? NSNumber {
+            if CFNumberIsFloatType(n) { return "\(n.doubleValue)" }
+            return "\(n.intValue)"
+        }
+        if let s = value as? String {
+            if s.isEmpty { return "''" }
+            if s == "true" || s == "false" || s == "null" || s == "~" ||
+               s.contains("\n") || s.contains(":") || s.contains("#") ||
+               s.hasPrefix("'") || s.hasPrefix("\"") || s.hasPrefix("- ") ||
+               s.hasPrefix("? ") || s.hasPrefix("{ ") || s.hasPrefix("[ ") {
+                let escaped = s.replacingOccurrences(of: "'", with: "''")
+                return "'\(escaped)'"
+            }
+            if let _ = Double(s), !s.contains(" ") { return "'\(s)'" }
+            return s
+        }
+        return String(describing: value)
+    }
+
+    // MARK: - YAML Parsing
+
+    private func parseYAML(_ yaml: String) throws -> Any {
+        let lines = yaml.components(separatedBy: "\n")
+        var index = 0
+        let result = try parseYAMLValue(lines: lines, index: &index, baseIndent: 0)
+        return result
+    }
+
+    private func parseYAMLValue(lines: [String], index: inout Int, baseIndent: Int) throws -> Any {
+        skipEmptyAndComments(lines: lines, index: &index)
+        guard index < lines.count else { return [:] as [String: Any] }
+
+        let line = lines[index]
+        let indent = lineIndent(line)
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+        // Array item
+        if trimmed.hasPrefix("- ") || trimmed == "-" {
+            return try parseYAMLArray(lines: lines, index: &index, baseIndent: indent)
+        }
+
+        // Key: value (dictionary)
+        if trimmed.contains(": ") || trimmed.hasSuffix(":") {
+            return try parseYAMLDict(lines: lines, index: &index, baseIndent: indent)
+        }
+
+        // Inline flow: {} or []
+        if trimmed.hasPrefix("{") { return parseFlowDict(trimmed) }
+        if trimmed.hasPrefix("[") { return parseFlowArray(trimmed) }
+
+        // Single scalar
+        index += 1
+        return parseScalarValue(trimmed)
+    }
+
+    private func parseYAMLDict(lines: [String], index: inout Int, baseIndent: Int) throws -> [String: Any] {
+        var dict: [String: Any] = [:]
+
+        while index < lines.count {
+            skipEmptyAndComments(lines: lines, index: &index)
+            guard index < lines.count else { break }
+
+            let line = lines[index]
+            let indent = lineIndent(line)
+            if indent < baseIndent { break }
+            if indent != baseIndent { break }
+
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard let colonRange = findKeyColonSplit(trimmed) else {
+                index += 1
+                continue
+            }
+
+            let key = unquoteYAML(String(trimmed[trimmed.startIndex..<colonRange.lowerBound]))
+            let afterColon = String(trimmed[colonRange.upperBound...]).trimmingCharacters(in: .whitespaces)
+
+            if afterColon.isEmpty {
+                // Value on next lines
+                index += 1
+                if index < lines.count {
+                    let nextIndent = lineIndent(lines[index])
+                    if nextIndent > baseIndent {
+                        dict[key] = try parseYAMLValue(lines: lines, index: &index, baseIndent: nextIndent)
+                    } else {
+                        dict[key] = NSNull()
+                    }
+                } else {
+                    dict[key] = NSNull()
+                }
+            } else {
+                index += 1
+                if afterColon.hasPrefix("{") {
+                    dict[key] = parseFlowDict(afterColon)
+                } else if afterColon.hasPrefix("[") {
+                    dict[key] = parseFlowArray(afterColon)
+                } else {
+                    dict[key] = parseScalarValue(afterColon)
+                }
+            }
+        }
+        return dict
+    }
+
+    private func parseYAMLArray(lines: [String], index: inout Int, baseIndent: Int) throws -> [Any] {
+        var arr: [Any] = []
+
+        while index < lines.count {
+            skipEmptyAndComments(lines: lines, index: &index)
+            guard index < lines.count else { break }
+
+            let line = lines[index]
+            let indent = lineIndent(line)
+            if indent < baseIndent { break }
+            if indent != baseIndent { break }
+
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("- ") || trimmed == "-" else { break }
+
+            let afterDash = trimmed == "-" ? "" : String(trimmed.dropFirst(2))
+
+            if afterDash.isEmpty {
+                index += 1
+                if index < lines.count {
+                    let nextIndent = lineIndent(lines[index])
+                    if nextIndent > baseIndent {
+                        arr.append(try parseYAMLValue(lines: lines, index: &index, baseIndent: nextIndent))
+                    } else {
+                        arr.append(NSNull())
+                    }
+                }
+            } else if afterDash.contains(": ") || afterDash.hasSuffix(":") {
+                // Inline dict start after dash
+                let subLine = String(repeating: " ", count: baseIndent + 2) + afterDash
+                var tempLines = [subLine]
+                index += 1
+                while index < lines.count {
+                    let nextLine = lines[index]
+                    let nextIndent = lineIndent(nextLine)
+                    if nextIndent <= baseIndent { break }
+                    tempLines.append(nextLine)
+                    index += 1
+                }
+                var tempIndex = 0
+                let subDict = try parseYAMLDict(lines: tempLines, index: &tempIndex, baseIndent: baseIndent + 2)
+                arr.append(subDict)
+            } else {
+                index += 1
+                if afterDash.hasPrefix("{") {
+                    arr.append(parseFlowDict(afterDash))
+                } else if afterDash.hasPrefix("[") {
+                    arr.append(parseFlowArray(afterDash))
+                } else {
+                    arr.append(parseScalarValue(afterDash))
+                }
+            }
+        }
+        return arr
+    }
+
+    private func skipEmptyAndComments(lines: [String], index: inout Int) {
+        while index < lines.count {
+            let trimmed = lines[index].trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || trimmed.hasPrefix("#") || trimmed == "---" || trimmed == "..." {
+                index += 1
+            } else {
+                break
+            }
+        }
+    }
+
+    private func lineIndent(_ line: String) -> Int {
+        var count = 0
+        for char in line {
+            if char == " " { count += 1 }
+            else { break }
+        }
+        return count
+    }
+
+    private func findKeyColonSplit(_ s: String) -> Range<String.Index>? {
+        if s.hasPrefix("'") || s.hasPrefix("\"") {
+            let quote = s.first!
+            if let endIdx = s.dropFirst().firstIndex(of: quote) {
+                let afterQuote = s.index(after: endIdx)
+                if afterQuote < s.endIndex, s[afterQuote] == ":" {
+                    let colonEnd = s.index(after: afterQuote)
+                    return afterQuote..<colonEnd
+                }
+            }
+            return nil
+        }
+        if let range = s.range(of: ": ") { return range }
+        if s.hasSuffix(":") {
+            let idx = s.index(before: s.endIndex)
+            return idx..<s.endIndex
+        }
+        return nil
+    }
+
+    private func unquoteYAML(_ s: String) -> String {
+        let trimmed = s.trimmingCharacters(in: .whitespaces)
+        if (trimmed.hasPrefix("'") && trimmed.hasSuffix("'")) ||
+           (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"")) {
+            return String(trimmed.dropFirst().dropLast())
+        }
+        return trimmed
+    }
+
+    private func parseScalarValue(_ s: String) -> Any {
+        let trimmed = s.trimmingCharacters(in: .whitespaces)
+        if trimmed == "null" || trimmed == "~" || trimmed.isEmpty { return NSNull() }
+        if trimmed == "true" || trimmed == "True" || trimmed == "TRUE" { return true }
+        if trimmed == "false" || trimmed == "False" || trimmed == "FALSE" { return false }
+
+        // Unquote
+        if (trimmed.hasPrefix("'") && trimmed.hasSuffix("'")) ||
+           (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"")) {
+            return String(trimmed.dropFirst().dropLast())
+        }
+
+        if let intVal = Int(trimmed) { return intVal }
+        if let doubleVal = Double(trimmed) { return doubleVal }
+        return trimmed
+    }
+
+    private func parseFlowDict(_ s: String) -> [String: Any] {
+        var str = s.trimmingCharacters(in: .whitespaces)
+        if str.hasPrefix("{") { str = String(str.dropFirst()) }
+        if str.hasSuffix("}") { str = String(str.dropLast()) }
+
+        var dict: [String: Any] = [:]
+        let pairs = str.components(separatedBy: ",")
+        for pair in pairs {
+            let parts = pair.components(separatedBy: ":")
+            if parts.count >= 2 {
+                let key = unquoteYAML(parts[0])
+                let value = parts.dropFirst().joined(separator: ":").trimmingCharacters(in: .whitespaces)
+                if !key.isEmpty {
+                    dict[key] = parseScalarValue(value)
+                }
+            }
+        }
+        return dict
+    }
+
+    private func parseFlowArray(_ s: String) -> [Any] {
+        var str = s.trimmingCharacters(in: .whitespaces)
+        if str.hasPrefix("[") { str = String(str.dropFirst()) }
+        if str.hasSuffix("]") { str = String(str.dropLast()) }
+
+        return str.components(separatedBy: ",").map { parseScalarValue($0) }
     }
 }

@@ -100,6 +100,7 @@ extension OutputFormat {
 
     // Data
     static let json = OutputFormat(displayName: "JSON", fileExtension: "json", category: .data)
+    static let yaml = OutputFormat(displayName: "YAML", fileExtension: "yaml", category: .data)
     static let xml = OutputFormat(displayName: "XML", fileExtension: "xml", category: .data)
     static let csv = OutputFormat(displayName: "CSV", fileExtension: "csv", category: .data)
     static let plist = OutputFormat(displayName: "PLIST", fileExtension: "plist", category: .data)

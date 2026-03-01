@@ -36,7 +36,6 @@ class LaunchAtLoginManager: ObservableObject {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            print("Failed to update launch at login status: \(error)")
             DispatchQueue.main.async {
                 self.isEnabled = SMAppService.mainApp.status == .enabled
             }

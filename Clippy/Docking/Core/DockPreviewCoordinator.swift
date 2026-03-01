@@ -25,7 +25,6 @@ final class DockPreviewCoordinator {
 
     private init?() {
         guard let imageProcessingService = ImageProcessingService() else {
-            print("HATA: ImageProcessingService başlatılamadı. Metal kullanılamıyor olabilir.")
             return nil
         }
 
@@ -35,17 +34,14 @@ final class DockPreviewCoordinator {
         self.imageProcessingService = imageProcessingService
         self.panelController = PreviewPanelController()
 
-        print("✅ [Coordinator] INIT: DockPreviewCoordinator created.")
 
         self.panelController.onWindowSelectAction = { [weak self] windowID in
             guard let self = self, let pid = self.lastHoveredItem?.pid else { return }
-            print("🎯 [Coordinator] Window selected: \(windowID) for PID: \(pid)")
             WindowActionService.shared.raiseWindow(with: windowID, pid: pid)
             self.panelController.hide()
         }
         self.panelController.onWindowMinimizeAction = { [weak self] windowID in
             guard let self = self, let pid = self.lastHoveredItem?.pid else { return }
-            print("📦 [Coordinator] Window minimized: \(windowID) for PID: \(pid)")
 
             self.removeWindowFromPreview(windowID: windowID)
 
@@ -56,7 +52,6 @@ final class DockPreviewCoordinator {
         }
         self.panelController.onWindowCloseAction = { [weak self] windowID in
             guard let self = self, let pid = self.lastHoveredItem?.pid else { return }
-            print("❌ [Coordinator] Window closed: \(windowID) for PID: \(pid)")
 
             self.removeWindowFromPreview(windowID: windowID)
 
@@ -67,7 +62,6 @@ final class DockPreviewCoordinator {
         }
         self.panelController.onMoveToMonitorAction = { [weak self] windowID, screen in
             guard let self = self, let pid = self.lastHoveredItem?.pid else { return }
-            print("🖥️ [Coordinator] Moving window \(windowID) to screen: \(screen.localizedName)")
             WindowActionService.shared.moveWindow(with: windowID, pid: pid, to: screen)
         }
     }
@@ -77,65 +71,54 @@ final class DockPreviewCoordinator {
         mouseExitTask?.cancel()
         cmdTabTask?.cancel()
         currentHoverTask?.cancel()
-        print("🗑️ [Coordinator] DEINIT: DockPreviewCoordinator destroyed.")
     }
 
     func start() {
         guard !isRunning else { return }
         isRunning = true
-        print("🚀 [Coordinator] START: Starting services.")
         dockMonitor.start()
         cmdTabMonitor.start()
 
         mainTask = Task {
-            print("  [Coordinator] Task started for 'dockMonitor.dockItemStream'.")
             for await dockItem in dockMonitor.dockItemStream {
                 self.currentHoverTask?.cancel()
                 self.mouseExitTask?.cancel()
 
                 if let dockItem = dockItem {
-                    print("➡️ [Coordinator] Received hover from DockMonitor stream for PID \(dockItem.pid).")
                     self.lastHoveredItem = dockItem
 
                     self.currentHoverTask = Task {
                         await self.handleHover(on: dockItem)
                     }
                 } else {
-                    print("⬅️ [Coordinator] Received 'nil' from DockMonitor stream (hover ended).")
                     self.currentHoverTask = nil
                     panelController.hide()
                 }
             }
-            print("  [Coordinator] Task for 'dockMonitor.dockItemStream' finished.")
         }
 
         cmdTabTask = Task {
-            print("  [Coordinator] Task started for 'cmdTabMonitor.appStream'.")
             for await dockItem in cmdTabMonitor.appStream {
                 self.currentHoverTask?.cancel()
                 self.mouseExitTask?.cancel()
 
                 if let dockItem = dockItem {
-                    print("➡️ [Coordinator] Received hover from CmdTabMonitor stream for PID \(dockItem.pid).")
                     self.lastHoveredItem = dockItem
 
                     self.currentHoverTask = Task {
                         await self.handleHover(on: dockItem)
                     }
                 } else {
-                    print("⬅️ [Coordinator] Received 'nil' from CmdTabMonitor stream (switcher closed).")
                     self.currentHoverTask = nil
                     panelController.hide()
                 }
             }
-            print("  [Coordinator] Task for 'cmdTabMonitor.appStream' finished.")
         }
     }
 
     func stop() {
         guard isRunning else { return }
         isRunning = false
-        print("🛑 [Coordinator] STOP: Stopping services and cancelling tasks.")
         mainTask?.cancel()
         mouseExitTask?.cancel()
         cmdTabTask?.cancel()
@@ -166,7 +149,6 @@ final class DockPreviewCoordinator {
     }
 
     private func handleHover(on dockItem: DockItem) async {
-        print("🎯 [Coordinator] === handleHover CALLED for PID \(dockItem.pid) ===")
 
         // Apply hover delay
         let delay = SettingsManager.shared.dockPreviewHoverDelay
@@ -175,7 +157,6 @@ final class DockPreviewCoordinator {
         }
 
         guard !Task.isCancelled else {
-            print("  [Coordinator] Task cancelled before processing PID \(dockItem.pid).")
             return
         }
 
@@ -186,10 +167,8 @@ final class DockPreviewCoordinator {
 
         let capturedWindows: [CapturedWindow]
         if let cachedWindows = WindowCacheManager.shared.getCachedWindows(for: dockItem.pid) {
-            print("    📦 [Coordinator] Using cached windows (\(cachedWindows.count) items)")
             capturedWindows = cachedWindows
         } else {
-            print("    🔄 [Coordinator] Cache miss, capturing fresh windows...")
             capturedWindows = await windowCaptureService.captureWindows(for: dockItem.pid)
 
             if !capturedWindows.isEmpty {
@@ -198,11 +177,9 @@ final class DockPreviewCoordinator {
         }
 
         guard !Task.isCancelled else {
-            print("  [Coordinator] Task cancelled after capturing windows for PID \(dockItem.pid).")
             return
         }
 
-        print("    [Coordinator] Captured \(capturedWindows.count) windows.")
         self.lastCapturedWindows = capturedWindows
         guard !capturedWindows.isEmpty else {
             panelController.hide()
@@ -210,7 +187,6 @@ final class DockPreviewCoordinator {
         }
 
         let downsampleDimension = self.getOptimalDownsampleSize()
-        print("    [Coordinator] Using dynamic downsample: \(downsampleDimension)px for preview size '\(SettingsManager.shared.dockPreviewSize)'")
 
         let previewItems: [PreviewItem] = await withTaskGroup(of: PreviewItem?.self, returning: [PreviewItem].self) { group in
             for window in capturedWindows {
@@ -235,16 +211,13 @@ final class DockPreviewCoordinator {
         }
 
         guard !Task.isCancelled else {
-            print("  [Coordinator] Task cancelled after processing images for PID \(dockItem.pid).")
             return
         }
 
-        print("    [Coordinator] Processed \(previewItems.count) images.")
 
         if !previewItems.isEmpty {
             let positionPoint = dockItem.frame == .zero ? NSEvent.mouseLocation : CGPoint(x: dockItem.frame.midX, y: dockItem.frame.midY)
 
-            print("✨ [Coordinator] Showing panel with \(previewItems.count) items.")
             panelController.show(
                 appName: app.localizedName ?? "Bilinmeyen Uygulama",
                 appIcon: app.icon,
@@ -258,7 +231,6 @@ final class DockPreviewCoordinator {
             // Live preview is now handled by LivePreviewService in PreviewPanelView
             // No manual refresh needed - ScreenCaptureKit streams updates automatically
         } else {
-            print("🤷 [Coordinator] Hiding panel because no items were processed.")
             panelController.hide()
         }
     }
@@ -267,12 +239,10 @@ final class DockPreviewCoordinator {
         guard let lastHoveredItem = lastHoveredItem else { return }
         guard let app = NSRunningApplication(processIdentifier: lastHoveredItem.pid) else { return }
 
-        print("🗑️ [Coordinator] Removing window \(windowID) from preview...")
 
         lastCapturedWindows.removeAll { $0.windowID == windowID }
 
         if lastCapturedWindows.isEmpty {
-            print("    No windows remaining, hiding preview")
             panelController.hide()
             return
         }
@@ -303,7 +273,6 @@ final class DockPreviewCoordinator {
             if !previewItems.isEmpty {
                 let positionPoint = lastHoveredItem.frame == .zero ? NSEvent.mouseLocation : CGPoint(x: lastHoveredItem.frame.midX, y: lastHoveredItem.frame.midY)
 
-                print("    [Coordinator] Updating panel with \(previewItems.count) remaining items")
                 self.panelController.show(
                     appName: app.localizedName ?? "Bilinmeyen Uygulama",
                     appIcon: app.icon,
@@ -340,7 +309,6 @@ final class DockPreviewCoordinator {
                     let safeZone = globalPanelFrame.union(dockIconFrame).insetBy(dx: -5, dy: -5)
 
                     if !safeZone.contains(globalMouseLocation) {
-                        print("💨 [Coordinator] Mouse exited safe zone. Hiding panel.")
                         self.panelController.hide()
                         break
                     }
@@ -365,7 +333,6 @@ final class DockPreviewCoordinator {
     }
 
     private func refreshPreview(for dockItem: DockItem) async {
-        print("🔄 [Coordinator] === refreshPreview CALLED for PID \(dockItem.pid) ===")
         // Note: With live preview, this manual refresh is rarely needed
         // as ScreenCaptureKit streams updates automatically
         await performRefresh(for: dockItem)
@@ -373,17 +340,14 @@ final class DockPreviewCoordinator {
 
     private func performRefresh(for dockItem: DockItem) async {
         guard let app = NSRunningApplication(processIdentifier: dockItem.pid) else {
-            print("  [Coordinator] App no longer running")
             return
         }
 
-        print("  [Coordinator] Invalidating cache and capturing fresh windows...")
         WindowCacheManager.shared.invalidateCache(for: dockItem.pid)
 
         let capturedWindows = await windowCaptureService.captureWindows(for: dockItem.pid)
 
         guard !capturedWindows.isEmpty else {
-            print("  [Coordinator] No windows captured during refresh")
             return
         }
 
@@ -414,14 +378,12 @@ final class DockPreviewCoordinator {
         }
 
         guard !previewItems.isEmpty else {
-            print("  [Coordinator] No items after processing")
             return
         }
 
         // Update the panel
         let positionPoint = dockItem.frame == .zero ? NSEvent.mouseLocation : CGPoint(x: dockItem.frame.midX, y: dockItem.frame.midY)
 
-        print("✅ [Coordinator] Refresh complete - updating panel with \(previewItems.count) items")
         panelController.show(
             appName: app.localizedName ?? "Bilinmeyen Uygulama",
             appIcon: app.icon,

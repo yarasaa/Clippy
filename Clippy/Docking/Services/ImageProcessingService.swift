@@ -12,7 +12,6 @@ actor ImageProcessingService {
     init?() {
         guard let device = MTLCreateSystemDefaultDevice(),
               let commandQueue = device.makeCommandQueue() else {
-            print("Metal is not supported on this device.")
             return nil
         }
 
@@ -22,12 +21,10 @@ actor ImageProcessingService {
         let library: MTLLibrary
         do {
             guard let libraryURL = Bundle.main.url(forResource: "default", withExtension: "metallib") else {
-                print("HATA: default.metallib dosyası uygulama paketinde bulunamadı. Shaders.metal dosyasının hedefe (target) eklendiğinden ve 'Compile Sources' içinde olduğundan emin olun.")
                 return nil
             }
             library = try device.makeLibrary(URL: libraryURL)
         } catch {
-            print("HATA: Metal kütüphanesi yüklenemedi: \(error.localizedDescription)")
             return nil
         }
 
@@ -39,18 +36,15 @@ actor ImageProcessingService {
         do {
             self.pipelineState = try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
         } catch {
-            print("Failed to create render pipeline state: \(error.localizedDescription)")
             return nil
         }
     }
 
     func downsample(image: CGImage, maxDimension: CGFloat) async -> CGImage? {
-        print("⚙️ ImageProcessingService: Downsampling image to max \(maxDimension)px...")
         let newSize = calculateNewSize(for: image, maxDimension: maxDimension)
         guard newSize.width > 0 && newSize.height > 0 else { return nil }
 
         guard let sourceTexture = loadTexture(from: image) else {
-            print("Failed to load CGImage into texture.")
             return nil
         }
 
@@ -62,7 +56,6 @@ actor ImageProcessingService {
         )
         descriptor.usage = [.renderTarget, .shaderRead]
         guard let destinationTexture = device.makeTexture(descriptor: descriptor) else {
-            print("Failed to create destination texture.")
             return nil
         }
 
@@ -85,7 +78,6 @@ actor ImageProcessingService {
         }
 
         guard commandBuffer.status == .completed else {
-            print("GPU command buffer failed with status: \(commandBuffer.status.rawValue), error: \(commandBuffer.error?.localizedDescription ?? "N/A")")
             return nil
         }
 
@@ -113,7 +105,6 @@ actor ImageProcessingService {
                                   bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue),
                                   provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
 
-        print("✅ ImageProcessingService: Downsampling complete.")
         return resultImage
     }
 
@@ -132,18 +123,15 @@ actor ImageProcessingService {
         textureDescriptor.usage = .shaderRead
 
         guard let texture = device.makeTexture(descriptor: textureDescriptor) else {
-            print("Failed to create source texture.")
             return nil
         }
 
         guard let dataProvider = cgImage.dataProvider, let data = dataProvider.data else {
-            print("Failed to get data provider from CGImage.")
             return nil
         }
 
         let bytesPerRow = cgImage.bytesPerRow
         guard let bytes = CFDataGetBytePtr(data) else {
-            print("Failed to get byte pointer from CGImage data.")
             return nil
         }
 

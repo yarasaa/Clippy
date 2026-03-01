@@ -48,10 +48,8 @@ class KeyInterceptingPanel: NSPanel {
             case .scrollWheel:
                 self.handleScrollWheel(event)
             case .swipe:
-                print("🎯 [EventMonitor] Native swipe detected!")
                 self.onSwipe?(event)
             case .otherMouseDown:
-                print("🖱️ [EventMonitor] OtherMouseDown detected, button: \(event.buttonNumber)")
                 self.onOtherMouseDown?(event)
             default:
                 break
@@ -72,10 +70,8 @@ class KeyInterceptingPanel: NSPanel {
         lastScrollTime = now
         scrollAccumulator += event.deltaY
 
-        print("🎯 [EventMonitor] ScrollWheel - deltaY: \(event.deltaY), accumulated: \(scrollAccumulator), phase: \(event.phase.rawValue)")
 
         if abs(scrollAccumulator) > 20 {
-            print("  Triggering swipe action!")
             onSwipe?(event)
             scrollAccumulator = 0
         }
@@ -86,19 +82,16 @@ class KeyInterceptingPanel: NSPanel {
     }
 
     override func swipe(with event: NSEvent) {
-        print("🎯 [KeyInterceptingPanel] Swipe event received - deltaX: \(event.deltaX), deltaY: \(event.deltaY)")
         onSwipe?(event)
         super.swipe(with: event)
     }
 
     override func otherMouseDown(with event: NSEvent) {
-        print("🖱️ [KeyInterceptingPanel] OtherMouseDown event received, button: \(event.buttonNumber)")
         onOtherMouseDown?(event)
         super.otherMouseDown(with: event)
     }
 
     override func scrollWheel(with event: NSEvent) {
-        print("🎯 [KeyInterceptingPanel] ScrollWheel override - deltaY: \(event.deltaY), phase: \(event.phase.rawValue)")
         handleScrollWheel(event)
         super.scrollWheel(with: event)
     }
@@ -116,7 +109,6 @@ class WindowSwitcherPanelController: ObservableObject {
 
     func show(items: [SwitcherItem]) {
         self.ignoreNextTab = true
-        print("🖥️ WindowSwitcherPanelController: show() called with \(items.count) items.")
         if panel == nil {
             panel = KeyInterceptingPanel(
                 contentRect: .zero,
@@ -143,11 +135,9 @@ class WindowSwitcherPanelController: ObservableObject {
                 }
             }
 
-            print("✅ WindowSwitcherPanelController: New panel created.")
         }
 
         guard let panel = panel, let screen = NSScreen.main else {
-            print("🚫 WindowSwitcherPanelController: Panel or main screen not available, aborting show.")
             return
         }
 
@@ -199,7 +189,6 @@ class WindowSwitcherPanelController: ObservableObject {
         }
 
         startOptionKeyMonitor()
-        print("✅ WindowSwitcherPanelController: Panel shown or updated.")
     }
 
     func hide(completion: (() -> Void)? = nil) {
@@ -209,7 +198,6 @@ class WindowSwitcherPanelController: ObservableObject {
             completion?()
             return
         }
-        print("🙈 WindowSwitcherPanelController: Hiding panel.")
 
         let currentFrame = panel.frame
         let finalFrame = currentFrame.insetBy(dx: currentFrame.width * 0.05, dy: currentFrame.height * 0.05)

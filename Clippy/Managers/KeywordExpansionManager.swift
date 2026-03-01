@@ -159,7 +159,6 @@ class KeywordExpansionManager {
                 try viewContext.save()
             }
         } catch {
-            print("❌ Snippet istatistiklerini güncelleme hatası: \(error)")
         }
     }
 
@@ -399,7 +398,6 @@ class KeywordExpansionManager {
     }
 
     @objc private func handleKeywordsChanged() {
-        print("🔄 Anahtar kelimeler değişti, önbellek yeniden yükleniyor...")
         reloadCache()
     }
 
@@ -434,9 +432,7 @@ class KeywordExpansionManager {
             self.keywordCache = newCache
             self.contextualRulesCache = newRulesCache
             self.categoriesCache = newCategoriesCache
-            print("✅ Anahtar kelime önbelleği yeniden yüklendi. Toplam \(keywordCache.count) öğe.")
         } catch {
-            print("❌ Anahtar kelime önbelleğini yükleme hatası: \(error)")
         }
     }
 

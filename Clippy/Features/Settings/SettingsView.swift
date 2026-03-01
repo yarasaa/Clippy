@@ -158,6 +158,9 @@ struct SettingsView: View {
                     Toggle(L("File Converter", settings: settings), isOn: $settings.enableFileConverter)
                         .help(L("Convert files between formats (images, documents, audio, video, data)", settings: settings))
 
+                    Toggle(L("Drag & Drop Shelf", settings: settings), isOn: $settings.enableDragDropShelf)
+                        .help(L("Floating shelf for temporary drag & drop storage", settings: settings))
+
                     Toggle(L("Quick Preview Overlay", settings: settings), isOn: $settings.enableQuickPreview)
                         .help(L("Show a floating panel with recent clipboard items via hotkey", settings: settings))
 

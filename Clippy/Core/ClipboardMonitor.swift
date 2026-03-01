@@ -82,7 +82,6 @@ class ClipboardMonitor: ObservableObject {
     func setMonitoringInterval(_ interval: TimeInterval) {
         stopMonitoring()
         startMonitoring(interval: interval)
-        print("ℹ️ Pano izleme aralığı \(interval) saniye olarak ayarlandı.")
     }
 
     private func checkClipboard() async {
@@ -120,7 +119,6 @@ class ClipboardMonitor: ObservableObject {
 
             if let image = pb.readObjects(forClasses: [NSImage.self], options: nil)?.first as? NSImage {
                 guard SettingsManager.shared.showImagesTab else {
-                    print("ℹ️ Resim kaydetme ayarı kapalı. Kopyalanan resim yoksayıldı.")
                     return
                 }
                 await self.saveImageInBackground(image, sourceAppName: sourceAppName, sourceAppBundleIdentifier: sourceAppBundleIdentifier)
@@ -144,17 +142,14 @@ class ClipboardMonitor: ObservableObject {
                 try jpegData.write(to: fileURL)
             }.value
 
-            print("🖼️ Resim diske kaydedildi: \(fileName)")
             let item = ClipboardItem(contentType: .image(imagePath: fileName), date: Date(), sourceAppName: sourceAppName, sourceAppBundleIdentifier: sourceAppBundleIdentifier)
             self.addNewItem(item)
         } catch {
-            print("❌ Resim kaydetme hatası: \(error)")
         }
     }
 
     func addImageToHistory(image: NSImage) {
         guard let newImagePath = saveImage(image) else {
-            print("❌ Görüntü diske kaydedilemedi ve geçmişe eklenemedi.")
             return
         }
         let newItem = ClipboardItem(contentType: .image(imagePath: newImagePath), date: Date(), sourceAppName: "Clippy Editor", sourceAppBundleIdentifier: "com.yarasa.Clippy.Editor")
@@ -166,7 +161,6 @@ class ClipboardMonitor: ObservableObject {
               let imageRep = NSBitmapImageRep(data: imageData),
               let jpegData = imageRep.representation(using: .jpeg, properties: [.compressionFactor: 0.85]),
               let imageDir = getImagesDirectory() else {
-            print("❌ Düzenlenmiş resim verisi oluşturulamadı.")
             return
         }
 
@@ -177,9 +171,7 @@ class ClipboardMonitor: ObservableObject {
             try jpegData.write(to: fileURL)
             let newItem = ClipboardItem(contentType: .image(imagePath: fileName), date: Date(), sourceAppName: "Clippy Editor", sourceAppBundleIdentifier: "com.yarasa.Clippy.Editor")
             addNewItem(newItem)
-            print("✅ Düzenlenmiş resim kaydedildi: \(fileName)")
         } catch {
-            print("❌ Düzenlenmiş resmi kaydetme hatası: \(error)")
         }
     }
 
@@ -187,17 +179,14 @@ class ClipboardMonitor: ObservableObject {
         guard item.contentType == "image",
               let imagePath = item.content,
               let image = loadImage(from: imagePath) else {
-            print("❌ OCR: Geçerli bir resim öğesi bulunamadı.")
             return
         }
 
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            print("❌ OCR: NSImage, CGImage'e dönüştürülemedi.")
             return
         }
         let request = VNRecognizeTextRequest { (request, error) in
             guard let observations = request.results as? [VNRecognizedTextObservation], error == nil else {
-                print("❌ OCR: Metin tanıma başarısız oldu - \(error?.localizedDescription ?? "Bilinmeyen hata")")
                 return
             }
 
@@ -206,7 +195,6 @@ class ClipboardMonitor: ObservableObject {
             }
 
             guard !recognizedStrings.isEmpty else {
-                print("ℹ️ OCR: Resimde metin bulunamadı.")
                 return
             }
 
@@ -214,7 +202,6 @@ class ClipboardMonitor: ObservableObject {
 
             let ocrItem = ClipboardItem(contentType: .text(fullText), date: Date(), isCode: self.isLikelyCode(fullText), sourceAppName: "Clippy OCR", sourceAppBundleIdentifier: "com.yarasa.Clippy.OCR")
             self.addNewItem(ocrItem)
-            print("✅ OCR: Metin tanındı ve geçmişe eklendi.")
         }
 
         var languages: [String] = []
@@ -226,7 +213,6 @@ class ClipboardMonitor: ObservableObject {
 
         request.recognitionLevel = .accurate
         request.recognitionLanguages = languages
-        print("ℹ️ OCR dilleri ayarlandı: \(languages)")
 
         try? VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
     }
@@ -290,7 +276,6 @@ class ClipboardMonitor: ObservableObject {
 
             return lastContent == text
         } catch {
-            print("❌ Yinelenen öğe kontrolü hatası: \(error)")
             return false
         }
     }
@@ -304,7 +289,6 @@ class ClipboardMonitor: ObservableObject {
             let result = try viewContext.fetch(fetchRequest)
             return result.first
         } catch {
-            print("❌ Core Data'da öğe bulunamadı: \(error)")
         }
         return nil
     }
@@ -330,7 +314,6 @@ class ClipboardMonitor: ObservableObject {
 
     func prepareForSequentialCopy() {
         shouldAddToSequentialQueue = true
-        print("➡️ Sıralı kopyalama için hazır. Bir sonraki kopyalama kuyruğa eklenecek.")
     }
     func pasteNextInSequence(completion: @escaping () -> Void) {
         guard !sequentialPasteQueueIDs.isEmpty else { return }
@@ -356,7 +339,6 @@ class ClipboardMonitor: ObservableObject {
         sequentialPasteQueueIDs.removeAll()
         sequentialPasteIndex = 0
         isPastingFromQueue = false
-        print("🧹 Sıralı yapıştırma kuyruğu temizlendi.")
     }
 
     func addSelectionToSequentialQueue() {
@@ -367,7 +349,6 @@ class ClipboardMonitor: ObservableObject {
         self.sequentialPasteIndex = 0
         self.isPastingFromQueue = false
 
-        print("✅ \(selectedItemIDs.count) öğe sıralı yapıştırma kuyruğuna eklendi.")
 
         clearSelection()
     }
@@ -453,7 +434,6 @@ class ClipboardMonitor: ObservableObject {
         if let finalImage = combinedImage, let newImagePath = saveImage(finalImage) {
             let newItem = ClipboardItem(contentType: .image(imagePath: newImagePath), date: Date(), sourceAppName: L("Clippy Combiner", settings: SettingsManager.shared), sourceAppBundleIdentifier: "com.yarasa.Clippy.Combiner")
             addNewItem(newItem)
-            print("✅ \(images.count) resim (\(orientation)) birleştirildi ve yeni öğe olarak geçmişe eklendi.")
         }
     }
 
@@ -488,9 +468,7 @@ class ClipboardMonitor: ObservableObject {
             }
             clearSelection()
             scheduleSave()
-            print("🗑️ \(itemsToDelete.count) öğe silindi.")
         } catch {
-            print("❌ Çoklu silme için öğeleri getirme hatası: \(error)")
         }
     }
 
@@ -565,7 +543,6 @@ class ClipboardMonitor: ObservableObject {
                 viewContext.delete(item)
             }
         } catch {
-            print("❌ Öğeleri silmek için fetch etme hatası: \(error)")
         }
         scheduleSave()
     }
@@ -601,7 +578,6 @@ class ClipboardMonitor: ObservableObject {
                 }
             }
         } catch {
-            print("❌ Yinelenenleri temizleme hatası: \(error)")
         }
         scheduleSave()
     }
@@ -881,7 +857,6 @@ class ClipboardMonitor: ObservableObject {
         let fileURL = imageDir.appendingPathComponent(imagePath)
         do {
             try FileManager.default.removeItem(at: fileURL)
-            print("🗑️ Resim dosyası diskten silindi: \(imagePath)")
         } catch { print("❌ Resim dosyası silme hatası: \(error)") }
     }
 
@@ -938,10 +913,8 @@ class ClipboardMonitor: ObservableObject {
 
         do {
             try jpegData.write(to: fileURL)
-            print("🖼️ Sıralı kopyalama için resim diske kaydedildi: \(fileName)")
             return fileName
         } catch {
-            print("❌ Sıralı kopyalama için resim kaydetme hatası: \(error)")
             return nil
         }
     }
@@ -1050,11 +1023,9 @@ class ClipboardMonitor: ObservableObject {
 
         do {
             try viewContext.save()
-            print("✅ Core Data context kaydedildi.")
             NotificationCenter.default.post(name: .keywordsDidChange, object: nil)
         } catch {
             let nsError = error as NSError
-            print("❌ Core Data kaydetme hatası: \(nsError), \(nsError.userInfo)")
         }
     }
     private func applyLimits() {
@@ -1086,7 +1057,6 @@ class ClipboardMonitor: ObservableObject {
                 }
             }
         } catch {
-            print("❌ Limit uygulama hatası: \(error)")
         }
     }
 }

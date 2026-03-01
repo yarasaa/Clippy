@@ -46,13 +46,10 @@ class ScreenshotManager: NSObject {
                 guard process.terminationStatus == 0,
                       let image = NSImage(contentsOf: tempURL) else {
                     if process.terminationStatus != 0 {
-                        print("ℹ️ Ekran görüntüsü alma işlemi kullanıcı tarafından iptal edildi.")
                     } else {
-                        print("❌ Ekran görüntüsü dosyası oluşturulamadı.")
                     }
                     return
                 }
-                print("✅ Ekran görüntüsü başarıyla alındı.")
                 completion(image)
             }
         }

@@ -36,7 +36,6 @@ final class WindowActionService {
 
         let result = AXUIElementPerformAction(windowElement, kAXRaiseAction as CFString)
         if result != .success {
-            print("Pencere öne getirilirken hata oluştu: \(result.rawValue)")
         }
         NSRunningApplication(processIdentifier: pid)?.activate(options: .activateIgnoringOtherApps)
     }
@@ -48,7 +47,6 @@ final class WindowActionService {
         if AXUIElementIsAttributeSettable(windowElement, kAXMinimizedAttribute as CFString, &isMinimizable) == .success && isMinimizable.boolValue {
             let result = AXUIElementSetAttributeValue(windowElement, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
             if result != .success {
-                print("Pencere küçültülürken hata oluştu: \(result.rawValue)")
             }
         }
     }
@@ -62,13 +60,11 @@ final class WindowActionService {
         if result == .success, let closeButton = closeButton, CFGetTypeID(closeButton) == AXUIElementGetTypeID() {
             AXUIElementPerformAction(closeButton as! AXUIElement, kAXPressAction as CFString)
         } else {
-            print("Pencere için kapatma düğmesi bulunamadı.")
         }
     }
 
     func moveWindow(with windowID: CGWindowID, pid: pid_t, to screen: NSScreen) {
         guard let windowElement = findWindowElement(with: windowID, pid: pid) else {
-            print("🚫 Window element bulunamadı: \(windowID)")
             return
         }
 
@@ -76,7 +72,6 @@ final class WindowActionService {
         guard AXUIElementCopyAttributeValue(windowElement, kAXSizeAttribute as CFString, &sizeValue) == .success,
               let sizeVal = sizeValue as! AXValue?,
               CFGetTypeID(sizeVal) == AXValueGetTypeID() else {
-            print("🚫 Window boyutu alınamadı")
             return
         }
 
@@ -90,15 +85,12 @@ final class WindowActionService {
         var newPosition = CGPoint(x: newX, y: newY)
 
         guard let newPositionValue = AXValueCreate(.cgPoint, &newPosition) else {
-            print("🚫 AXValue oluşturulamadı")
             return
         }
 
         let result = AXUIElementSetAttributeValue(windowElement, kAXPositionAttribute as CFString, newPositionValue)
         if result == .success {
-            print("✅ Window \(windowID) başarıyla \(screen.localizedName) ekranına taşındı")
         } else {
-            print("🚫 Window taşıma hatası: \(result.rawValue)")
         }
     }
 }

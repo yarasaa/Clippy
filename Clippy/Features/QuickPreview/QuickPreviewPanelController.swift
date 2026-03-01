@@ -54,12 +54,10 @@ class QuickPreviewPanelController {
         do {
             items = try context.fetch(request)
         } catch {
-            print("❌ [QuickPreview] Failed to fetch items: \(error)")
             return
         }
 
         guard !items.isEmpty else {
-            print("ℹ️ [QuickPreview] No items to show")
             return
         }
 
@@ -141,10 +139,8 @@ class QuickPreviewPanelController {
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().alphaValue = 1.0
         }, completionHandler: {
-            print("⌨️ [QuickPreview] Panel visible and ready")
         })
 
-        print("✅ [QuickPreview] Showing \(items.count) items")
     }
 
     // Bug 3 fix: completionHandler ile zamanlama düzeltme
@@ -165,7 +161,6 @@ class QuickPreviewPanelController {
             completion?()
         })
 
-        print("🙈 [QuickPreview] Hidden")
     }
 
     // MARK: - Paste & Close
@@ -219,7 +214,6 @@ class QuickPreviewPanelController {
     // MARK: - Drag Handling (Bug 2 fix)
 
     private func handleDragStarted() {
-        print("🔄 [QuickPreview] Drag started, setting up auto-close monitor")
         removeDragMonitor()
 
         // Use both global and local monitors to catch mouse-up after drag
@@ -235,7 +229,6 @@ class QuickPreviewPanelController {
 
     private func handleDragEnded() {
         guard isVisible else { return }
-        print("🔄 [QuickPreview] Drag ended (mouse up), auto-closing")
         removeDragMonitor()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.hide()

@@ -95,13 +95,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .sink { [weak self] isEnabled in
                 guard let self = self else { return }
                 if isEnabled {
-                    print("✅ [AppDelegate] 'enableDockPreview' is ON. Using shared DockPreviewCoordinator.")
                     // Singleton tasarım desenine geçildiği için, her zaman paylaşılan örneği kullanıyoruz.
                     self.dockPreviewCoordinator = DockPreviewCoordinator.shared
                     self.startDockPreviewWithPermissionCheck()
                     self.setupSwitcherEventTap()
                 } else {
-                    print("🛑 [AppDelegate] 'enableDockPreview' is OFF. Stopping shared DockPreviewCoordinator.")
                     self.dockPreviewCoordinator?.stop()
                     // Belleği serbest bırakmak ve durumu sıfırlamak için referansı kaldır.
                     self.dockPreviewCoordinator = nil
@@ -114,7 +112,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let tap = eventTap {
             CFMachPortInvalidate(tap)
             eventTap = nil
-            print("🚫 'Uygulama Değiştirici' için Event Tap durduruldu.")
         }
         windowSwitcherCoordinator?.confirmSelectionAndHide() // Switcher'ı gizle
     }
@@ -126,7 +123,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // DOCKDOOR ÇÖZÜMÜ: Event Tap oluşturmak için Erişilebilirlik izni gereklidir.
         // İzin yoksa, kullanıcıyı bilgilendir ve işlemi durdur.
         guard AXIsProcessTrusted() else {
-            print("🚫 'Uygulama Değiştirici' için Erişilebilirlik izni yok. Event Tap başlatılamadı.")
             // Kullanıcıya izin istemek için, daha önce yazdığımız yardımcı fonksiyonu çağır.
             requestAccessibilityPermissions()
             return
@@ -175,13 +171,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
 
         guard eventTap != nil else {
-            print("🚫 'Uygulama Değiştirici' için Event Tap oluşturulamadı (CGEvent.tapCreate nil döndü).")
             return
         }
 
         let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-        print("✅ 'Uygulama Değiştirici' için Event Tap başlatıldı.")
     }
 
     @MainActor
@@ -191,13 +185,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard AXIsProcessTrustedWithOptions(options as CFDictionary) else {
             // İzin verilmedi - macOS zaten dialog gösterdi, ayarı kapat
             SettingsManager.shared.enableDockPreview = false
-            print("⚠️ [AppDelegate] Accessibility permission needed - user will see system dialog")
             return
         }
 
         // İzin tamam, Dock Preview'u başlat
         // Screen Recording izni sadece Live Preview kullanıldığında gerekli
-        print("✅ [AppDelegate] Accessibility OK. Starting dock preview...")
         dockPreviewCoordinator?.start()
     }
 
@@ -230,7 +222,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func systemDidWake(notification: NSNotification) {
-        print("💤 Sistem uyandı. Monitörler ve kısayollar yeniden başlatılıyor...")
 
         clipboardMonitor?.stopMonitoring()
         clipboardMonitor?.startMonitoring()
@@ -250,7 +241,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func updateHotkey() {
         let settings = SettingsManager.shared
         guard !settings.hotkeyKey.isEmpty, let key = Key(string: settings.hotkeyKey.lowercased()) else {
-            print("Geçersiz kısayol tuşu: \(settings.hotkeyKey)")
             return
         }
         let modifiers = NSEvent.ModifierFlags(rawValue: settings.hotkeyModifiers)
@@ -262,13 +252,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.statusBarController?.togglePopover(nil)
         }
 
-        print("✅ Kısayol güncellendi: \(modifiers) + \(key)")
     }
 
     func updatePasteAllHotkey() {
         let settings = SettingsManager.shared
         guard !settings.pasteAllHotkeyKey.isEmpty, let key = Key(string: settings.pasteAllHotkeyKey.lowercased()) else {
-            print("Geçersiz 'Tümünü Yapıştır' kısayol tuşu: \(settings.pasteAllHotkeyKey)")
             return
         }
         let modifiers = NSEvent.ModifierFlags(rawValue: settings.pasteAllHotkeyModifiers)
@@ -284,7 +272,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
-        print("✅ 'Tümünü Yapıştır' kısayolu güncellendi: \(modifiers) + \(key)")
     }
 
     func updateSequentialCopyHotkey() {
@@ -310,7 +297,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             cKeyUp?.post(tap: .cgAnnotatedSessionEventTap)
         }
 
-        print("✅ 'Sıraya Ekle' kısayolu güncellendi: \(modifiers) + \(key)")
     }
 
     func updateSequentialPasteHotkey() {
@@ -332,7 +318,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
-        print("✅ 'Sıradakini Yapıştır' kısayolu güncellendi: \(modifiers) + \(key)")
     }
 
     func updateClearQueueHotkey() {
@@ -350,7 +335,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         clearQueueHotKey?.keyDownHandler = { [weak self] in
             self?.clipboardMonitor?.clearSequentialPasteQueue()
         }
-        print("✅ 'Sıralı Kuyruğu Temizle' kısayolu güncellendi: \(modifiers) + \(key)")
     }
 
     func updateScreenshotHotkey() {
@@ -368,7 +352,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         screenshotHotKey?.keyDownHandler = { [weak self] in
             self?.takeScreenshot()
         }
-        print("✅ 'Ekran Görüntüsü Al' kısayolu güncellendi: \(modifiers) + \(key)")
     }
 
     func updateQuickPreviewHotkey() {
@@ -386,7 +369,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         quickPreviewHotKey?.keyDownHandler = {
             QuickPreviewPanelController.shared.toggle()
         }
-        print("✅ 'Hızlı Önizleme' kısayolu güncellendi: \(modifiers) + \(key)")
     }
 
     private func createMenu() {
@@ -414,6 +396,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let captureDelayedItem = NSMenuItem(title: L("Delayed Screenshot (3s)", settings: SettingsManager.shared), action: #selector(captureDelayed), keyEquivalent: "")
             captureDelayedItem.target = self
             menu.addItem(captureDelayedItem)
+
         }
 
         menu.addItem(NSMenuItem.separator())
@@ -440,6 +423,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let fileConverterItem = NSMenuItem(title: "File Converter", action: #selector(openFileConverter), keyEquivalent: "")
             fileConverterItem.target = self
             menu.addItem(fileConverterItem)
+        }
+
+        if SettingsManager.shared.enableDragDropShelf {
+            let shelfItem = NSMenuItem(title: "Drag & Drop Shelf", action: #selector(toggleDragDropShelf), keyEquivalent: "")
+            shelfItem.target = self
+            menu.addItem(shelfItem)
         }
 
         menu.addItem(NSMenuItem.separator())
@@ -544,6 +533,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         FileConverterPanelController.shared.show()
     }
 
+    @objc func toggleDragDropShelf() {
+        DragDropShelfPanelController.shared.toggle()
+    }
+
     @objc func toggleDockPreview() {
         SettingsManager.shared.enableDockPreview.toggle()
     }
@@ -568,7 +561,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let window = NSWindow(contentViewController: hostingController)
 
         guard let mainPopoverWindow = statusBarController?.popover.contentViewController?.view.window else {
-            print("❌ Ana popover penceresi bulunamadı.")
             return
         }
 
@@ -597,7 +589,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let window = NSWindow(contentViewController: hostingController)
 
         guard let mainPopoverWindow = statusBarController?.popover.contentViewController?.view.window else {
-            print("❌ Ana popover penceresi bulunamadı.")
             return
         }
 
@@ -779,13 +770,6 @@ extension AppDelegate: NSWindowDelegate, NSMenuItemValidation {
             autoreleasepool {
                 screenshotEditorWindow?.contentViewController = nil
                 screenshotEditorWindow = nil
-                print("🧹 Screenshot editor window closed - memory cleanup triggered")
-            }
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                autoreleasepool {
-                    print("🧹 Delayed memory cleanup pass completed")
-                }
             }
         }
         if (notification.object as? NSWindow) == detailWindow {

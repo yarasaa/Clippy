@@ -57,7 +57,6 @@ class SettingsManager: ObservableObject {
     @Published var appLanguage: String {
         didSet {
             UserDefaults.standard.set(appLanguage, forKey: "appLanguage")
-            print("⚙️ SettingsManager: Dil ayarı kaydedildi -> \(appLanguage)")
         }
     }
     @Published var sequentialCopyHotkeyKey: String {
@@ -183,6 +182,9 @@ class SettingsManager: ObservableObject {
     @Published var enableFileConverter: Bool {
         didSet { UserDefaults.standard.set(enableFileConverter, forKey: "enableFileConverter") }
     }
+    @Published var enableDragDropShelf: Bool {
+        didSet { UserDefaults.standard.set(enableDragDropShelf, forKey: "enableDragDropShelf") }
+    }
     @Published var maxTextStorageLength: Int {
         didSet { UserDefaults.standard.set(maxTextStorageLength, forKey: "maxTextStorageLength") }
     }
@@ -285,6 +287,7 @@ class SettingsManager: ObservableObject {
         self.enableDuplicateDetection = UserDefaults.standard.object(forKey: "enableDuplicateDetection") as? Bool ?? true
         self.enableSourceAppTracking = UserDefaults.standard.object(forKey: "enableSourceAppTracking") as? Bool ?? true
         self.enableFileConverter = UserDefaults.standard.object(forKey: "enableFileConverter") as? Bool ?? true
+        self.enableDragDropShelf = UserDefaults.standard.object(forKey: "enableDragDropShelf") as? Bool ?? true
         self.maxTextStorageLength = UserDefaults.standard.object(forKey: "maxTextStorageLength") as? Int ?? 500000
 
         // Quick Preview Overlay

@@ -12,7 +12,6 @@ final class WindowLayoutsManager: ObservableObject {
 
     private init() {
         loadLayouts()
-        print("📐 [WindowLayoutsManager] INIT: WindowLayoutsManager initialized with \(savedLayouts.count) layouts")
     }
 
     // MARK: - Public Methods
@@ -21,17 +20,14 @@ final class WindowLayoutsManager: ObservableObject {
         let layout = captureCurrentLayout(name: name)
         savedLayouts.append(layout)
         persistLayouts()
-        print("📐 [WindowLayoutsManager] Saved layout '\(name)' with \(layout.windows.count) windows")
     }
 
     func applyLayout(_ layout: WindowLayout) {
-        print("📐 [WindowLayoutsManager] Applying layout '\(layout.name)' with \(layout.windows.count) windows")
 
         for windowState in layout.windows {
             // Find the window by bundle identifier
             guard let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == windowState.bundleIdentifier }),
                   let windowID = findWindowID(for: app.processIdentifier, title: windowState.title) else {
-                print("⚠️ [WindowLayoutsManager] Could not find window for \(windowState.bundleIdentifier ?? "unknown") - \(windowState.title)")
                 continue
             }
 
@@ -43,7 +39,6 @@ final class WindowLayoutsManager: ObservableObject {
     func deleteLayout(id: UUID) {
         savedLayouts.removeAll { $0.id == id }
         persistLayouts()
-        print("📐 [WindowLayoutsManager] Deleted layout \(id)")
     }
 
     // MARK: - Private Methods
@@ -131,7 +126,6 @@ final class WindowLayoutsManager: ObservableObject {
             let sizeValue = AXValue.from(value: &size, type: .cgSize)
             AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
 
-            print("📐 [WindowLayoutsManager] Moved window to \(frame)")
             break
         }
     }

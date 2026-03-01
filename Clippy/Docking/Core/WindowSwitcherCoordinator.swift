@@ -24,7 +24,6 @@ final class WindowSwitcherCoordinator {
 
     init?() {
         guard let imageProcessingService = ImageProcessingService() else {
-            print("HATA: WindowSwitcherCoordinator için ImageProcessingService başlatılamadı.")
             return nil
         }
         self.imageProcessingService = imageProcessingService
@@ -42,7 +41,6 @@ final class WindowSwitcherCoordinator {
         switch state {
         case .hidden:
             state = .preparing
-            print("➡️ State: .hidden -> .preparing")
             Task {
                 let items = await prepareItems()
                 guard !items.isEmpty else {
@@ -54,19 +52,15 @@ final class WindowSwitcherCoordinator {
                 panelController.selectedItemID = items.first?.id
                 panelController.show(items: items)
                 state = .visible
-                print("✅ State: .preparing -> .visible")
             }
         case .visible:
-            print("🔄 State: .visible. Cycling selection.")
             cycleSelection()
         case .preparing:
-            print("⏳ State: .preparing. Ignoring tab press.")
             break
         }
     }
 
     func confirmSelectionAndHide() {
-        print("🔼 Option key released or item clicked.")
 
         let itemToRaise = items.first { $0.id == panelController.selectedItemID }
 
@@ -76,12 +70,10 @@ final class WindowSwitcherCoordinator {
             }
             self?.state = .hidden
             self?.items = []
-            print("⏹️ State reset to .hidden.")
         }
     }
 
     private func prepareItems() async -> [SwitcherItem] {
-        print("➡️ WindowSwitcherCoordinator: Preparing...")
         let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
         guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else { return [] }
 
@@ -116,7 +108,6 @@ final class WindowSwitcherCoordinator {
             return results
         }
 
-        print("✅ WindowSwitcherCoordinator: Prepared with \(switcherItems.count) items.")
         return switcherItems
     }
 
@@ -127,6 +118,5 @@ final class WindowSwitcherCoordinator {
             nextIndex = (currentIndex + 1) % items.count
         }
         panelController.selectedItemID = items[nextIndex].id
-        print("🔹 Selection cycled to index \(nextIndex), window ID: \(items[nextIndex].id)")
     }
 }

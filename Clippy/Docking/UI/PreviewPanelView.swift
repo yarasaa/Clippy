@@ -242,7 +242,6 @@ struct PreviewItemView: View {
             }
         }
         .onHover { hovering in
-            print("🖱️ [PreviewItem-\(windowID)] Hover state changed: \(hovering)")
             withAnimation(.easeInOut(duration: 0.2)) { isHovering = hovering }
         }
         .onDrag {
@@ -372,7 +371,6 @@ class MiddleClickNSView: NSView {
                 let locationInView = self.convert(locationInWindow, from: nil)
 
                 if self.bounds.contains(locationInView) && event.buttonNumber == 2 {
-                    print("🖱️ [MiddleClick] Middle click detected at \(locationInView)")
                     self.onMiddleClick?()
                 }
             }

@@ -132,7 +132,7 @@ A built-in file format converter that lets you quickly convert files between for
 | **Document** | RTF, HTML, TXT, RTFD, Markdown, DOCX            | TXT, HTML, RTF, PDF                  |
 | **Audio**    | M4A, WAV, AAC, AIFF, MP3, FLAC                  | M4A, WAV, CAF, AIFF                  |
 | **Video**    | MOV, MP4, M4V, AVI                              | MP4, MOV, M4V                        |
-| **Data**     | JSON, XML, PLIST, CSV                           | JSON, XML, CSV, PLIST                |
+| **Data**     | JSON, YAML, XML, PLIST, CSV                     | JSON, YAML, XML, CSV, PLIST          |
 
 ### 🪟 Window Management
 
@@ -218,16 +218,27 @@ A built-in file format converter that lets you quickly convert files between for
 - **Capture with a Shortcut:** Take a screenshot of any area of your screen with a customizable keyboard shortcut.
 - **Rich Annotation Tools:**
   - **Select & Move:** Universal selection tool - select any annotation to move, edit, or delete it
-  - **Arrow & Line:** Draw arrows and lines with customizable colors and thickness
+  - **Arrow & Line:** Draw arrows and lines with customizable colors and thickness. Arrows support **curved/bendable paths** — drag the control point to create Bezier curves
   - **Shapes (Rectangle, Ellipse):** Add shapes with fill, stroke, or both modes, plus adjustable corner radius
   - **Text:** Add rich text annotations with custom background colors and font sizes that auto-resize to fit content
+  - **Callout:** Add speech-bubble style callout annotations for descriptive labels
   - **Pin/Number:** Add numbered markers with customizable shapes (circle, square, rounded square)
   - **Highlighter:** Mark important areas with semi-transparent highlighting
   - **Spotlight:** Focus attention by darkening everything except selected areas (ellipse or rectangle)
   - **Pen:** Freehand drawing with solid, dashed, or marker styles
   - **Emoji:** Add emoji annotations with adjustable size
-  - **Blur/Pixelate:** Easily hide sensitive information
+  - **Blur/Pixelate:** Easily hide sensitive information with separate blur and pixelate modes
+  - **Crop:** Crop the image to a selected area directly within the editor
+  - **Magnifier:** Add a magnifying glass annotation that zooms into a region of the image (adjustable 1.5x-5.0x magnification)
+  - **Ruler:** Measure pixel distances between two points with visual tick marks and distance labels
   - **Eraser:** Remove any annotation with a click
+
+- **Eyedropper & Color Picker:**
+  - **Pixel-accurate Color Picking:** Click anywhere on the image to pick a color with an 11x11 pixel magnifier loupe
+  - **Live Loupe Preview:** A floating loupe follows your cursor showing a magnified grid of surrounding pixels with the center pixel highlighted
+  - **Multi-Format Color Copy:** Click the hex code in the toolbar to copy the color in any format: HEX, RGB, HSL, HSB, RGBA, HSLA, HEX+Alpha, SwiftUI `Color()`, or `NSColor()` initializer
+  - **WCAG Contrast Checker:** Toggle contrast mode to pick foreground and background colors, then see the contrast ratio with AA/AAA pass/fail badges in real-time
+  - **Recent Colors:** Recently picked colors are saved for quick reuse
 
 - **Universal Annotation Interaction:**
   - **Click & Drag:** Click any annotation to select it, then drag to move it anywhere
@@ -235,6 +246,9 @@ A built-in file format converter that lets you quickly convert files between for
   - **Resize Handles:** Most annotations have corner/edge handles for resizing
   - **Right Panel Controls:** Each tool has its own control panel that appears when selected
   - **Auto-Switch to Select:** After creating shapes, automatically switches to select mode for easy editing
+  - **Smart Snapping:** Annotations snap to other annotations' edges, centers, and image boundaries with visual guide lines
+  - **Copy/Paste/Duplicate:** `Cmd+C` to copy, `Cmd+V` to paste (with offset), `Cmd+D` to duplicate annotations
+  - **Arrow Key Nudging:** Move selected annotations pixel-by-pixel with arrow keys (hold Shift for 10px steps)
 
 - **Visual Effects Panel:**
   - **Backdrop:** Add solid color or gradient backdrops to your screenshot
@@ -243,6 +257,8 @@ A built-in file format converter that lets you quickly convert files between for
 
 - **Fluent Navigation:**
   - Precisely zoom in/out to your cursor's position with `Cmd` + Mouse Wheel
+  - **Keyboard Shortcuts:** `Cmd+=` (zoom in), `Cmd+-` (zoom out), `Cmd+0` (fit to window), `Cmd+1` (actual size)
+  - **Fit to Window:** One-click button in the status bar to fit the image to the editor window
   - Pan around the image with the mouse wheel
   - Hover over any annotation to see the move cursor
 
@@ -251,6 +267,8 @@ A built-in file format converter that lets you quickly convert files between for
   - Multi-line text support with Enter key
   - Font size adjustments automatically resize the text box
   - Background colors with rounded corners for better readability
+
+- **Retina Display Support:** Pixel-accurate rendering on HiDPI displays for all tools including blur, pixelate, magnifier, and eyedropper
 
 ### 🖼️ Window Switcher: A Dock for Your App's Windows
 
@@ -277,6 +295,8 @@ This approach is heavily inspired by the elegant functionality of the beloved op
 - **Long Text Handling:** Automatic text truncation and size guards prevent freezes when copying very large text content.
 - **Efficient Loading:** Core Data batch fetching and thumbnail caching for fast scrolling through large lists.
 - **Memory Pressure Handling:** Automatic cache clearing when system memory is low.
+- **Zero Debug Overhead:** All debug logging removed from production builds for minimal CPU and I/O overhead.
+- **Screenshot Editor Memory Management:** Proper resource cleanup when the editor window closes, preventing memory leaks from cached images and annotations.
 
 ### ⌨️ Keyword Expansion (Snippet Expansion)
 

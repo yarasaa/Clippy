@@ -153,7 +153,7 @@ Clippy'den ayrılmadan dosyalarınızı farklı formatlara dönüştürmenizi sa
 | **Belge** | RTF, HTML, TXT, RTFD, Markdown, DOCX            | TXT, HTML, RTF, PDF                  |
 | **Ses**   | M4A, WAV, AAC, AIFF, MP3, FLAC                  | M4A, WAV, CAF, AIFF                  |
 | **Video** | MOV, MP4, M4V, AVI                              | MP4, MOV, M4V                        |
-| **Veri**  | JSON, XML, PLIST, CSV                           | JSON, XML, CSV, PLIST                |
+| **Veri**  | JSON, YAML, XML, PLIST, CSV                     | JSON, YAML, XML, CSV, PLIST          |
 
 ### 🖼️ Window Switcher: Uygulama Pencereleriniz için Geçici bir Dock
 
@@ -173,23 +173,37 @@ Bu yaklaşım, çok sevilen açık kaynaklı bir uygulama olan **DockDoor**'un z
 - **Kısayolla Yakalama:** Özelleştirilebilir bir klavye kısayolu ile ekranın istediğiniz bir alanının görüntüsünü alın.
 - **Zengin Çizim Araçları:**
   - **Seç & Taşı:** Evrensel seçim aracı - herhangi bir çizimi seçerek taşıyın, düzenleyin veya silin
-  - **Ok & Çizgi:** Özelleştirilebilir renk ve kalınlıkta oklar ve çizgiler çizin
+  - **Ok & Çizgi:** Özelleştirilebilir renk ve kalınlıkta oklar ve çizgiler çizin. Oklar **eğri/bükülür yolları** destekler — kontrol noktasını sürükleyerek Bezier eğrileri oluşturun
   - **Şekiller (Dikdörtgen, Elips):** Dolgu, çizgi veya her ikisi modu ile şekiller ekleyin, köşe yuvarlatma ayarlanabilir
-  - **Metin:** Özel arka plan renkleri ve içeriğe göre otomatik boyutlanan yazı tipleri ile zengin metin çizileri ekleyin
+  - **Metin:** Özel arka plan renkleri ve içeriğe göre otomatik boyutlanan yazı tipleri ile zengin metin çizimleri ekleyin
+  - **Callout (Açıklama Balonu):** Açıklayıcı etiketler için konuşma balonu stili çizimler ekleyin
   - **Pin/Numara:** Özelleştirilebilir şekillerde (daire, kare, yuvarlatılmış kare) numaralı işaretçiler ekleyin
   - **Vurgulayıcı:** Yarı saydam vurgulama ile önemli alanları işaretleyin
   - **Spotlight:** Seçili alanlar (elips veya dikdörtgen) dışındaki her şeyi karartarak dikkat çekin
   - **Kalem:** Düz, kesikli veya marker stillerinde serbest çizim
   - **Emoji:** Boyutu ayarlanabilir emoji çizimleri ekleyin
-  - **Bulanıklaştırma/Pikselleştirme:** Hassas bilgileri kolayca gizleyin
+  - **Bulanıklaştırma/Pikselleştirme:** Ayrı bulanıklaştırma ve pikselleştirme modları ile hassas bilgileri kolayca gizleyin
+  - **Kırpma (Crop):** Görüntüyü doğrudan editör içinde seçili alana kırpın
+  - **Büyüteç (Magnifier):** Görüntünün bir bölgesine yakınlaştıran büyüteç çizimi ekleyin (1.5x-5.0x ayarlanabilir büyütme)
+  - **Cetvel (Ruler):** İki nokta arasındaki piksel mesafesini görsel işaretler ve mesafe etiketleri ile ölçün
   - **Silgi:** Herhangi bir çizimi tek tıkla kaldırın
+
+- **Renk Seçici & Eyedropper:**
+  - **Piksel Hassasiyetinde Renk Seçimi:** Görüntüde herhangi bir yere tıklayarak 11x11 piksel büyüteç ile renk seçin
+  - **Canlı Büyüteç Önizlemesi:** İmleci takip eden yüzen bir büyüteç, çevredeki piksellerin büyütülmüş grid'ini ortadaki piksel vurgulanmış şekilde gösterir
+  - **Çoklu Format Renk Kopyalama:** Araç çubuğundaki hex koduna tıklayarak rengi istediğiniz formatta kopyalayın: HEX, RGB, HSL, HSB, RGBA, HSLA, HEX+Alpha, SwiftUI `Color()` veya `NSColor()` başlatıcısı
+  - **WCAG Kontrast Denetleyicisi:** Kontrast modunu açarak ön plan ve arka plan renklerini seçin, ardından kontrast oranını AA/AAA geçti/kaldı rozetleri ile anlık olarak görün
+  - **Son Kullanılan Renkler:** Son seçilen renkler hızlı yeniden kullanım için kaydedilir
 
 - **Evrensel Çizim Etkileşimi:**
   - **Tıkla & Sürükle:** Herhangi bir çizime tıklayarak seçin, ardından istediğiniz yere sürükleyin
-  - **Çift Tıklama ile Düzenleme:** Metin çizilerine çift tıklayarak anında düzenleyin
+  - **Çift Tıklama ile Düzenleme:** Metin çizimlerine çift tıklayarak anında düzenleyin
   - **Boyutlandırma Tutamaçları:** Çoğu çizimde boyutlandırmak için köşe/kenar tutamaçları bulunur
   - **Sağ Panel Kontrolleri:** Her aracın seçildiğinde görünen kendi kontrol paneli vardır
   - **Otomatik Seçim Moduna Geçiş:** Şekiller oluşturduktan sonra, kolay düzenleme için otomatik olarak seçim moduna geçer
+  - **Akıllı Yapışma (Snapping):** Çizimler diğer çizimlerin kenarlarına, merkezlerine ve görüntü sınırlarına görsel kılavuz çizgiler ile yapışır
+  - **Kopyala/Yapıştır/Çoğalt:** `Cmd+C` ile kopyala, `Cmd+V` ile yapıştır (ofsetli), `Cmd+D` ile çizimleri çoğaltın
+  - **Ok Tuşları ile Kaydırma:** Seçili çizimleri ok tuşları ile piksel piksel kaydırın (Shift ile 10px adım)
 
 - **Görsel Efektler Paneli:**
   - **Arka Plan:** Ekran görüntünüze düz renk veya gradyan (degrade) arka planlar ekleyin
@@ -198,6 +212,8 @@ Bu yaklaşım, çok sevilen açık kaynaklı bir uygulama olan **DockDoor**'un z
 
 - **Akıcı Gezinme:**
   - `Cmd` + Fare tekerleği ile imlecinizin olduğu noktaya hassas bir şekilde yakınlaşın/uzaklaşın
+  - **Klavye Kısayolları:** `Cmd+=` (yakınlaştır), `Cmd+-` (uzaklaştır), `Cmd+0` (pencereye sığdır), `Cmd+1` (gerçek boyut)
+  - **Pencereye Sığdır:** Durum çubuğundaki tek tıkla görüntüyü editör penceresine sığdırma butonu
   - Fare tekerleği ile görüntüde gezinin
   - Herhangi bir çizimin üzerine gelin ve taşıma imlecini görün
 
@@ -206,6 +222,8 @@ Bu yaklaşım, çok sevilen açık kaynaklı bir uygulama olan **DockDoor**'un z
   - Enter tuşu ile çok satırlı metin desteği
   - Yazı tipi boyutu ayarlamaları otomatik olarak metin kutusunu yeniden boyutlandırır
   - Daha iyi okunabilirlik için yuvarlatılmış köşeli arka plan renkler
+
+- **Retina Ekran Desteği:** Bulanıklaştırma, pikselleştirme, büyüteç ve renk seçici dahil tüm araçlarda HiDPI ekranlarda piksel doğruluğunda render
 
 ### ⚙️ Özelleştirme ve Ayarlar
 
@@ -258,8 +276,8 @@ Clippy'nin ayarları, kolay erişim için **8 sekme** halinde düzenlenmiştir:
 - **Uzun Metin İşleme:** Çok büyük metinler kopyalanırken donmaları önleyen otomatik metin kırpma ve boyut korumaları.
 - **Verimli Yükleme:** Core Data toplu getirme ve küçük resim önbellekleme ile büyük listelerde hızlı kaydırma.
 - **Bellek Baskısı Yönetimi:** Sistem belleği azaldığında otomatik önbellek temizleme.
-- **Araçlar Menüsü:** Tek bir menüden test verileri (UUID, Lorem Ipsum) oluşturun veya aktif sekmedeki tüm öğeleri silin.
-- **Detaylı Metin İstatistikleri:** Herhangi bir metin öğesinin detay ekranında canlı karakter, kelime ve satır sayılarını görün.
+- **Sıfır Debug Yükü:** Minimum CPU ve I/O yükü için üretim derlemelerinden tüm debug logları kaldırıldı.
+- **Editör Bellek Yönetimi:** Editör penceresi kapanırken önbelleğe alınmış görüntüler ve çizimlerden kaynaklanan bellek sızıntılarını önleyen düzgün kaynak temizliği.
 
 ### ⌨️ Anahtar Kelime ile Yapıştırma (Snippet Genişletme)
 

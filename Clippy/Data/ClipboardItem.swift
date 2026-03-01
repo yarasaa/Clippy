@@ -204,7 +204,6 @@ private extension ClipboardItem {
             let matches = detector.matches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count))
             return matches.first?.date
         } catch {
-            print("❌ NSDataDetector oluşturulamadı: \(error)")
             return nil
         }
     }

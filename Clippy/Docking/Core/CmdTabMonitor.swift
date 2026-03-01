@@ -28,7 +28,6 @@ final class CmdTabMonitor {
             object: nil
         )
         isRunning = true
-        print("✅ CmdTabMonitor: Started listening for Cmd+Tab focus changes.")
     }
 
     func stop() {
@@ -36,7 +35,6 @@ final class CmdTabMonitor {
         stopPolling()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         isRunning = false
-        print("🛑 CmdTabMonitor: Stopped.")
     }
 
     @objc private func processFocusChange(notification: NSNotification) {
@@ -51,7 +49,6 @@ final class CmdTabMonitor {
 
     private func startPolling() {
         guard pollingTimer == nil else { return }
-        print("▶️ CmdTabMonitor: Switcher detected, starting polling.")
         pollingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             self?.pollSelection()
         }
@@ -59,7 +56,6 @@ final class CmdTabMonitor {
 
     private func stopPolling() {
         guard pollingTimer != nil else { return }
-        print("⏹️ CmdTabMonitor: Switcher closed, stopping polling.")
         pollingTimer?.invalidate()
         pollingTimer = nil
         if lastPolledPID != nil {
@@ -86,7 +82,6 @@ final class CmdTabMonitor {
 
         lastPolledPID = pid
 
-        print("🎯 CmdTabMonitor: Polled selection: \(app.localizedName ?? "Unknown") (PID: \(pid))")
 
         // Get application frame from screen position
         let screens = NSScreen.screens

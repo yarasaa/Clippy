@@ -18,7 +18,6 @@ final class LivePreviewService: NSObject {
 
     private override init() {
         super.init()
-        print("🎥 [LivePreviewService] INIT: LivePreviewService initialized")
         Task {
             await refreshAvailableContent()
         }
@@ -35,9 +34,7 @@ final class LivePreviewService: NSObject {
     func refreshAvailableContent() async {
         do {
             availableContent = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-            print("🎥 [LivePreviewService] Refreshed available content: \(availableContent?.windows.count ?? 0) windows")
         } catch {
-            print("❌ [LivePreviewService] Failed to get shareable content: \(error)")
         }
     }
 
@@ -46,13 +43,11 @@ final class LivePreviewService: NSObject {
     func startLivePreview(for windowID: CGWindowID) -> AnyPublisher<CGImage, Never>? {
         // Check if already streaming
         if let existing = frameSubjects[windowID] {
-            print("🎥 [LivePreviewService] Already streaming window \(windowID)")
             return existing.eraseToAnyPublisher()
         }
 
         // Find the window in available content
         guard let window = availableContent?.windows.first(where: { $0.windowID == windowID }) else {
-            print("❌ [LivePreviewService] Window \(windowID) not found in available content")
             return nil
         }
 
@@ -88,9 +83,7 @@ final class LivePreviewService: NSObject {
                     try await stream.startCapture()
 
                     activeStreams[windowID] = stream
-                    print("✅ [LivePreviewService] Started live preview for window \(windowID)")
                 } catch {
-                    print("❌ [LivePreviewService] Failed to start stream: \(error)")
                     frameSubjects.removeValue(forKey: windowID)
                     streamOutputs.removeValue(forKey: windowID)
                 }
@@ -108,9 +101,7 @@ final class LivePreviewService: NSObject {
             activeStreams.removeValue(forKey: windowID)
             streamOutputs.removeValue(forKey: windowID)
             frameSubjects.removeValue(forKey: windowID)
-            print("🛑 [LivePreviewService] Stopped live preview for window \(windowID)")
         } catch {
-            print("❌ [LivePreviewService] Failed to stop stream: \(error)")
         }
     }
 
@@ -132,7 +123,6 @@ final class LivePreviewService: NSObject {
 
 extension LivePreviewService: SCStreamDelegate {
     nonisolated func stream(_ stream: SCStream, didStopWithError error: Error) {
-        print("❌ [LivePreviewService] Stream stopped with error: \(error)")
 
         Task { @MainActor in
             // Find and remove the failed stream

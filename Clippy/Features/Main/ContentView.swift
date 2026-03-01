@@ -64,7 +64,6 @@ struct ContentView: View {
 
                         if selectedTab == .snippets {
                             Button(action: {
-                                print("🔘 Import button action triggered")
                                 importSnippets()
                             }) {
                                 Image(systemName: "square.and.arrow.down")
@@ -191,7 +190,6 @@ struct ContentView: View {
     }
 
     private func importSnippets() {
-        print("🔍 Import button clicked!")
 
         // Use DispatchQueue to avoid blocking UI
         DispatchQueue.main.async {
@@ -201,13 +199,11 @@ struct ContentView: View {
             panel.canChooseDirectories = false
             panel.canChooseFiles = true
             panel.message = L("Select snippets JSON file to import", settings: self.settings)
-            print("🔍 Panel configured, about to show...")
 
             panel.begin { response in
                 if response == .OK, let url = panel.url {
                     do {
                         let count = try SnippetExportManager.shared.importSnippets(from: url)
-                        print("✅ \(count) snippet imported successfully")
 
                         DispatchQueue.main.async {
                             let alert = NSAlert()
@@ -219,7 +215,6 @@ struct ContentView: View {
                             alert.runModal()
                         }
                     } catch {
-                        print("❌ Import error: \(error)")
 
                         DispatchQueue.main.async {
                             let alert = NSAlert()
@@ -546,6 +541,10 @@ struct ClipboardRowView: View {
             Label(L("Copy", settings: settings), systemImage: "doc.on.doc")
         }
 
+        Button { shareClipboardItem() } label: {
+            Label(L("Share", settings: settings), systemImage: "square.and.arrow.up")
+        }
+
         // Color converter menu
         if item.contentType == "text",
            let content = item.content,
@@ -708,6 +707,29 @@ struct ClipboardRowView: View {
         pasteboard.setString(text, forType: .string)
     }
 
+    private func shareClipboardItem() {
+        var items: [Any] = []
+
+        if item.contentType == "image", let path = item.content {
+            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let imageURL = appSupport.appendingPathComponent("Clippy").appendingPathComponent("Images").appendingPathComponent(path)
+            if FileManager.default.fileExists(atPath: imageURL.path) {
+                // Share as file URL so AirDrop appears in picker
+                items.append(imageURL)
+            }
+        } else if let content = item.content, !content.isEmpty {
+            // Write text to temp file for AirDrop support
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("clippy-share-\(Int(Date().timeIntervalSince1970)).txt")
+            try? content.write(to: tempURL, atomically: true, encoding: .utf8)
+            items.append(tempURL)
+        }
+
+        guard !items.isEmpty, let window = NSApp.keyWindow, let contentView = window.contentView else { return }
+        let picker = NSSharingServicePicker(items: items)
+        picker.show(relativeTo: .zero, of: contentView, preferredEdge: .minY)
+    }
+
     private func exportSelectedSnippet(item: ClipboardItemEntity) {
         guard let keyword = item.keyword, !keyword.isEmpty else { return }
 
@@ -720,7 +742,6 @@ struct ClipboardRowView: View {
             if response == .OK, let url = panel.url {
                 do {
                     try SnippetExportManager.shared.exportSnippet(item: item, to: url)
-                    print("✅ Snippet exported successfully to: \(url.path)")
 
                     let alert = NSAlert()
                     alert.messageText = L("Export Successful", settings: settings)
@@ -729,7 +750,6 @@ struct ClipboardRowView: View {
                     alert.addButton(withTitle: L("Ok", settings: settings))
                     alert.runModal()
                 } catch {
-                    print("❌ Export error: \(error)")
 
                     let alert = NSAlert()
                     alert.messageText = L("Export Failed", settings: settings)
@@ -752,7 +772,6 @@ struct ClipboardRowView: View {
             if response == .OK, let url = panel.url {
                 do {
                     try SnippetExportManager.shared.exportSnippets(to: url)
-                    print("✅ Snippets exported successfully to: \(url.path)")
 
                     let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
                     fetchRequest.predicate = NSPredicate(format: "keyword != nil AND keyword != ''")
@@ -766,7 +785,6 @@ struct ClipboardRowView: View {
                     alert.addButton(withTitle: L("Ok", settings: settings))
                     alert.runModal()
                 } catch {
-                    print("❌ Export error: \(error)")
 
                     let alert = NSAlert()
                     alert.messageText = L("Export Failed", settings: settings)

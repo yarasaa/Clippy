@@ -12,7 +12,6 @@ final class FavoriteWindowsManager: ObservableObject {
 
     private init() {
         loadFavorites()
-        print("⭐ [FavoriteWindowsManager] INIT: FavoriteWindowsManager initialized with \(favoriteWindows.count) favorites")
     }
 
     // MARK: - Public Methods
@@ -20,7 +19,6 @@ final class FavoriteWindowsManager: ObservableObject {
     func addToFavorites(windowID: CGWindowID, title: String?, bundleIdentifier: String?) {
         // Check if already in favorites
         if favoriteWindows.contains(where: { $0.windowID == windowID }) {
-            print("⭐ [FavoriteWindowsManager] Window \(windowID) already in favorites")
             return
         }
 
@@ -33,13 +31,11 @@ final class FavoriteWindowsManager: ObservableObject {
 
         favoriteWindows.append(favorite)
         saveFavorites()
-        print("⭐ [FavoriteWindowsManager] Added window \(windowID) to favorites")
     }
 
     func removeFromFavorites(windowID: CGWindowID) {
         favoriteWindows.removeAll { $0.windowID == windowID }
         saveFavorites()
-        print("⭐ [FavoriteWindowsManager] Removed window \(windowID) from favorites")
     }
 
     func isFavorite(windowID: CGWindowID) -> Bool {

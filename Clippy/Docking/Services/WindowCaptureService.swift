@@ -3,11 +3,9 @@ import AppKit
 actor WindowCaptureService {
 
     func captureWindows(for pid: pid_t) async -> [CapturedWindow] {
-        print("📸 WindowCaptureService: Capturing windows for PID \(pid)...")
         // Remove .optionOnScreenOnly to include minimized windows
         let options: CGWindowListOption = [.excludeDesktopElements]
         guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
-            print("🚫 WindowCaptureService: Failed to get window list from system.")
             return []
         }
 
@@ -43,7 +41,6 @@ actor WindowCaptureService {
             }
         }
 
-        print("✅ WindowCaptureService: Finished capture. Found \(capturedWindows.count) valid windows for PID \(pid).")
         return capturedWindows
     }
 }

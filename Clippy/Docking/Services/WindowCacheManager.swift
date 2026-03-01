@@ -22,7 +22,6 @@ final class WindowCacheManager {
     }
 
     private init() {
-        print("📦 [WindowCacheManager] INIT: WindowCacheManager initialized")
         setupWorkspaceObservers()
     }
 

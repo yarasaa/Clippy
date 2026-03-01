@@ -33,11 +33,9 @@ class PreviewPanelController {
         selectedIndex = 0
 
         if panel?.isVisible == true, currentAppIdentifier == appName, !forceUpdate {
-            print("ℹ️ PreviewPanelController: Panel already showing for '\(appName)'. Ignoring duplicate show() call.")
             return
         }
 
-        print("🖥️ PreviewPanelController: show() called for app '\(appName)' with \(items.count) items.")
         if panel == nil {
             let newPanel = KeyInterceptingPanel(
                 contentRect: .zero,
@@ -104,7 +102,6 @@ class PreviewPanelController {
         } completionHandler: {
             if SettingsManager.shared.enableDockPreviewKeyboardShortcuts {
                 panel.makeKey()
-                print("⌨️ [PreviewPanel] Panel made key for keyboard input")
             }
         }
     }
@@ -119,7 +116,6 @@ class PreviewPanelController {
             await LivePreviewService.shared.stopAllStreams()
         }
 
-        print("🙈 PreviewPanelController: hide() called.")
         let currentFrame = panel.frame
         let finalFrame = currentFrame.insetBy(dx: currentFrame.width * 0.05, dy: currentFrame.height * 0.05)
 
@@ -160,11 +156,9 @@ class PreviewPanelController {
         let panelSize = panel.contentView?.fittingSize ?? .zero
 
         guard let screen = findScreenContaining(point: point) else {
-            print("⚠️ [PreviewPanel] Could not find screen for point \(point)")
             return
         }
 
-        print("🖥️ [PreviewPanel] Positioning on screen: \(screen.localizedName)")
         let screenFrame = screen.visibleFrame
 
         // Center horizontally around the dock icon or mouse position
@@ -178,7 +172,6 @@ class PreviewPanelController {
         x = max(screenFrame.minX, min(x, screenFrame.maxX - panelSize.width))
         y = max(screenFrame.minY, min(y, screenFrame.maxY - panelSize.height))
 
-        print("📍 [PreviewPanel] Point: \(point), Screen frame: \(screenFrame), Panel position: (\(x), \(y))")
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
@@ -228,28 +221,22 @@ class PreviewPanelController {
         let keyCode = event.keyCode
         let characters = event.charactersIgnoringModifiers ?? ""
 
-        print("⌨️ [PreviewPanel] Key pressed: \(characters) (code: \(keyCode))")
 
         switch keyCode {
         case 53:
-            print("⌨️ [PreviewPanel] ESC pressed - hiding preview")
             hide()
 
         case 36:
-            print("⌨️ [PreviewPanel] Enter pressed - selecting window \(selectedIndex)")
             selectCurrentWindow()
 
         case 123:
-            print("⌨️ [PreviewPanel] Left arrow pressed")
             moveToPreviousWindow()
 
         case 124:
-            print("⌨️ [PreviewPanel] Right arrow pressed")
             moveToNextWindow()
 
         case 18...26:
             let number = keyCode - 18
-            print("⌨️ [PreviewPanel] Number \(number + 1) pressed")
             selectWindow(at: Int(number))
 
         default:
@@ -260,13 +247,11 @@ class PreviewPanelController {
     private func moveToNextWindow() {
         guard !currentItems.isEmpty else { return }
         selectedIndex = (selectedIndex + 1) % currentItems.count
-        print("  Selected index now: \(selectedIndex)")
     }
 
     private func moveToPreviousWindow() {
         guard !currentItems.isEmpty else { return }
         selectedIndex = selectedIndex > 0 ? selectedIndex - 1 : currentItems.count - 1
-        print("  Selected index now: \(selectedIndex)")
     }
 
     private func selectWindow(at index: Int) {
@@ -278,7 +263,6 @@ class PreviewPanelController {
     private func selectCurrentWindow() {
         guard selectedIndex >= 0 && selectedIndex < currentItems.count else { return }
         let windowID = currentItems[selectedIndex].id
-        print("  Selecting window with ID: \(windowID)")
         onWindowSelectAction?(windowID)
     }
 
