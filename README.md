@@ -34,6 +34,10 @@ Clippy is a powerful macOS menu bar application designed for developers and heav
 
 ![1771684625154](image/README/1771684625154.png)
 
+![1772371783407](image/README/1772371783407.png)
+
+![1772371928890](image/README/1772371928890.png)
+
 ✨ Features
 
 ### 📋 Core Clipboard Management
@@ -133,6 +137,28 @@ A built-in file format converter that lets you quickly convert files between for
 | **Audio**    | M4A, WAV, AAC, AIFF, MP3, FLAC                  | M4A, WAV, CAF, AIFF                  |
 | **Video**    | MOV, MP4, M4V, AVI                              | MP4, MOV, M4V                        |
 | **Data**     | JSON, YAML, XML, PLIST, CSV                     | JSON, YAML, XML, CSV, PLIST          |
+
+### 🗂️ Drag & Drop Shelf
+
+A floating utility panel that acts as temporary storage for files, images, and text. Drag items onto the shelf from any app, then drag them back out whenever you need them.
+
+- **Drag In / Drag Out:** Drop files, images, and text onto the shelf from any app. Drag items back out to Finder or any other application.
+- **Multi-Select & Multi-Drag:** Click to select, Shift-click for range, ⌘-click to toggle. Drag multiple items at once — a count badge shows how many items are being dragged.
+- **Quick Paste (Double-Click):** Double-click any item to instantly paste it into the last active app.
+- **Quick Look:** Press `Space` to preview selected items using macOS native Quick Look.
+- **Drag Reorder:** Rearrange shelf items by dragging within the panel.
+- **Context Menu:** Right-click any item for Copy, Open, Reveal in Finder, Share, and Remove options.
+- **Undo:** Press `⌘Z` to undo delete operations (up to 20 levels).
+- **Info Guide:** Built-in info button (ℹ️) with a comprehensive feature walkthrough.
+- **Keyboard Shortcuts:**
+  - `⌘A` — Select All / Deselect All
+  - `⌘C` — Copy selected items
+  - `⌘Z` — Undo last delete
+  - `Delete` / `Backspace` — Remove selected items
+  - `Space` — Quick Look preview
+  - `↑` `↓` — Navigate between items
+  - `Enter` — Toggle selection on focused item
+  - `Esc` — Deselect all and clear focus
 
 ### 🪟 Window Management
 
