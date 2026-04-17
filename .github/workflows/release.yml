@@ -85,10 +85,24 @@ jobs:
       - name: Update appcast.xml
         run: ./scripts/update-appcast.sh "${{ steps.meta.outputs.version }}" "$SPARKLE_SIGNATURE" "$SPARKLE_LENGTH" "$ASSET_NAME"
 
-      - name: Commit appcast changes
+      - name: Commit appcast changes to main
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Save our updated appcast somewhere safe BEFORE switching branches,
+          # otherwise the checkout would overwrite it with main's version.
+          cp docs/appcast.xml /tmp/appcast.xml.new
+
+          # Move to main regardless of whatever ref was initially checked out
+          # (tag, detached HEAD, something else). This is the core fix: we
+          # build the commit on top of the real main branch so the push is
+          # always a fast-forward.
+          git fetch origin main
+          git checkout -B main origin/main
+
+          # Restore our updated appcast and commit it.
+          cp /tmp/appcast.xml.new docs/appcast.xml
           git add docs/appcast.xml
           if git diff --cached --quiet; then
             echo "No appcast changes to commit."
@@ -96,10 +110,10 @@ jobs:
           fi
           git commit -m "chore: update appcast for ${{ steps.meta.outputs.tag }}"
 
-          # Retry a few times in case someone else pushed to main while we were running.
-          # Rebase + push; bail out hard if the conflict is on appcast itself.
+          # Retry in case someone pushed to main between fetch and push.
           for attempt in 1 2 3; do
-            if git push origin HEAD:main; then
+            if git push origin main; then
+              echo "✓ appcast pushed"
               exit 0
             fi
             echo "Push rejected (attempt $attempt). Rebasing on latest main..."
