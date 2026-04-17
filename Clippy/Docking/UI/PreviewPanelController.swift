@@ -85,7 +85,12 @@ class PreviewPanelController {
         let finalFrame = panel.frame
 
         if !panel.isVisible {
-            let initialFrame = finalFrame.insetBy(dx: finalFrame.width * 0.05, dy: finalFrame.height * 0.05)
+            // Start: slightly smaller and nudged down (Windows 11-style rise-up reveal)
+            var initialFrame = finalFrame
+            initialFrame.size.width *= 0.94
+            initialFrame.size.height *= 0.94
+            initialFrame.origin.x += (finalFrame.width - initialFrame.width) / 2
+            initialFrame.origin.y -= 12
             panel.setFrame(initialFrame, display: false)
             panel.alphaValue = 0
             panel.orderFront(nil)
@@ -97,6 +102,7 @@ class PreviewPanelController {
         NSAnimationContext.runAnimationGroup { context in
             context.duration = duration
             context.timingFunction = timingFunction
+            context.allowsImplicitAnimation = true
             panel.animator().alphaValue = 1.0
             panel.animator().setFrame(finalFrame, display: true)
         } completionHandler: {
@@ -111,21 +117,25 @@ class PreviewPanelController {
 
         currentAppIdentifier = nil
 
-        // Stop all live preview streams when panel is hidden
         Task { @MainActor in
             await LivePreviewService.shared.stopAllStreams()
         }
 
         let currentFrame = panel.frame
-        let finalFrame = currentFrame.insetBy(dx: currentFrame.width * 0.05, dy: currentFrame.height * 0.05)
+        // Slight shrink + nudge down (reverse of reveal) for Windows-like dismiss
+        var finalFrame = currentFrame
+        finalFrame.size.width *= 0.96
+        finalFrame.size.height *= 0.96
+        finalFrame.origin.x += (currentFrame.width - finalFrame.width) / 2
+        finalFrame.origin.y -= 6
 
         let animationStyle = SettingsManager.shared.dockPreviewAnimationStyle
-        let (baseDuration, _) = getAnimationParameters(for: animationStyle)
-        let hideDuration = animationStyle == "none" ? 0.0 : baseDuration * 0.8
+        let hideDuration = animationStyle == "none" ? 0.0 : 0.16
 
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = hideDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            context.allowsImplicitAnimation = true
             panel.animator().alphaValue = 0.0
             panel.animator().setFrame(finalFrame, display: true)
         }, completionHandler: {
@@ -140,15 +150,16 @@ class PreviewPanelController {
     private func getAnimationParameters(for style: String) -> (duration: TimeInterval, timingFunction: CAMediaTimingFunction) {
         switch style {
         case "spring":
-            return (0.35, CAMediaTimingFunction(controlPoints: 0.5, 1.1 + Float(1.0 / 3.0), 1.0, 1.0))
+            // Subtle overshoot + settle — feels like Windows 11 taskbar thumbnails
+            return (0.32, CAMediaTimingFunction(controlPoints: 0.34, 1.56, 0.64, 1.0))
         case "easeInOut":
-            return (0.25, CAMediaTimingFunction(name: .easeInEaseOut))
+            return (0.22, CAMediaTimingFunction(controlPoints: 0.4, 0.0, 0.2, 1.0))
         case "linear":
-            return (0.2, CAMediaTimingFunction(name: .linear))
+            return (0.18, CAMediaTimingFunction(name: .linear))
         case "none":
             return (0.0, CAMediaTimingFunction(name: .linear))
         default:
-            return (0.25, CAMediaTimingFunction(name: .easeOut))
+            return (0.22, CAMediaTimingFunction(controlPoints: 0.2, 0.0, 0.0, 1.0))
         }
     }
 

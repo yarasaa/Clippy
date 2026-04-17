@@ -41,93 +41,16 @@ struct ContentView: View {
                 comparisonData: $comparisonData
             )
             .safeAreaInset(edge: .top) {
-                VStack(spacing: 0) {
-                    HStack {
-                        Picker("Tabs", selection: $selectedTab) {
-                            Text(L("History", settings: settings)).tag(Tab.history)
-                                if settings.showCodeTab {
-                                    Text(L("Code", settings: settings)).tag(Tab.code)
-                                }
-                                if settings.showImagesTab {
-                                    Text(L("Images", settings: settings)).tag(Tab.images)
-                                }
-                                if settings.showSnippetsTab {
-                                    Text(L("Snippets", settings: settings)).tag(Tab.snippets)
-                                }
-                                if settings.showFavoritesTab {
-                                    Text(L("Favorites", settings: settings)).tag(Tab.favorites)
-                                }
-                            }
-                        .pickerStyle(.segmented)
-
-                        Spacer()
-
-                        if selectedTab == .snippets {
-                            Button(action: {
-                                importSnippets()
-                            }) {
-                                Image(systemName: "square.and.arrow.down")
-                                    .foregroundColor(.accentColor)
-                            }
-                            .buttonStyle(.borderless)
-                            .help(L("Import Snippets", settings: settings))
-                        }
-
-                        Menu {
-                            Section(header: Text(L("Generate", settings: settings))) {
-                                Button(L("Generate UUID", settings: settings)) { monitor.generateUUID() }
-                                Button(L("Generate Lorem Ipsum", settings: settings)) { monitor.generateLoremIpsum() }
-                            }
-                        } label: {
-                            Image(systemName: "wand.and.stars")
-                        }
-                        .menuStyle(.borderlessButton)
-                        .help(L("Tools", settings: settings))
-                        .menuIndicator(.hidden)
-
-                        Button(role: .destructive) {
-                            monitor.clear(tab: selectedTab)
-                        } label: {
-                            Image(systemName: "trash")
-                        }
-                        .help(L("Clear items in current tab", settings: settings))
-                        .buttonStyle(.borderless)
-                        .disabled(items.isEmpty)
-                        .opacity(items.isEmpty ? 0.5 : 1)
-
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 10)
-                    .padding(.bottom, 5)
-                    .fixedSize()
-
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                        TextField(L("Search in clipboard history...", settings: settings), text: $searchText)
-                            .textFieldStyle(.plain)
-                            .padding(.vertical, 4)
-                        if !searchText.isEmpty {
-                            Button {
-                                searchText = ""
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                            }
-                            .buttonStyle(.borderless)
-                            .foregroundColor(.secondary)
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 10)
-
-                    // Category filter for snippets tab
-                    if selectedTab == .snippets && settings.isCategorySystemEnabled {
-                        CategoryFilterView(selectedCategory: $selectedCategory)
-                            .padding(.horizontal)
-                            .padding(.bottom, 10)
-                    }
-                }
-                .background(.bar)
+                ClippyHeader(
+                    selectedTab: $selectedTab,
+                    selectedCategory: $selectedCategory,
+                    searchText: $searchText,
+                    isEmpty: items.isEmpty,
+                    onClear: { monitor.clear(tab: selectedTab) },
+                    onImportSnippets: { importSnippets() },
+                    onGenerateUUID: { monitor.generateUUID() },
+                    onGenerateLorem: { monitor.generateLoremIpsum() }
+                )
             }
         }
         .safeAreaInset(edge: .bottom) {

@@ -104,7 +104,18 @@ struct EditorSidebar: View {
                 .frame(width: 32, height: 32)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(selectedTool == tool ? Color.accentColor : Color.clear)
+                        .fill(selectedTool == tool
+                              ? AnyShapeStyle(
+                                  LinearGradient(
+                                      colors: [Ember.Palette.amber, Ember.Palette.amberDark],
+                                      startPoint: .top, endPoint: .bottom
+                                  )
+                                )
+                              : AnyShapeStyle(Color.clear))
+                )
+                .shadow(
+                    color: selectedTool == tool ? Ember.Palette.amber.opacity(0.4) : .clear,
+                    radius: 4, y: 2
                 )
         }
         .buttonStyle(.plain)

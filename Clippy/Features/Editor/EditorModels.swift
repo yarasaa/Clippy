@@ -232,6 +232,10 @@ struct Annotation: Identifiable {
     var isBold: Bool = false
     var isItalic: Bool = false
     var textAlignment: TextAlignment = .left
+    // Advanced text typography
+    var textLetterSpacing: CGFloat = 0      // kern; positive widens, negative tightens
+    var textLineHeight: CGFloat = 1.0       // line-height multiplier (1.0 = default)
+    var textPadding: CGFloat = 8            // inner padding for background rect
     var calloutTailDirection: CalloutTailDirection = .bottomLeft
     var controlPoint: CGPoint?
     var sketchStyle: Bool = false
@@ -277,6 +281,9 @@ struct Annotation: Identifiable {
         dup.isBold = isBold
         dup.isItalic = isItalic
         dup.textAlignment = textAlignment
+        dup.textLetterSpacing = textLetterSpacing
+        dup.textLineHeight = textLineHeight
+        dup.textPadding = textPadding
         dup.calloutTailDirection = calloutTailDirection
         dup.controlPoint = controlPoint.map { CGPoint(x: $0.x + offset.width, y: $0.y + offset.height) }
         dup.sketchStyle = sketchStyle

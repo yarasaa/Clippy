@@ -27,7 +27,7 @@ class StatusBarController: NSObject, NSPopoverDelegate {
         self.clipboardMonitor = clipboardMonitor
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         popover = NSPopover()
-        super.init()        
+        super.init()
 
         let hostingController = NSHostingController(rootView:
             ContentView()
@@ -37,12 +37,21 @@ class StatusBarController: NSObject, NSPopoverDelegate {
         )
         popover.contentViewController = hostingController
         popover.behavior = .semitransient
+        // Animation off — NSPopover's built-in fade is what causes the visible
+        // "stutter" on first open (the SwiftUI tree mounts during the animation
+        // window). Snap-open feels much faster and more native.
+        popover.animates = false
 
         let settings = SettingsManager.shared
         popover.contentSize = NSSize(width: settings.popoverWidth, height: settings.popoverHeight)
 
+        // Pre-warm: load the SwiftUI view hierarchy off-screen so the FIRST open
+        // doesn't pay the full mount cost. NSHostingController defers actual layout
+        // until view is in a window, but accessing .view here forces tree allocation.
+        _ = hostingController.view
+
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: "Clippy")
+            button.image = NSImage.clippyMenuBarIcon(size: 18)
             button.action = #selector(togglePopover(_:))
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -103,8 +112,13 @@ class StatusBarController: NSObject, NSPopoverDelegate {
             }
         } else {
             let isPasting = clipboardMonitor.isPastingFromQueue
-            button.image = NSImage(systemSymbolName: isPasting ? "list.clipboard.fill" : "doc.on.clipboard", accessibilityDescription: "Clippy")
-            button.title = isPasting ? " \(clipboardMonitor.sequentialPasteIndex)/\(clipboardMonitor.sequentialPasteQueueIDs.count)" : ""
+            if isPasting {
+                button.image = NSImage(systemSymbolName: "list.clipboard.fill", accessibilityDescription: "Clippy")
+                button.title = " \(clipboardMonitor.sequentialPasteIndex)/\(clipboardMonitor.sequentialPasteQueueIDs.count)"
+            } else {
+                button.image = NSImage.clippyMenuBarIcon(size: 18)
+                button.title = ""
+            }
         }
     }
 

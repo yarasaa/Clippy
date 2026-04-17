@@ -291,22 +291,23 @@ struct DrawingCanvasView: View {
                     }
                 }
 
-                // Snap guide lines
+                // Snap guide lines — amber for visibility on light backgrounds
+                let snapColor = Ember.Palette.amber.opacity(0.85)
                 if let vg = snapVerticalGuide {
                     let screenX = vg * scale + imageOffset.x
                     var guidePath = Path()
                     guidePath.move(to: CGPoint(x: screenX, y: 0))
                     guidePath.addLine(to: CGPoint(x: screenX, y: canvasSize.height))
-                    context.stroke(guidePath, with: .color(.blue.opacity(0.6)),
-                                   style: StrokeStyle(lineWidth: 0.5, dash: [4, 3]))
+                    context.stroke(guidePath, with: .color(snapColor),
+                                   style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
                 }
                 if let hg = snapHorizontalGuide {
                     let screenY = hg * scale + imageOffset.y
                     var guidePath = Path()
                     guidePath.move(to: CGPoint(x: 0, y: screenY))
                     guidePath.addLine(to: CGPoint(x: canvasSize.width, y: screenY))
-                    context.stroke(guidePath, with: .color(.blue.opacity(0.6)),
-                                   style: StrokeStyle(lineWidth: 0.5, dash: [4, 3]))
+                    context.stroke(guidePath, with: .color(snapColor),
+                                   style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
                 }
 
             }
@@ -473,11 +474,15 @@ struct DrawingCanvasView: View {
                             let isEditingThisText = isEditingText && viewModel.annotations.firstIndex(where: { $0.id == selectedID }) == editingTextIndex
 
                             if !isEditingThisText {
-                                // Direct endpoint/controlpoint detection for arrows/lines/rulers
+                                // Direct endpoint/controlpoint detection for arrows/lines/rulers.
+                                // If the click didn't land on a control point or endpoint we
+                                // FALL THROUGH to the normal resize/move/findAnnotation chain,
+                                // so clicking the middle of a line can still move it.
+                                var consumedByEndpointDrag = false
+
                                 if (annotation.tool == .arrow || annotation.tool == .line || annotation.tool == .ruler),
                                    let start = annotation.startPoint,
                                    let end = annotation.endPoint {
-                                    // Check control point first (arrows only)
                                     if annotation.tool == .arrow {
                                         let cp = annotation.controlPoint ?? CGPoint(
                                             x: (start.x + end.x) / 2,
@@ -494,29 +499,48 @@ struct DrawingCanvasView: View {
                                                 viewModel.annotations[idx].controlPoint = cp
                                             }
                                             draggingControlPoint = true
-                                            return
+                                            consumedByEndpointDrag = true
                                         }
                                     }
-                                    // Check start/end endpoints
-                                    let startDist = hypot(imageLocation.x - start.x, imageLocation.y - start.y)
-                                    let endDist = hypot(imageLocation.x - end.x, imageLocation.y - end.y)
-                                    if startDist < 12 {
-                                        preDragStartPoint = start
-                                        preDragEndPoint = end
-                                        preDragRect = annotation.rect
-                                        draggingEndpointIsStart = true
-                                        return
-                                    } else if endDist < 12 {
-                                        preDragStartPoint = start
-                                        preDragEndPoint = end
-                                        preDragRect = annotation.rect
-                                        draggingEndpointIsStart = false
-                                        return
+
+                                    if !consumedByEndpointDrag {
+                                        let startDist = hypot(imageLocation.x - start.x, imageLocation.y - start.y)
+                                        let endDist = hypot(imageLocation.x - end.x, imageLocation.y - end.y)
+                                        if startDist < 12 {
+                                            preDragStartPoint = start
+                                            preDragEndPoint = end
+                                            preDragRect = annotation.rect
+                                            draggingEndpointIsStart = true
+                                            consumedByEndpointDrag = true
+                                        } else if endDist < 12 {
+                                            preDragStartPoint = start
+                                            preDragEndPoint = end
+                                            preDragRect = annotation.rect
+                                            draggingEndpointIsStart = false
+                                            consumedByEndpointDrag = true
+                                        }
                                     }
-                                } else if let handle = detectHandle(at: imageLocation, for: annotation.rect, tool: annotation.tool) {
+                                }
+
+                                if consumedByEndpointDrag {
+                                    return
+                                }
+
+                                // For lines/arrows/rulers, clicking the middle of the shaft should
+                                // select-and-move even though rect.contains() fails for zero-height /
+                                // zero-width bounding rects. Use the distance-based hit test.
+                                let isStrokeShape = annotation.tool == .arrow ||
+                                                    annotation.tool == .line ||
+                                                    annotation.tool == .ruler
+
+                                if let handle = detectHandle(at: imageLocation, for: annotation.rect, tool: annotation.tool) {
                                     resizingHandle = handle
                                     originalRect = annotation.rect
-                                } else if annotation.rect.contains(imageLocation) {
+                                } else if !isStrokeShape && annotation.rect.contains(imageLocation) {
+                                    movingAnnotationID = selectedID
+                                    dragOffset = .zero
+                                } else if isStrokeShape, let hit = findAnnotation(at: imageLocation), hit.id == selectedID {
+                                    // Clicked on the stroke (middle of the line) — start moving it.
                                     movingAnnotationID = selectedID
                                     dragOffset = .zero
                                 } else if let (id, index) = findAnnotation(at: imageLocation) {
@@ -952,7 +976,8 @@ struct DrawingCanvasView: View {
                         )
 
                         var newAnnotation = Annotation(rect: rect, color: selectedColor, lineWidth: selectedLineWidth, tool: .text)
-                        newAnnotation.backgroundColor = Color(red: 1.0, green: 0.38, blue: 0.27)
+                        // No default background — user toggles it on from Inspector with a contrast-aware preset.
+                        newAnnotation.backgroundColor = nil
                         newAnnotation.opacity = annotationOpacity
                         newAnnotation.isBold = textIsBold
                         newAnnotation.isItalic = textIsItalic
@@ -1243,10 +1268,19 @@ struct DrawingCanvasView: View {
         let dashed = annotation.dashedStroke
 
         func strokeStyle(lineWidth: CGFloat) -> StrokeStyle {
-            if dashed {
-                return StrokeStyle(lineWidth: lineWidth, dash: [8, 4])
+            // Prefer the richer per-annotation lineStyle (solid/dashed/dotted/dashDot/dashDotDot).
+            // Scale dash pattern by lineWidth so thick strokes keep recognizable dash proportions,
+            // and use .butt caps so short "dots" in dash-dot patterns aren't swallowed by round caps.
+            if let basePattern = annotation.lineStyle.dashPattern {
+                let scale = max(1.0, lineWidth / 2.0)
+                let scaled = basePattern.map { $0 * scale }
+                return StrokeStyle(lineWidth: lineWidth, lineCap: .butt, lineJoin: .round, dash: scaled)
             }
-            return StrokeStyle(lineWidth: lineWidth)
+            if dashed {
+                let scale = max(1.0, lineWidth / 2.0)
+                return StrokeStyle(lineWidth: lineWidth, lineCap: .butt, dash: [8 * scale, 4 * scale])
+            }
+            return StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
         }
 
         context.opacity = opacity
@@ -1328,17 +1362,52 @@ struct DrawingCanvasView: View {
             if hypot(end.x - start.x, end.y - start.y) > annotation.lineWidth * 2 {
                 let headW = max(8, min(30, annotation.lineWidth * 3))
                 let headL = max(8, min(30, annotation.lineWidth * 3))
-                let path: Path
-                if let cp = annotation.controlPoint {
-                    path = Path.curvedArrow(from: start, to: end, control: cp, tailWidth: annotation.lineWidth, headWidth: headW, headLength: headL)
+
+                // Sketch mode: hand-drawn wobbly shaft + filled arrowhead.
+                if sketch {
+                    if let cp = annotation.controlPoint {
+                        // Sample the quad curve into short segments, wobble each.
+                        let samples = 16
+                        var prev = start
+                        for i in 1...samples {
+                            let t = CGFloat(i) / CGFloat(samples)
+                            let oneMinusT = 1 - t
+                            let x = oneMinusT * oneMinusT * start.x + 2 * oneMinusT * t * cp.x + t * t * end.x
+                            let y = oneMinusT * oneMinusT * start.y + 2 * oneMinusT * t * cp.y + t * t * end.y
+                            let next = CGPoint(x: x, y: y)
+                            let segPath = SketchRenderer.sketchLine(from: prev, to: next, seed: seed &+ i)
+                            context.stroke(segPath, with: .color(annotation.color), lineWidth: annotation.lineWidth)
+                            prev = next
+                        }
+                    } else {
+                        let sketchPath = SketchRenderer.sketchLine(from: start, to: end, seed: seed)
+                        context.stroke(sketchPath, with: .color(annotation.color), lineWidth: annotation.lineWidth)
+                    }
                 } else {
-                    path = Path.arrow(from: start, to: end, tailWidth: annotation.lineWidth, headWidth: headW, headLength: headL)
+                    // Clean mode: shaft respects lineStyle (solid/dashed/dotted/dashDot/dashDotDot)
+                    var shaft = Path()
+                    if let cp = annotation.controlPoint {
+                        shaft.move(to: start)
+                        shaft.addQuadCurve(to: end, control: cp)
+                    } else {
+                        shaft.move(to: start)
+                        shaft.addLine(to: end)
+                    }
+                    let shaftStroke = strokeStyle(lineWidth: annotation.lineWidth)
+                    context.stroke(shaft, with: .color(annotation.color), style: shaftStroke)
                 }
-                if dashed {
-                    context.stroke(path, with: .color(annotation.color), style: StrokeStyle(lineWidth: 1, dash: [6, 3]))
-                } else {
-                    context.fill(path, with: .color(annotation.color))
-                }
+
+                // Arrowhead — same for both modes (sketch wouldn't make it look better anyway)
+                drawArrowhead(
+                    in: &context,
+                    at: end,
+                    from: annotation.controlPoint ?? start,
+                    style: annotation.arrowheadStyle,
+                    color: annotation.color,
+                    width: headW,
+                    length: headL,
+                    lineWidth: annotation.lineWidth
+                )
             }
         case .pixelate:
             context.opacity = 1.0
@@ -1394,27 +1463,25 @@ struct DrawingCanvasView: View {
                     return .system(size: size)
                 }()
 
-                // Measure actual text size for background
-                let nsFont: NSFont = {
-                    let size = annotation.lineWidth * 4
-                    if annotation.isBold {
-                        return NSFont.boldSystemFont(ofSize: size)
-                    }
-                    return NSFont.systemFont(ofSize: size)
-                }()
+                let nsFont: NSFont = annotation.isBold
+                    ? NSFont.boldSystemFont(ofSize: annotation.lineWidth * 4)
+                    : NSFont.systemFont(ofSize: annotation.lineWidth * 4)
+
                 let attrs: [NSAttributedString.Key: Any] = [.font: nsFont]
                 let maxDrawWidth = rect.width - 16
-                let boundingRect = (annotation.text as NSString).boundingRect(
+                _ = (annotation.text as NSString).boundingRect(
                     with: NSSize(width: maxDrawWidth, height: CGFloat.greatestFiniteMagnitude),
                     options: [.usesLineFragmentOrigin, .usesFontLeading],
                     attributes: attrs
                 )
 
+                // Use the user-set annotation rect directly — honors manual resizing
+                // from the Inspector BOX section instead of shrink-wrapping around text.
                 let bgRect = CGRect(
                     x: rect.minX,
                     y: rect.minY,
-                    width: min(rect.width, boundingRect.width + 20),
-                    height: min(rect.height, boundingRect.height + 12)
+                    width: rect.width,
+                    height: rect.height
                 )
 
                 if let bgColor = annotation.backgroundColor {
@@ -1699,5 +1766,93 @@ struct DrawingCanvasView: View {
         }
 
         context.opacity = 1.0
+    }
+}
+
+// MARK: - Arrowhead rendering
+
+private func drawArrowhead(
+    in context: inout GraphicsContext,
+    at end: CGPoint,
+    from origin: CGPoint,
+    style: ArrowheadStyle,
+    color: Color,
+    width: CGFloat,
+    length: CGFloat,
+    lineWidth: CGFloat
+) {
+    guard style != .none else { return }
+
+    let angle = atan2(end.y - origin.y, end.x - origin.x)
+
+    switch style {
+    case .closedTriangle:
+        var path = Path()
+        path.move(to: end)
+        path.addLine(to: CGPoint(
+            x: end.x - length * cos(angle) + width / 2 * sin(angle),
+            y: end.y - length * sin(angle) - width / 2 * cos(angle)
+        ))
+        path.addLine(to: CGPoint(
+            x: end.x - length * cos(angle) - width / 2 * sin(angle),
+            y: end.y - length * sin(angle) + width / 2 * cos(angle)
+        ))
+        path.closeSubpath()
+        context.fill(path, with: .color(color))
+
+    case .openTriangle:
+        var path = Path()
+        path.move(to: CGPoint(
+            x: end.x - length * cos(angle) + width / 2 * sin(angle),
+            y: end.y - length * sin(angle) - width / 2 * cos(angle)
+        ))
+        path.addLine(to: end)
+        path.addLine(to: CGPoint(
+            x: end.x - length * cos(angle) - width / 2 * sin(angle),
+            y: end.y - length * sin(angle) + width / 2 * cos(angle)
+        ))
+        context.stroke(path, with: .color(color),
+                       style: StrokeStyle(lineWidth: max(1.5, lineWidth),
+                                          lineCap: .round, lineJoin: .round))
+
+    case .diamond:
+        let backCenter = CGPoint(
+            x: end.x - length * cos(angle),
+            y: end.y - length * sin(angle)
+        )
+        let midCenter = CGPoint(
+            x: end.x - (length / 2) * cos(angle),
+            y: end.y - (length / 2) * sin(angle)
+        )
+        var path = Path()
+        path.move(to: end)
+        path.addLine(to: CGPoint(
+            x: midCenter.x + (width / 2) * sin(angle),
+            y: midCenter.y - (width / 2) * cos(angle)
+        ))
+        path.addLine(to: backCenter)
+        path.addLine(to: CGPoint(
+            x: midCenter.x - (width / 2) * sin(angle),
+            y: midCenter.y + (width / 2) * cos(angle)
+        ))
+        path.closeSubpath()
+        context.fill(path, with: .color(color))
+
+    case .circle:
+        let diameter = max(width, length)
+        let center = CGPoint(
+            x: end.x - (diameter / 2) * cos(angle),
+            y: end.y - (diameter / 2) * sin(angle)
+        )
+        let circle = Path(ellipseIn: CGRect(
+            x: center.x - diameter / 2,
+            y: center.y - diameter / 2,
+            width: diameter,
+            height: diameter
+        ))
+        context.fill(circle, with: .color(color))
+
+    case .none:
+        break
     }
 }

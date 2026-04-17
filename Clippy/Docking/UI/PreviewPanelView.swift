@@ -11,77 +11,172 @@ struct PreviewPanelView: View {
 
     @State private var showItems = false
     @State private var availableScreens: [NSScreen] = NSScreen.screens
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                if let appIcon = appIcon {
-                    Image(nsImage: appIcon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 24, height: 24)
-                }
-                Text(appName)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
+        VStack(alignment: .leading, spacing: 0) {
+            header
 
-                Spacer()
-
-                if availableScreens.count > 1 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "display")
-                            .font(.system(size: 10))
-                        Text("\(availableScreens.count)")
-                            .font(.caption2)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.blue.opacity(0.2))
-                    .cornerRadius(4)
-                }
-            }
-            .padding([.top, .horizontal])
+            Divider()
+                .opacity(0.25)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                HStack(spacing: 14) {
                     ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                         PreviewItemView(
                             image: item.image,
                             windowID: item.id,
                             title: item.title,
+                            index: index,
                             onClose: onWindowClose,
                             onMinimize: onWindowMinimize,
                             onSelect: onWindowSelect,
                             onMoveToMonitor: onMoveToMonitor
                         )
-                        .id(item.id) // Stable identity based on windowID
+                        .id(item.id)
                         .opacity(showItems ? 1 : 0)
-                        .offset(y: showItems ? 0 : 20)
+                        .offset(y: showItems ? 0 : 16)
                         .animation(
-                            .spring(response: 0.4, dampingFraction: 0.6).delay(Double(index) * 0.05),
+                            .spring(response: 0.42, dampingFraction: 0.78).delay(Double(index) * 0.04),
                             value: showItems
                         )
                     }
                 }
-                .padding(.horizontal)
-                .padding(.bottom)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
+            }
+
+            if SettingsManager.shared.enableDockPreviewKeyboardShortcuts {
+                Divider().opacity(0.25)
+                keyboardHintsFooter
             }
         }
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(panelBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(borderGradient, lineWidth: 0.6)
+        )
+        .shadow(color: .black.opacity(scheme == .dark ? 0.5 : 0.18), radius: 28, y: 14)
+        .shadow(color: Ember.Palette.amber.opacity(scheme == .dark ? 0.1 : 0.04), radius: 40, y: 0)
         .fixedSize()
-        .onAppear {
-            showItems = true
+        .onAppear { showItems = true }
+        .onDisappear { showItems = false }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                if let appIcon = appIcon {
+                    Image(nsImage: appIcon)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 30, height: 30)
+                        .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(appName)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(.primary)
+
+                Text(windowCountLabel)
+                    .font(.system(size: 11, design: .serif))
+                    .italic()
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            if availableScreens.count > 1 {
+                monitorChip
+            }
         }
-        .onDisappear {
-            showItems = false
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private var windowCountLabel: String {
+        let n = items.count
+        return "\(n) window\(n == 1 ? "" : "s") open"
+    }
+
+    private var monitorChip: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "display")
+                .font(.system(size: 10, weight: .semibold))
+            Text("\(availableScreens.count)")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
         }
+        .foregroundColor(Ember.Palette.amber)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(Ember.Palette.amberSoft))
+        .help("\(availableScreens.count) displays available. Right-click a window to move it.")
+    }
+
+    // MARK: - Keyboard Hints Footer
+
+    private var keyboardHintsFooter: some View {
+        HStack(spacing: 14) {
+            kbdHint(keys: "1-9", label: "open")
+            kbdHint(keys: "⏎", label: "select")
+            kbdHint(keys: "⌘W", label: "close")
+            kbdHint(keys: "esc", label: "dismiss")
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+    }
+
+    private func kbdHint(keys: String, label: String) -> some View {
+        HStack(spacing: 4) {
+            Text(keys)
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background(
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Ember.Palette.smoke.opacity(scheme == .dark ? 0.2 : 0.08))
+                )
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundColor(.secondary.opacity(0.75))
+        }
+    }
+
+    // MARK: - Theme
+
+    private var panelBackground: some View {
+        ZStack {
+            // Use NSVisualEffectView for real vibrancy / material
+            Rectangle()
+                .fill(scheme == .dark
+                      ? Color(red: 0.07, green: 0.09, blue: 0.16).opacity(0.72)
+                      : Color.white.opacity(0.68))
+                .background(.ultraThinMaterial)
+        }
+    }
+
+    private var borderGradient: some ShapeStyle {
+        LinearGradient(
+            colors: scheme == .dark
+                ? [Ember.Palette.amber.opacity(0.3), .white.opacity(0.08)]
+                : [Ember.Palette.amberGlow.opacity(0.45), .black.opacity(0.06)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 }
 struct PreviewItemView: View {
     let image: NSImage
     let windowID: CGWindowID
     let title: String?
+    let index: Int
     let onClose: (CGWindowID) -> Void
     let onMinimize: (CGWindowID) -> Void
     let onSelect: (CGWindowID) -> Void
@@ -89,15 +184,17 @@ struct PreviewItemView: View {
 
     @State private var isHovering = false
     @State private var showMonitorMenu = false
+    @Environment(\.colorScheme) private var scheme
     private let availableScreens = NSScreen.screens
 
     // Cache CGImage to prevent view recreation
     private let initialCGImage: CGImage?
 
-    init(image: NSImage, windowID: CGWindowID, title: String?, onClose: @escaping (CGWindowID) -> Void, onMinimize: @escaping (CGWindowID) -> Void, onSelect: @escaping (CGWindowID) -> Void, onMoveToMonitor: ((CGWindowID, NSScreen) -> Void)? = nil) {
+    init(image: NSImage, windowID: CGWindowID, title: String?, index: Int = 0, onClose: @escaping (CGWindowID) -> Void, onMinimize: @escaping (CGWindowID) -> Void, onSelect: @escaping (CGWindowID) -> Void, onMoveToMonitor: ((CGWindowID, NSScreen) -> Void)? = nil) {
         self.image = image
         self.windowID = windowID
         self.title = title
+        self.index = index
         self.onClose = onClose
         self.onMinimize = onMinimize
         self.onSelect = onSelect
@@ -122,140 +219,221 @@ struct PreviewItemView: View {
     }
 
     var body: some View {
-        VStack(spacing: 6) {
-            ZStack(alignment: .topTrailing) {
-                // Notification badge overlay
-                if let badgeCount = getNotificationBadge(), badgeCount > 0 {
-                    NotificationBadge(count: badgeCount)
-                        .offset(x: 10, y: -10)
-                        .zIndex(10)
-                }
-
-                ZStack {
-                    // Base preview content - isolated from hover state
-                    if SettingsManager.shared.enableAutoRefresh, let cgImage = initialCGImage {
-                        // Use live preview with ScreenCaptureKit
-                        LivePreviewView(
-                            windowID: windowID,
-                            initialImage: cgImage,
-                            maxWidth: previewSize.maxWidth,
-                            maxHeight: previewSize.maxHeight
-                        )
-                        .id("live-preview-\(windowID)") // Stable identity to prevent view recreation
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    } else {
-                        // Static image (fallback when live preview disabled)
-                        Image(nsImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxWidth: previewSize.maxWidth, maxHeight: previewSize.maxHeight)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }
-
-                    // Overlays that depend on state - separate layer
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.accentColor.opacity(isHovering ? 0.8 : 0.0), lineWidth: 3)
-
-                    if isActiveWindow() {
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [.blue.opacity(0.6), .cyan.opacity(0.4)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 2
-                            )
-                    }
-                }
-                .shadow(color: isActiveWindow() ? .blue.opacity(0.6) : .black.opacity(0.4), radius: isActiveWindow() ? 12 : 8, y: 4)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    onSelect(windowID)
-                }
-                .help("Click to bring this window to front")
-                .contextMenu {
-                    QuickActionsMenu(
-                        windowID: windowID,
-                        onSelect: onSelect,
-                        onMinimize: onMinimize,
-                        onClose: onClose,
-                        onMoveToMonitor: onMoveToMonitor
+        VStack(spacing: 0) {
+            if SettingsManager.shared.showWindowTitles {
+                inlineTitleBar
+            }
+            previewBody
+        }
+        .frame(maxWidth: previewSize.maxWidth)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(cardBorder)
+        .overlay(alignment: .topTrailing) { notificationBadgeOverlay }
+        .overlay(alignment: .bottomLeading) { indexBadge }
+        .scaleEffect(isHovering ? 1.025 : 1.0)
+        .shadow(
+            color: isActiveWindow() ? Ember.Palette.amber.opacity(0.5) : .black.opacity(isHovering ? 0.5 : 0.35),
+            radius: isActiveWindow() ? 16 : (isHovering ? 14 : 8),
+            y: isActiveWindow() ? 6 : (isHovering ? 6 : 4)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture { onSelect(windowID) }
+        .help("Click to bring this window to front")
+        .contextMenu {
+            QuickActionsMenu(
+                windowID: windowID,
+                onSelect: onSelect,
+                onMinimize: onMinimize,
+                onClose: onClose,
+                onMoveToMonitor: onMoveToMonitor
+            )
+        }
+        .background(
+            Group {
+                if SettingsManager.shared.enableDockPreviewGestures {
+                    MiddleClickHandler(
+                        onMiddleClick: {
+                            let action = SettingsManager.shared.middleClickAction
+                            guard action != "none" else { return }
+                            handleGestureAction(action)
+                        }
                     )
                 }
-                .background(
-                    Group {
-                        if SettingsManager.shared.enableDockPreviewGestures {
-                            MiddleClickHandler(
-                                onMiddleClick: {
-                                    let action = SettingsManager.shared.middleClickAction
-                                    guard action != "none" else { return }
-                                    handleGestureAction(action)
-                                }
-                            )
-                        }
-                    }
-                )
-
-                if isHovering {
-                    HStack(spacing: 6) {
-                        if onMoveToMonitor != nil {
-                            Menu {
-                                ForEach(Array(availableScreens.enumerated()), id: \.offset) { index, screen in
-                                    Button(action: {
-                                        onMoveToMonitor?(windowID, screen)
-                                    }) {
-                                        HStack {
-                                            Image(systemName: "display")
-                                            Text(screen.localizedName)
-                                        }
-                                    }
-                                }
-                            } label: {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color(red: 100/255, green: 200/255, blue: 255/255))
-                                    Image(systemName: "display")
-                                        .font(.system(size: 6, weight: .black))
-                                        .foregroundColor(.white)
-                                }
-                                .frame(width: 12, height: 12)
-                            }
-                            .menuStyle(.borderlessButton)
-                            .help("Move to another monitor")
-                        }
-
-                        MacButton(type: .minimize, action: { onMinimize(windowID) })
-                        MacButton(type: .close, action: { onClose(windowID) })
-                    }
-                    .padding(5)
-                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
-                }
             }
-
-            if SettingsManager.shared.showWindowTitles, let title = title, !title.isEmpty {
-                Text(title)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-                    .frame(maxWidth: previewSize.maxWidth - 20)
-            }
-        }
+        )
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.2)) { isHovering = hovering }
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) { isHovering = hovering }
         }
         .onDrag {
-            // Create drag item with window information
             let itemProvider = NSItemProvider()
-
-            // Encode window ID as string
             itemProvider.registerDataRepresentation(forTypeIdentifier: "public.utf8-plain-text", visibility: .all) { completion in
                 let data = "WindowID:\(self.windowID)".data(using: .utf8)
                 completion(data, nil)
                 return nil
             }
-
             return itemProvider
+        }
+    }
+
+    // MARK: - Inline Title Bar (Windows 11 style)
+
+    private var inlineTitleBar: some View {
+        HStack(spacing: 8) {
+            Text(displayTitle)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(isActiveWindow() ? Ember.Palette.amber : .primary.opacity(0.85))
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Spacer(minLength: 4)
+
+            if isHovering {
+                HStack(spacing: 4) {
+                    if onMoveToMonitor != nil, availableScreens.count > 1 {
+                        Menu {
+                            ForEach(Array(availableScreens.enumerated()), id: \.offset) { _, screen in
+                                Button {
+                                    onMoveToMonitor?(windowID, screen)
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "display")
+                                        Text(screen.localizedName)
+                                    }
+                                }
+                            }
+                        } label: {
+                            titleIconButton(systemName: "display")
+                        }
+                        .menuStyle(.borderlessButton)
+                        .menuIndicator(.hidden)
+                        .fixedSize()
+                        .help("Move to another monitor")
+                    }
+
+                    Button { onMinimize(windowID) } label: {
+                        titleIconButton(systemName: "minus")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Minimize")
+
+                    Button { onClose(windowID) } label: {
+                        titleIconButton(systemName: "xmark", destructive: true)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Close window")
+                }
+                .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 26)
+        .background(titleBarBackground)
+    }
+
+    private func titleIconButton(systemName: String, destructive: Bool = false) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(destructive ? Ember.Palette.rust.opacity(0.15) : Ember.Palette.smoke.opacity(0.15))
+            Image(systemName: systemName)
+                .font(.system(size: 8, weight: .bold))
+                .foregroundColor(destructive ? Ember.Palette.rust : .secondary)
+        }
+        .frame(width: 18, height: 18)
+    }
+
+    private var titleBarBackground: some View {
+        ZStack {
+            Rectangle().fill(.ultraThinMaterial)
+            Rectangle()
+                .fill(
+                    isActiveWindow()
+                    ? Ember.Palette.amber.opacity(scheme == .dark ? 0.18 : 0.1)
+                    : Color.clear
+                )
+        }
+    }
+
+    private var displayTitle: String {
+        if let t = title, !t.isEmpty { return t }
+        return "Window \(windowID)"
+    }
+
+    // MARK: - Preview Body (actual thumbnail)
+
+    @ViewBuilder
+    private var previewBody: some View {
+        if SettingsManager.shared.enableAutoRefresh, let cgImage = initialCGImage {
+            LivePreviewView(
+                windowID: windowID,
+                initialImage: cgImage,
+                maxWidth: previewSize.maxWidth,
+                maxHeight: previewSize.maxHeight
+            )
+            .id("live-preview-\(windowID)")
+        } else {
+            Image(nsImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxWidth: previewSize.maxWidth, maxHeight: previewSize.maxHeight)
+        }
+    }
+
+    // MARK: - Borders & Badges
+
+    @ViewBuilder
+    private var cardBorder: some View {
+        if isActiveWindow() {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Ember.Palette.amber, Ember.Palette.amberDark],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 2
+                )
+        } else if isHovering {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Ember.Palette.amber.opacity(0.55), lineWidth: 2)
+        } else {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.white.opacity(scheme == .dark ? 0.06 : 0.3), lineWidth: 0.5)
+        }
+    }
+
+    @ViewBuilder
+    private var notificationBadgeOverlay: some View {
+        if let badgeCount = getNotificationBadge(), badgeCount > 0 {
+            NotificationBadge(count: badgeCount)
+                .offset(x: 8, y: -8)
+        }
+    }
+
+    @ViewBuilder
+    private var indexBadge: some View {
+        if SettingsManager.shared.enableDockPreviewKeyboardShortcuts, index < 9 {
+            Text("\(index + 1)")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+                .frame(width: 20, height: 20)
+                .background(
+                    Circle()
+                        .fill(
+                            isActiveWindow()
+                            ? AnyShapeStyle(
+                                LinearGradient(
+                                    colors: [Ember.Palette.amber, Ember.Palette.amberDark],
+                                    startPoint: .top, endPoint: .bottom
+                                )
+                            )
+                            : AnyShapeStyle(Color.black.opacity(0.7))
+                        )
+                )
+                .overlay(
+                    Circle().strokeBorder(.white.opacity(0.2), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
+                .padding(8)
         }
     }
 

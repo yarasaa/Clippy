@@ -176,11 +176,24 @@ struct DiffView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Text(L("Compare Differences", settings: settings))
-                .font(.title2.bold())
-                .padding()
+            HStack(spacing: Ember.Space.sm) {
+                Image(systemName: "square.split.2x1")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Ember.Palette.amber)
+                Text("Compare")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                Spacer()
 
-            // Unified diff view
+                HStack(spacing: Ember.Space.md) {
+                    diffLegend(color: Ember.Palette.rust, label: "Removed")
+                    diffLegend(color: Ember.Palette.moss, label: "Added")
+                }
+            }
+            .padding(.horizontal, Ember.Space.lg)
+            .padding(.vertical, Ember.Space.md)
+
+            Divider().opacity(0.3)
+
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(diffLines) { line in
@@ -189,10 +202,13 @@ struct DiffView: View {
                 }
             }
 
+            Divider().opacity(0.3)
+
             bottomToolbar
-                .padding()
-                .background(.bar)
+                .padding(.horizontal, Ember.Space.lg)
+                .padding(.vertical, Ember.Space.md)
         }
+        .background(Ember.surface(colorScheme))
         .preferredColorScheme(preferredColorScheme)
         .frame(minWidth: 800, idealWidth: 1000, minHeight: 500, idealHeight: 700)
         .keyboardShortcut(.escape, modifiers: [])
@@ -328,61 +344,73 @@ struct DiffView: View {
 
         switch type {
         case .added:
-            return isDark ? Color.green.opacity(0.2) : Color.green.opacity(0.15)
+            return isDark ? Ember.Palette.moss.opacity(0.18) : Ember.Palette.moss.opacity(0.12)
         case .removed:
-            return isDark ? Color.red.opacity(0.2) : Color.red.opacity(0.15)
+            return isDark ? Ember.Palette.rust.opacity(0.18) : Ember.Palette.rust.opacity(0.12)
         case .modified:
-            return isDark ? Color.orange.opacity(0.2) : Color.orange.opacity(0.15)
+            return isDark ? Ember.Palette.amber.opacity(0.15) : Ember.Palette.amber.opacity(0.1)
         case .unchanged:
             return Color.clear
         }
     }
 
     private var bottomToolbar: some View {
-        HStack {
-            Button(L("Close", settings: settings)) {
-                dismiss()
-            }
+        HStack(spacing: Ember.Space.sm) {
+            Button("Close") { dismiss() }
+                .buttonStyle(SecondaryActionButtonStyle())
 
             Spacer()
 
             Button {
                 copyToClipboard(oldText)
-                withAnimation {
-                    copiedSide = .left
-                }
+                withAnimation { copiedSide = .left }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    withAnimation {
-                        copiedSide = nil
-                    }
+                    withAnimation { copiedSide = nil }
                 }
             } label: {
-                Label(L("Copy Old", settings: settings), systemImage: copiedSide == .left ? "checkmark.circle.fill" : "doc.on.doc")
+                HStack(spacing: 5) {
+                    Image(systemName: copiedSide == .left ? "checkmark" : "doc.on.doc")
+                    Text("Copy Old")
+                }
             }
+            .buttonStyle(SecondaryActionButtonStyle(success: copiedSide == .left))
 
             Button {
                 copyToClipboard(newText)
-                withAnimation {
-                    copiedSide = .right
-                }
+                withAnimation { copiedSide = .right }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    withAnimation {
-                        copiedSide = nil
-                    }
+                    withAnimation { copiedSide = nil }
                 }
             } label: {
-                Label(L("Copy New", settings: settings), systemImage: copiedSide == .right ? "checkmark.circle.fill" : "doc.on.doc")
+                HStack(spacing: 5) {
+                    Image(systemName: copiedSide == .right ? "checkmark" : "doc.on.doc")
+                    Text("Copy New")
+                }
             }
+            .buttonStyle(SecondaryActionButtonStyle(success: copiedSide == .right))
 
             Spacer()
 
             Button {
                 saveAndClose()
             } label: {
-                Label(L("Save New", settings: settings), systemImage: "square.and.arrow.down")
+                HStack(spacing: 5) {
+                    Image(systemName: "square.and.arrow.down")
+                    Text("Save New to History")
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .help(L("Save new version to clipboard history", settings: settings))
+            .buttonStyle(PrimaryActionButtonStyle())
+        }
+    }
+
+    private func diffLegend(color: Color, label: String) -> some View {
+        HStack(spacing: 5) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(color.opacity(0.7))
+                .frame(width: 8, height: 8)
+            Text(label)
+                .font(Ember.Font.caption)
+                .foregroundColor(.secondary)
         }
     }
 

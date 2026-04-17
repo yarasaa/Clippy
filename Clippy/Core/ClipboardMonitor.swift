@@ -45,7 +45,8 @@ class ClipboardMonitor: ObservableObject {
     }()
     private let appIconCache: NSCache<NSString, NSImage> = {
         let cache = NSCache<NSString, NSImage>()
-        cache.countLimit = 200
+        cache.countLimit = 100
+        cache.totalCostLimit = 15 * 1024 * 1024 // 15MB — app icons are small but accumulate
         return cache
     }()
 
@@ -57,6 +58,16 @@ class ClipboardMonitor: ObservableObject {
     private var monitoringTask: Task<Void, Error>?
     private var saveTask: Task<Void, Never>?
 
+    // Adaptive polling: tightens when activity is detected, relaxes when idle.
+    // This gives sub-second responsiveness during active copy/paste
+    // while dropping to a 2 s cadence during long idle stretches.
+    private let activeInterval: TimeInterval = 0.5
+    private let mediumInterval: TimeInterval = 1.0
+    private let idleInterval: TimeInterval   = 2.0
+    private let mediumIdleThreshold: TimeInterval = 10.0
+    private let fullIdleThreshold: TimeInterval   = 45.0
+    private var lastActivityAt: Date = Date()
+
     private let viewContext = PersistenceController.shared.container.viewContext
 
     init() {
@@ -66,8 +77,20 @@ class ClipboardMonitor: ObservableObject {
     func startMonitoring(interval: TimeInterval = 0.5) {
         monitoringTask = Task {
             while !Task.isCancelled {
-                await checkClipboard()
-                try await Task.sleep(for: .seconds(interval))
+                let didChange = await checkClipboard()
+                if didChange {
+                    self.lastActivityAt = Date()
+                }
+                let idle = Date().timeIntervalSince(self.lastActivityAt)
+                let nextInterval: TimeInterval
+                if idle < self.mediumIdleThreshold {
+                    nextInterval = self.activeInterval
+                } else if idle < self.fullIdleThreshold {
+                    nextInterval = self.mediumInterval
+                } else {
+                    nextInterval = self.idleInterval
+                }
+                try await Task.sleep(for: .seconds(nextInterval))
             }
         }
     }
@@ -84,13 +107,14 @@ class ClipboardMonitor: ObservableObject {
         startMonitoring(interval: interval)
     }
 
-    private func checkClipboard() async {
+    @discardableResult
+    private func checkClipboard() async -> Bool {
         let pb = NSPasteboard.general
         if pb.changeCount != changeCount {
             changeCount = pb.changeCount
 
             if pb.types?.contains(PasteManager.pasteFromClippyType) == true {
-                return
+                return true
             }
 
             let frontmostApp = NSWorkspace.shared.frontmostApplication
@@ -102,7 +126,7 @@ class ClipboardMonitor: ObservableObject {
             if let str = pb.string(forType: .string), !str.isEmpty {
                 // Check duplicates if enabled
                 if settings.enableDuplicateDetection && isDuplicateText(str) {
-                    return
+                    return true
                 }
 
                 // Truncate extremely long texts based on settings
@@ -114,16 +138,20 @@ class ClipboardMonitor: ObservableObject {
                 let item = ClipboardItem(contentType: .text(textToStore), date: Date(), isCode: isCode, sourceAppName: appName, sourceAppBundleIdentifier: appBundle, enableContentDetection: settings.enableContentDetection)
                 addNewItem(item)
 
-                return
+                return true
             }
 
             if let image = pb.readObjects(forClasses: [NSImage.self], options: nil)?.first as? NSImage {
                 guard SettingsManager.shared.showImagesTab else {
-                    return
+                    return true
                 }
                 await self.saveImageInBackground(image, sourceAppName: sourceAppName, sourceAppBundleIdentifier: sourceAppBundleIdentifier)
+                return true
             }
+
+            return true
         }
+        return false
     }
 
     private func saveImageInBackground(_ image: NSImage, sourceAppName: String?, sourceAppBundleIdentifier: String?) async {
@@ -254,11 +282,12 @@ class ClipboardMonitor: ObservableObject {
     }
 
     private func isDuplicateText(_ text: String) -> Bool {
+        // Original CoreData-based duplicate detection — most reliable.
+        // The earlier fingerprint optimization caused some captures to be
+        // incorrectly treated as duplicates and skipped.
         let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
         fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \ClipboardItemEntity.date, ascending: false)]
-
         fetchRequest.predicate = NSPredicate(format: "isFavorite == NO AND contentType == 'text'")
-
         fetchRequest.fetchLimit = 1
 
         do {

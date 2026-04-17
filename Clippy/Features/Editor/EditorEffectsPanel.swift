@@ -228,7 +228,7 @@ struct EffectsInspectorView: View {
                             .font(.system(size: 9))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 4)
-                            .background(radialCenterPoint == dir.point ? Color.accentColor.opacity(0.3) : Color.secondary.opacity(0.1))
+                            .background(radialCenterPoint == dir.point ? Ember.Palette.amber.opacity(0.3) : Color.secondary.opacity(0.1))
                             .cornerRadius(4)
                     }
                     .buttonStyle(.plain)

@@ -2,77 +2,35 @@
 //  SnippetVariablesView.swift
 //  Clippy
 //
-//  Created by Mehmet Akbaba on 15.11.2025.
-//
 
 import SwiftUI
 
 struct SnippetVariablesView: View {
     @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) var scheme
+
     @State private var newVariableName = ""
     @State private var newVariableValue = ""
     @State private var editingVariable: SnippetVariable?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
-            VStack(alignment: .leading, spacing: 4) {
-                Text(L("Snippet Variables", settings: settings))
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Text(L("Define global variables to use across all snippets", settings: settings))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Divider()
-
-            // Add new variable section
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    TextField(L("Variable Name (e.g., MY_NAME)", settings: settings), text: $newVariableName)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 200)
-
-                    TextField(L("Value (can use {{DATE}}, {{UUID}}, etc.)", settings: settings), text: $newVariableValue)
-                        .textFieldStyle(.roundedBorder)
-
-                    Button(L("Add", settings: settings)) {
-                        addVariable()
-                    }
-                    .disabled(newVariableName.trimmingCharacters(in: .whitespaces).isEmpty)
+        ScrollView {
+            VStack(alignment: .leading, spacing: Ember.Space.lg) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Variables")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundColor(Ember.primaryText(scheme))
+                    Text("Global placeholders you can use inside any snippet.")
+                        .font(Ember.Font.body)
+                        .foregroundColor(Ember.secondaryText(scheme))
                 }
 
-                Text(L("Usage Example:", settings: settings) + " {{\(newVariableName.isEmpty ? "MY_NAME" : newVariableName)}} → \(processedPreviewValue)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 4)
+                addForm
 
-                Text(L("Tip: Use {{DATE}}, {{TIME}}, {{UUID}}, {{CLIPBOARD}} in values for dynamic content", settings: settings))
-                    .font(.caption2)
-                    .foregroundColor(.blue)
-                    .padding(.leading, 4)
-            }
-
-            Divider()
-
-            // Variables list
-            ScrollView {
-                VStack(spacing: 8) {
-                    if settings.snippetVariables.isEmpty {
-                        HStack {
-                            Spacer()
-                            VStack(spacing: 8) {
-                                Image(systemName: "textformat.abc")
-                                    .font(.system(size: 48))
-                                    .foregroundColor(.secondary)
-                                Text(L("No variables defined", settings: settings))
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.vertical, 40)
-                            Spacer()
-                        }
-                    } else {
+                if settings.snippetVariables.isEmpty {
+                    emptyState
+                } else {
+                    VStack(spacing: 6) {
                         ForEach(settings.snippetVariables) { variable in
                             VariableRow(
                                 variable: variable,
@@ -89,57 +47,101 @@ struct SnippetVariablesView: View {
                     }
                 }
             }
+            .padding(.horizontal, Ember.Space.xl)
+            .padding(.vertical, Ember.Space.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .preferredColorScheme(colorScheme)
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var addForm: some View {
+        VStack(alignment: .leading, spacing: Ember.Space.sm) {
+            HStack(spacing: Ember.Space.sm) {
+                TextField("MY_NAME", text: $newVariableName)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 180)
+                    .font(Ember.Font.code)
+
+                TextField("Value (supports {{DATE}}, {{UUID}}, {{CLIPBOARD}}…)", text: $newVariableValue)
+                    .textFieldStyle(.roundedBorder)
+
+                Button {
+                    addVariable()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .buttonStyle(PrimaryActionButtonStyle())
+                .disabled(newVariableName.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+
+            if !newVariableName.isEmpty || !newVariableValue.isEmpty {
+                HStack(spacing: 6) {
+                    Text("Preview:")
+                        .font(Ember.Font.caption)
+                        .foregroundColor(Ember.tertiaryText(scheme))
+                    Text("{{\(newVariableName.isEmpty ? "MY_NAME" : newVariableName)}}")
+                        .font(Ember.Font.code)
+                        .foregroundColor(Ember.Palette.amber)
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 8))
+                        .foregroundColor(Ember.tertiaryText(scheme))
+                    Text(processedPreview)
+                        .font(Ember.Font.code)
+                        .foregroundColor(Ember.secondaryText(scheme))
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 4)
+            }
+
+            Text("Tip: {{DATE}} · {{TIME}} · {{DATETIME}} · {{UUID}} · {{CLIPBOARD}}")
+                .font(Ember.Font.caption)
+                .foregroundColor(Ember.Palette.amber.opacity(0.8))
+                .padding(.horizontal, 4)
+        }
+        .padding(Ember.Space.md)
+        .background(
+            RoundedRectangle(cornerRadius: Ember.Radius.lg)
+                .fill(Ember.cardBackground(scheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Ember.Radius.lg)
+                .strokeBorder(Color.white.opacity(scheme == .dark ? 0.06 : 0.5), lineWidth: 0.5)
+        )
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: Ember.Space.md) {
+            Image(systemName: "textformat.abc")
+                .font(.system(size: 40, weight: .light))
+                .foregroundColor(Ember.Palette.amber.opacity(0.6))
+            Text("No variables yet")
+                .font(Ember.Font.title)
+                .foregroundColor(Ember.primaryText(scheme))
+            Text("Create one above to reuse values across snippets.")
+                .font(Ember.Font.caption)
+                .foregroundColor(Ember.secondaryText(scheme))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Ember.Space.xxl)
     }
 
     private func addVariable() {
         let name = newVariableName.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
-
         settings.addSnippetVariable(name: name, value: newVariableValue)
         newVariableName = ""
         newVariableValue = ""
     }
 
-    private var processedPreviewValue: String {
-        if newVariableValue.isEmpty {
-            return L("(empty)", settings: settings)
-        }
-
+    private var processedPreview: String {
+        if newVariableValue.isEmpty { return "(empty)" }
         var preview = newVariableValue
-
-        // Show preview of dynamic placeholders
-        if preview.contains("{{DATE}}") {
-            preview = preview.replacingOccurrences(of: "{{DATE}}", with: "[2025-11-16]")
-        }
-        if preview.contains("{{TIME}}") {
-            preview = preview.replacingOccurrences(of: "{{TIME}}", with: "[14:30:25]")
-        }
-        if preview.contains("{{DATETIME}}") {
-            preview = preview.replacingOccurrences(of: "{{DATETIME}}", with: "[2025-11-16 14:30]")
-        }
-        if preview.contains("{{UUID}}") {
-            preview = preview.replacingOccurrences(of: "{{UUID}}", with: "[UUID]")
-        }
-        if preview.contains("{{CLIPBOARD}}") {
-            preview = preview.replacingOccurrences(of: "{{CLIPBOARD}}", with: "[clipboard]")
-        }
-
+        preview = preview.replacingOccurrences(of: "{{DATE}}", with: "[2026-04-17]")
+        preview = preview.replacingOccurrences(of: "{{TIME}}", with: "[14:30]")
+        preview = preview.replacingOccurrences(of: "{{DATETIME}}", with: "[2026-04-17 14:30]")
+        preview = preview.replacingOccurrences(of: "{{UUID}}", with: "[uuid]")
+        preview = preview.replacingOccurrences(of: "{{CLIPBOARD}}", with: "[clipboard]")
         return preview
-    }
-
-    private var colorScheme: ColorScheme? {
-        switch settings.appTheme {
-        case "light":
-            return .light
-        case "dark":
-            return .dark
-        default:
-            return nil
-        }
     }
 }
 
@@ -153,68 +155,72 @@ struct VariableRow: View {
 
     @State private var editedName: String = ""
     @State private var editedValue: String = ""
-    @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) var scheme
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Ember.Space.sm) {
             if isEditing {
-                // Edit mode
-                TextField(L("Name", settings: settings), text: $editedName)
+                TextField("Name", text: $editedName)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 150)
+                    .font(Ember.Font.code)
 
-                TextField(L("Value", settings: settings), text: $editedValue)
+                TextField("Value", text: $editedValue)
                     .textFieldStyle(.roundedBorder)
 
-                Button(L("Save", settings: settings)) {
+                Button("Save") {
                     onSave(editedName, editedValue)
                 }
+                .buttonStyle(PrimaryActionButtonStyle())
                 .disabled(editedName.trimmingCharacters(in: .whitespaces).isEmpty)
 
-                Button(L("Cancel", settings: settings)) {
-                    onCancel()
-                }
+                Button("Cancel") { onCancel() }
+                    .buttonStyle(SecondaryActionButtonStyle())
             } else {
-                // View mode
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(variable.placeholder)
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundColor(.blue)
-                            .fontWeight(.semibold)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(variable.placeholder)
+                        .font(Ember.Font.code.weight(.semibold))
+                        .foregroundColor(Ember.Palette.amber)
 
-                        Image(systemName: "arrow.right")
-                            .foregroundColor(.secondary)
-                            .font(.caption)
-                    }
-
-                    Text(variable.value.isEmpty ? L("(empty)", settings: settings) : variable.value)
-                        .foregroundColor(variable.value.isEmpty ? .secondary : .primary)
+                    Text(variable.value.isEmpty ? "(empty)" : variable.value)
+                        .font(Ember.Font.body)
+                        .foregroundColor(variable.value.isEmpty ? Ember.tertiaryText(scheme) : Ember.primaryText(scheme))
                         .lineLimit(2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                Button(action: {
-                    editedName = variable.name
-                    editedValue = variable.value
-                    onEdit()
-                }) {
-                    Image(systemName: "pencil")
-                        .foregroundColor(.blue)
-                }
-                .buttonStyle(.plain)
-                .help(L("Edit", settings: settings))
+                HStack(spacing: 2) {
+                    Button {
+                        editedName = variable.name
+                        editedValue = variable.value
+                        onEdit()
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12))
+                            .foregroundColor(Ember.secondaryText(scheme))
+                            .frame(width: 26, height: 26)
+                    }
+                    .buttonStyle(.plain)
 
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12))
+                            .foregroundColor(Ember.Palette.rust.opacity(0.8))
+                            .frame(width: 26, height: 26)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-                .help(L("Delete", settings: settings))
             }
         }
-        .padding(12)
-        .background(Color.secondary.opacity(0.1))
-        .cornerRadius(8)
+        .padding(.horizontal, Ember.Space.md)
+        .padding(.vertical, Ember.Space.sm)
+        .background(
+            RoundedRectangle(cornerRadius: Ember.Radius.md)
+                .fill(Ember.cardBackground(scheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Ember.Radius.md)
+                .strokeBorder(Color.white.opacity(scheme == .dark ? 0.04 : 0.4), lineWidth: 0.5)
+        )
     }
 }

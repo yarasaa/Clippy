@@ -269,7 +269,7 @@ class SettingsManager: ObservableObject {
         self.dockSwipeUpAction = UserDefaults.standard.string(forKey: "dockSwipeUpAction") ?? "close"
         self.dockSwipeDownAction = UserDefaults.standard.string(forKey: "dockSwipeDownAction") ?? "minimize"
         self.middleClickAction = UserDefaults.standard.string(forKey: "middleClickAction") ?? "close"
-        self.dockPreviewHoverDelay = UserDefaults.standard.object(forKey: "dockPreviewHoverDelay") as? Double ?? 0.3
+        self.dockPreviewHoverDelay = UserDefaults.standard.object(forKey: "dockPreviewHoverDelay") as? Double ?? 0.5
 
         // Memory Management Settings
         self.maxCacheSizeMB = UserDefaults.standard.object(forKey: "maxCacheSizeMB") as? Int ?? 100

@@ -200,15 +200,22 @@ struct FileConverterView: View {
     private var leftPanel: some View {
         VStack(spacing: 0) {
             // Header
-            HStack {
-                Image(systemName: "doc.badge.plus")
-                    .foregroundColor(.accentColor)
+            HStack(spacing: 8) {
+                ClippyMark(size: 14)
                 Text("Input Files")
-                    .font(.headline)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                if !viewModel.files.isEmpty {
+                    Text("\(viewModel.files.count)")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(minWidth: 18, minHeight: 18)
+                        .background(Circle().fill(Ember.Palette.amber))
+                }
                 Spacer()
                 Button(action: pickFiles) {
                     Image(systemName: "plus.circle")
                         .font(.title3)
+                        .foregroundColor(Ember.Palette.amber)
                 }
                 .buttonStyle(.plain)
                 .help("Add files")
@@ -217,7 +224,7 @@ struct FileConverterView: View {
                     Button(action: viewModel.clearAll) {
                         Image(systemName: "trash")
                             .font(.title3)
-                            .foregroundColor(.red.opacity(0.7))
+                            .foregroundColor(Ember.Palette.rust.opacity(0.7))
                     }
                     .buttonStyle(.plain)
                     .help("Clear all files")
@@ -241,39 +248,43 @@ struct FileConverterView: View {
     }
 
     private var dropZoneEmpty: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             Spacer()
 
-            Image(systemName: "arrow.down.doc")
-                .font(.system(size: 48))
-                .foregroundColor(.secondary.opacity(0.5))
+            ZStack {
+                Circle()
+                    .fill(Ember.Palette.amber.opacity(isDragOver ? 0.22 : 0.1))
+                    .frame(width: 92, height: 92)
+                    .blur(radius: 12)
 
-            Text("Drop files here")
-                .font(.title3)
-                .foregroundColor(.secondary)
-
-            Text("or")
-                .font(.caption)
-                .foregroundColor(.secondary.opacity(0.6))
-
-            Button("Select Files") {
-                pickFiles()
+                Image(systemName: "arrow.down.doc")
+                    .font(.system(size: 38, weight: .light))
+                    .foregroundColor(isDragOver ? Ember.Palette.amber : Ember.Palette.amber.opacity(0.7))
             }
-            .buttonStyle(.bordered)
+            .animation(.easeInOut(duration: 0.2), value: isDragOver)
 
-            Text("Images, Documents, Audio, Video, Data files")
-                .font(.caption2)
-                .foregroundColor(.secondary.opacity(0.5))
-                .multilineTextAlignment(.center)
+            VStack(spacing: 4) {
+                Text(isDragOver ? "Release to add" : "Drop files here")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+
+                Text("Images · Docs · Audio · Video · Data")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+
+            Button("Select Files") { pickFiles() }
+                .buttonStyle(SecondaryActionButtonStyle())
 
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8]))
-                .foregroundColor(isDragOver ? .accentColor : .secondary.opacity(0.3))
-                .padding(8)
+            RoundedRectangle(cornerRadius: Ember.Radius.lg)
+                .strokeBorder(
+                    style: StrokeStyle(lineWidth: 1.5, dash: [6])
+                )
+                .foregroundColor(isDragOver ? Ember.Palette.amber : Ember.Palette.smoke.opacity(0.3))
+                .padding(10)
         )
     }
 
@@ -293,16 +304,16 @@ struct FileConverterView: View {
 
     private var rightPanel: some View {
         VStack(spacing: 0) {
-            HStack {
+            HStack(spacing: 8) {
                 Image(systemName: "arrow.right.doc.on.clipboard")
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(Ember.Palette.amber)
                 Text("Output Format")
-                    .font(.headline)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
                 Spacer()
                 Button(action: { viewModel.togglePinOnTop() }) {
                     Image(systemName: viewModel.isPinnedOnTop ? "pin.fill" : "pin")
                         .font(.title3)
-                        .foregroundColor(viewModel.isPinnedOnTop ? .accentColor : .secondary)
+                        .foregroundColor(viewModel.isPinnedOnTop ? Ember.Palette.amber : .secondary)
                 }
                 .buttonStyle(.plain)
                 .help(viewModel.isPinnedOnTop ? "Unpin from top" : "Pin on top")
@@ -409,19 +420,35 @@ struct FileConverterView: View {
     // MARK: - Bottom Bar
 
     private var bottomBar: some View {
-        HStack {
+        HStack(spacing: Ember.Space.md) {
             if viewModel.isConverting {
-                ProgressView(value: viewModel.overallProgress)
-                    .progressViewStyle(.linear)
-                    .frame(width: 140)
-                Text("\(Int(viewModel.overallProgress * 100))%")
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundColor(.secondary)
-                    .frame(width: 32, alignment: .trailing)
-                Text("Converting...")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                HStack(spacing: Ember.Space.sm) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Ember.Palette.smoke.opacity(0.15))
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Ember.Palette.amber, Ember.Palette.amberGlow],
+                                        startPoint: .leading, endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: geo.size.width * viewModel.overallProgress)
+                        }
+                    }
+                    .frame(height: 6)
+                    .frame(maxWidth: 180)
+
+                    Text("\(Int(viewModel.overallProgress * 100))%")
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundColor(Ember.Palette.amber)
+                        .frame(width: 36, alignment: .trailing)
+
+                    Text("Converting…")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
             } else {
                 let completed = viewModel.files.filter { $0.conversionState == .completed }.count
                 let failed = viewModel.files.filter {
@@ -430,21 +457,33 @@ struct FileConverterView: View {
                 }.count
 
                 if completed > 0 || failed > 0 {
-                    HStack(spacing: 8) {
+                    HStack(spacing: Ember.Space.sm) {
                         if completed > 0 {
-                            Label("\(completed) completed", systemImage: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                                .font(.caption)
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("\(completed) done")
+                            }
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Ember.Palette.moss)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Ember.Palette.moss.opacity(0.12)))
                         }
                         if failed > 0 {
-                            Label("\(failed) failed", systemImage: "xmark.circle.fill")
-                                .foregroundColor(.red)
-                                .font(.caption)
+                            HStack(spacing: 4) {
+                                Image(systemName: "xmark.octagon.fill")
+                                Text("\(failed) failed")
+                            }
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Ember.Palette.rust)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Ember.Palette.rust.opacity(0.12)))
                         }
                     }
                 } else if !viewModel.files.isEmpty {
-                    Text("\(viewModel.files.count) file\(viewModel.files.count == 1 ? "" : "s") selected")
-                        .font(.caption)
+                    Text("\(viewModel.files.count) file\(viewModel.files.count == 1 ? "" : "s") ready")
+                        .font(Ember.Font.caption)
                         .foregroundColor(.secondary)
                 }
             }
@@ -455,16 +494,22 @@ struct FileConverterView: View {
                 Button("Convert Selected") {
                     viewModel.startConversion(onlySelected: true)
                 }
+                .buttonStyle(SecondaryActionButtonStyle())
                 .disabled(
                     viewModel.isConverting ||
                     viewModel.selectedFile?.selectedOutputFormat == nil
                 )
             }
 
-            Button("Convert All") {
+            Button {
                 viewModel.startConversion()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "arrow.right.doc.on.clipboard")
+                    Text("Convert All")
+                }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(PrimaryActionButtonStyle())
             .disabled(
                 viewModel.files.isEmpty ||
                 viewModel.isConverting ||
@@ -507,74 +552,137 @@ struct FileConverterView: View {
 struct FileRowView: View {
     let file: ConvertibleFile
     let onRemove: () -> Void
+    @Environment(\.colorScheme) var scheme
+    @State private var isHovered = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                Image(systemName: file.category.icon)
-                    .foregroundColor(.accentColor)
-                    .frame(width: 20)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(categoryColor(file.category).opacity(0.14))
+                        .frame(width: 32, height: 32)
+
+                    Image(systemName: file.category.icon)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(categoryColor(file.category))
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(file.fileName)
-                        .font(.caption)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Ember.primaryText(scheme))
                         .lineLimit(1)
 
                     HStack(spacing: 4) {
                         Text(file.fileExtension.uppercased())
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .foregroundColor(categoryColor(file.category))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(
+                                Capsule().fill(categoryColor(file.category).opacity(0.12))
+                            )
 
                         if let output = file.selectedOutputFormat {
                             Image(systemName: "arrow.right")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundColor(Ember.tertiaryText(scheme))
+
                             Text(output.displayName)
-                                .font(.caption2)
-                                .foregroundColor(.accentColor)
+                                .font(.system(size: 9, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(
+                                    Capsule().fill(
+                                        LinearGradient(
+                                            colors: [Ember.Palette.amber, Ember.Palette.amberDark],
+                                            startPoint: .top, endPoint: .bottom
+                                        )
+                                    )
+                                )
                         }
                     }
                 }
 
                 Spacer()
 
-                // State indicator
-                switch file.conversionState {
-                case .pending:
-                    EmptyView()
-                case .converting:
-                    Text("\(Int(file.conversionProgress * 100))%")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .monospacedDigit()
-                        .frame(width: 32, alignment: .trailing)
-                case .completed:
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                        .font(.caption)
-                case .failed:
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.red)
-                        .font(.caption)
-                }
+                stateIndicator
 
-                Button(action: onRemove) {
-                    Image(systemName: "xmark")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                if isHovered {
+                    Button(action: onRemove) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(Ember.secondaryText(scheme))
+                            .frame(width: 18, height: 18)
+                            .background(Circle().fill(Ember.Palette.smoke.opacity(0.15)))
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity)
                 }
-                .buttonStyle(.plain)
             }
 
-            // Per-file progress bar
             if file.conversionState == .converting {
-                ProgressView(value: file.conversionProgress)
-                    .progressViewStyle(.linear)
-                    .frame(height: 3)
-                    .padding(.leading, 28)
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Ember.Palette.smoke.opacity(0.15))
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Ember.Palette.amber, Ember.Palette.amberGlow],
+                                    startPoint: .leading, endPoint: .trailing
+                                )
+                            )
+                            .frame(width: geo.size.width * file.conversionProgress)
+                    }
+                }
+                .frame(height: 3)
+                .padding(.leading, 42)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) { isHovered = hovering }
+        }
+    }
+
+    @ViewBuilder
+    private var stateIndicator: some View {
+        switch file.conversionState {
+        case .pending:
+            EmptyView()
+        case .converting:
+            Text("\(Int(file.conversionProgress * 100))%")
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundColor(Ember.Palette.amber)
+                .frame(width: 36, alignment: .trailing)
+        case .completed:
+            HStack(spacing: 3) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 11))
+                Text("Done")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .foregroundColor(Ember.Palette.moss)
+        case .failed(let message):
+            Image(systemName: "xmark.octagon.fill")
+                .foregroundColor(Ember.Palette.rust)
+                .font(.system(size: 11))
+                .help(message)
+        }
+    }
+
+    private func categoryColor(_ category: FileFormatCategory) -> Color {
+        switch category {
+        case .image:    return Color(red: 0.28, green: 0.55, blue: 0.92)
+        case .document: return Ember.Palette.amber
+        case .audio:    return Color(red: 0.72, green: 0.33, blue: 0.95)
+        case .video:    return Color(red: 0.92, green: 0.38, blue: 0.60)
+        case .data:     return Ember.Palette.moss
+        case .unknown:  return Ember.Palette.smoke
+        }
     }
 }
 
@@ -584,28 +692,56 @@ struct FormatButton: View {
     let format: OutputFormat
     let isSelected: Bool
     let action: () -> Void
+    @Environment(\.colorScheme) var scheme
+    @State private var isHovered = false
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
+            VStack(spacing: 5) {
                 Image(systemName: iconForFormat(format))
-                    .font(.title3)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(isSelected ? .white : formatColor(format))
+
                 Text(format.displayName)
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundColor(isSelected ? .white : Ember.primaryText(scheme))
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+                ZStack {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: Ember.Radius.md)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Ember.Palette.amber, Ember.Palette.amberDark],
+                                    startPoint: .top, endPoint: .bottom
+                                )
+                            )
+                    } else {
+                        RoundedRectangle(cornerRadius: Ember.Radius.md)
+                            .fill(isHovered ? Ember.Palette.amber.opacity(0.06) : Color.clear)
+                    }
+                }
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
+                RoundedRectangle(cornerRadius: Ember.Radius.md)
+                    .strokeBorder(
+                        isSelected ? Color.clear : Ember.Palette.smoke.opacity(isHovered ? 0.4 : 0.22),
+                        lineWidth: isSelected ? 0 : 1
+                    )
             )
+            .shadow(
+                color: isSelected ? Ember.Palette.amber.opacity(0.3) : .clear,
+                radius: 6,
+                y: 2
+            )
+            .scaleEffect(isHovered && !isSelected ? 1.03 : 1.0)
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.12)) { isHovered = hovering }
+        }
     }
 
     private func iconForFormat(_ format: OutputFormat) -> String {
@@ -622,6 +758,23 @@ struct FormatButton: View {
         case "csv": return "tablecells"
         case "plist": return "list.bullet.rectangle"
         default: return "doc"
+        }
+    }
+
+    private func formatColor(_ format: OutputFormat) -> Color {
+        switch format.fileExtension {
+        case "png", "jpg", "jpeg", "tiff", "bmp", "gif", "heic", "webp":
+            return Color(red: 0.28, green: 0.55, blue: 0.92)
+        case "pdf", "txt", "rtf", "docx", "html":
+            return Ember.Palette.amber
+        case "mp4", "mov", "m4v":
+            return Color(red: 0.92, green: 0.38, blue: 0.60)
+        case "m4a", "wav", "caf", "aac", "aiff", "mp3", "flac":
+            return Color(red: 0.72, green: 0.33, blue: 0.95)
+        case "json", "xml", "csv", "plist":
+            return Ember.Palette.moss
+        default:
+            return Ember.Palette.smoke
         }
     }
 }

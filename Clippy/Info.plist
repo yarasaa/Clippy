@@ -8,5 +8,19 @@
 	<string>Clippy, &quot;Anahtar Kelime ile Yapıştırma&quot; özelliğinin çalışması için klavye girişlerinizi izleme iznine ihtiyaç duyar. Bu, yazdığınız bir anahtar kelimeyi (örn: ;imza) ilgili içerikle otomatik olarak değiştirmek için kullanılır.</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Clippy, Dock üzerindeki uygulama pencerelerinin canlı önizlemesini gösterebilmek için ekranınızı kaydetme iznine ihtiyaç duyar.</string>
+
+	<!-- Sparkle auto-update configuration -->
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/yarasaa/Clippy/main/docs/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>62SHd2vDfRimC+1F00eKI7GggnOeQEp5mYFyXWF3unI=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
 </dict>
 </plist>

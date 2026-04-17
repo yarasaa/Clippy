@@ -175,15 +175,22 @@ class WindowSwitcherPanelController: ObservableObject {
         let finalFrame = CGRect(origin: origin, size: panelSize)
 
         if !panel.isVisible {
-            let initialFrame = finalFrame.insetBy(dx: finalFrame.width * 0.05, dy: finalFrame.height * 0.05)
+            // Start: slight shrink + nudge down — Windows Alt+Tab rise-in feel
+            var initialFrame = finalFrame
+            initialFrame.size.width *= 0.93
+            initialFrame.size.height *= 0.93
+            initialFrame.origin.x += (finalFrame.width - initialFrame.width) / 2
+            initialFrame.origin.y += (finalFrame.height - initialFrame.height) / 2 - 10
             panel.setFrame(initialFrame, display: false)
             panel.alphaValue = 0
             panel.makeKeyAndOrderFront(nil)
         }
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.25
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            context.duration = 0.28
+            // Subtle overshoot — feels natural, not bouncy
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.34, 1.45, 0.64, 1.0)
+            context.allowsImplicitAnimation = true
             panel.animator().alphaValue = 1.0
             panel.animator().setFrame(finalFrame, display: true)
         }
@@ -200,11 +207,16 @@ class WindowSwitcherPanelController: ObservableObject {
         }
 
         let currentFrame = panel.frame
-        let finalFrame = currentFrame.insetBy(dx: currentFrame.width * 0.05, dy: currentFrame.height * 0.05)
+        var finalFrame = currentFrame
+        finalFrame.size.width *= 0.96
+        finalFrame.size.height *= 0.96
+        finalFrame.origin.x += (currentFrame.width - finalFrame.width) / 2
+        finalFrame.origin.y += (currentFrame.height - finalFrame.height) / 2 - 6
 
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.2
-            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            context.duration = 0.16
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.4, 0.0, 1.0, 1.0)
+            context.allowsImplicitAnimation = true
             panel.animator().alphaValue = 0
             panel.animator().setFrame(finalFrame, display: true)
         }, completionHandler: {

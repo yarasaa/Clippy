@@ -1,0 +1,87 @@
+name: Update appcast on release
+
+# Fires when you publish a GitHub Release that has the signed/notarized DMG
+# attached. The workflow downloads that DMG, signs it with Sparkle's EdDSA
+# private key, and prepends a new <item> to docs/appcast.xml so every Clippy
+# user sees the update on their next check.
+#
+# You handle all Apple signing + notarization locally. The only secret this
+# workflow needs is SPARKLE_PRIVATE_KEY.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  appcast:
+    runs-on: macos-14
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve version from release tag
+        id: meta
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Download DMG from the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Pick the first .dmg attached to the release. If you upload more
+          # than one (e.g. arm64 / x86_64 split), adjust to handle both.
+          DMG_NAME=$(gh release view "${{ steps.meta.outputs.tag }}" \
+            --json assets \
+            --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -n 1)
+          if [ -z "$DMG_NAME" ]; then
+            echo "::error::No .dmg asset found on release ${{ steps.meta.outputs.tag }}"
+            exit 1
+          fi
+          echo "DMG_NAME=$DMG_NAME" >> "$GITHUB_ENV"
+          gh release download "${{ steps.meta.outputs.tag }}" --pattern "$DMG_NAME" --clobber
+
+      - name: Install Sparkle CLI (for sign_update)
+        run: brew install --cask sparkle
+
+      - name: Sign the DMG with EdDSA
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # Write the key to a temp file so sign_update can read it with -f
+          echo "$SPARKLE_PRIVATE_KEY" | base64 --decode > sparkle_private
+          SPARKLE_BIN=$(find /opt/homebrew/Caskroom/sparkle -type f -name sign_update -perm +111 | head -n 1)
+          SIGNED=$("$SPARKLE_BIN" "$DMG_NAME" -f sparkle_private)
+          rm sparkle_private
+
+          echo "Sparkle output: $SIGNED"
+          SIGNATURE=$(echo "$SIGNED" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
+          LENGTH=$(echo "$SIGNED" | sed -n 's/.*length="\([^"]*\)".*/\1/p')
+
+          if [ -z "$SIGNATURE" ] || [ -z "$LENGTH" ]; then
+            echo "::error::Failed to parse Sparkle signature/length"
+            exit 1
+          fi
+
+          echo "SPARKLE_SIGNATURE=$SIGNATURE" >> "$GITHUB_ENV"
+          echo "SPARKLE_LENGTH=$LENGTH" >> "$GITHUB_ENV"
+
+      - name: Update appcast.xml
+        run: ./scripts/update-appcast.sh "${{ steps.meta.outputs.version }}" "$SPARKLE_SIGNATURE" "$SPARKLE_LENGTH" "$DMG_NAME"
+
+      - name: Commit appcast changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/appcast.xml
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update appcast for ${{ steps.meta.outputs.tag }}"
+            git push origin HEAD:main
+          fi

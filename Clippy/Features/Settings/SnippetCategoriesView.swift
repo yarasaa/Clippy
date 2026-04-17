@@ -2,136 +2,155 @@
 //  SnippetCategoriesView.swift
 //  Clippy
 //
-//  Created by Mehmet Akbaba on 16.11.2025.
-//
 
 import SwiftUI
 
 struct SnippetCategoriesView: View {
     @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) var scheme
+
     @State private var newCategoryName = ""
     @State private var newCategoryIcon = "📁"
     @State private var editingCategory: SnippetCategory?
 
-    // Common emoji icons for quick selection - shared static to avoid duplication
     fileprivate static let commonIcons = ["📧", "💼", "📝", "💻", "📋", "🎯", "🏠", "🎨", "📱", "⚙️", "🔧", "📚", "✨", "🎉", "💡"]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
-            VStack(alignment: .leading, spacing: 4) {
-                Text(L("Snippet Categories", settings: settings))
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Text(L("Organize your snippets with custom categories", settings: settings))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: Ember.Space.lg) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Categories")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundColor(Ember.primaryText(scheme))
+                    Text("Group snippets into folders to find them faster.")
+                        .font(Ember.Font.body)
+                        .foregroundColor(Ember.secondaryText(scheme))
+                }
 
-            Divider()
-
-            // Enable/Disable toggle
-            Toggle(L("Enable Category System", settings: settings), isOn: $settings.isCategorySystemEnabled)
-                .help(L("When disabled, all snippets will be shown without category filtering", settings: settings))
-
-            if settings.isCategorySystemEnabled {
-                Divider()
-
-                // Add new category section
-                VStack(alignment: .leading, spacing: 8) {
+                // Enable toggle
                 HStack {
-                    // Icon picker
-                    Menu {
-                        ForEach(Self.commonIcons, id: \.self) { icon in
-                            Button(action: {
-                                newCategoryIcon = icon
-                            }) {
-                                Text(icon)
-                            }
-                        }
-                    } label: {
-                        Text(newCategoryIcon)
-                            .font(.title2)
-                            .frame(width: 50, height: 40)
-                            .background(Color.secondary.opacity(0.1))
-                            .cornerRadius(6)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable category system")
+                            .font(Ember.Font.body)
+                            .foregroundColor(Ember.primaryText(scheme))
+                        Text("When off, all snippets appear together without filtering.")
+                            .font(Ember.Font.caption)
+                            .foregroundColor(Ember.tertiaryText(scheme))
                     }
-
-                    TextField(L("Category Name (e.g., Work)", settings: settings), text: $newCategoryName)
-                        .textFieldStyle(.roundedBorder)
-
-                    Button(L("Add", settings: settings)) {
-                        addCategory()
-                    }
-                    .disabled(newCategoryName.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Spacer()
+                    Toggle("", isOn: $settings.isCategorySystemEnabled)
+                        .labelsHidden()
                 }
+                .padding(Ember.Space.md)
+                .background(
+                    RoundedRectangle(cornerRadius: Ember.Radius.lg)
+                        .fill(Ember.cardBackground(scheme))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: Ember.Radius.lg)
+                        .strokeBorder(Color.white.opacity(scheme == .dark ? 0.06 : 0.5), lineWidth: 0.5)
+                )
 
-                Text(L("Tip: Click the icon to choose from common emojis", settings: settings))
-                    .font(.caption2)
-                    .foregroundColor(.blue)
-                    .padding(.leading, 4)
-                }
+                if settings.isCategorySystemEnabled {
+                    addForm
 
-                Divider()
-
-                // Categories list
-                ScrollView {
-                VStack(spacing: 8) {
                     if settings.snippetCategories.isEmpty {
-                        HStack {
-                            Spacer()
-                            VStack(spacing: 8) {
-                                Image(systemName: "folder")
-                                    .font(.system(size: 48))
-                                    .foregroundColor(.secondary)
-                                Text(L("No categories defined", settings: settings))
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.vertical, 40)
-                            Spacer()
-                        }
+                        emptyState
                     } else {
-                        ForEach(settings.snippetCategories) { category in
-                            CategoryRow(
-                                category: category,
-                                isEditing: editingCategory?.id == category.id,
-                                onEdit: { editingCategory = category },
-                                onSave: { icon, name in
-                                    settings.updateSnippetCategory(id: category.id, name: name, icon: icon)
-                                    editingCategory = nil
-                                },
-                                onCancel: { editingCategory = nil },
-                                onDelete: { settings.deleteSnippetCategory(id: category.id) }
-                            )
+                        VStack(spacing: 6) {
+                            ForEach(settings.snippetCategories) { category in
+                                CategoryRow(
+                                    category: category,
+                                    isEditing: editingCategory?.id == category.id,
+                                    onEdit: { editingCategory = category },
+                                    onSave: { icon, name in
+                                        settings.updateSnippetCategory(id: category.id, name: name, icon: icon)
+                                        editingCategory = nil
+                                    },
+                                    onCancel: { editingCategory = nil },
+                                    onDelete: { settings.deleteSnippetCategory(id: category.id) }
+                                )
+                            }
                         }
                     }
-                }
                 }
             }
+            .padding(.horizontal, Ember.Space.xl)
+            .padding(.vertical, Ember.Space.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .preferredColorScheme(colorScheme)
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var addForm: some View {
+        HStack(spacing: Ember.Space.sm) {
+            Menu {
+                ForEach(Self.commonIcons, id: \.self) { icon in
+                    Button { newCategoryIcon = icon } label: {
+                        Text(icon)
+                    }
+                }
+            } label: {
+                Text(newCategoryIcon)
+                    .font(.system(size: 20))
+                    .frame(width: 44, height: 36)
+                    .background(
+                        RoundedRectangle(cornerRadius: Ember.Radius.md)
+                            .fill(Ember.cardBackground(scheme))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Ember.Radius.md)
+                            .strokeBorder(Ember.Palette.smoke.opacity(0.25), lineWidth: 0.5)
+                    )
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+
+            TextField("Category name (e.g., Work)", text: $newCategoryName)
+                .textFieldStyle(.roundedBorder)
+
+            Button {
+                addCategory()
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .bold))
+            }
+            .buttonStyle(PrimaryActionButtonStyle())
+            .disabled(newCategoryName.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .padding(Ember.Space.md)
+        .background(
+            RoundedRectangle(cornerRadius: Ember.Radius.lg)
+                .fill(Ember.cardBackground(scheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Ember.Radius.lg)
+                .strokeBorder(Color.white.opacity(scheme == .dark ? 0.06 : 0.5), lineWidth: 0.5)
+        )
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: Ember.Space.md) {
+            Image(systemName: "folder")
+                .font(.system(size: 40, weight: .light))
+                .foregroundColor(Ember.Palette.amber.opacity(0.6))
+            Text("No categories yet")
+                .font(Ember.Font.title)
+                .foregroundColor(Ember.primaryText(scheme))
+            Text("Add one above to start organizing.")
+                .font(Ember.Font.caption)
+                .foregroundColor(Ember.secondaryText(scheme))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Ember.Space.xxl)
     }
 
     private func addCategory() {
         let name = newCategoryName.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
-
         settings.addSnippetCategory(name: name, icon: newCategoryIcon)
         newCategoryName = ""
         newCategoryIcon = "📁"
-    }
-
-    private var colorScheme: ColorScheme? {
-        switch settings.appTheme {
-        case "light":
-            return .light
-        case "dark":
-            return .dark
-        default:
-            return nil
-        }
     }
 }
 
@@ -145,75 +164,85 @@ struct CategoryRow: View {
 
     @State private var editedName: String = ""
     @State private var editedIcon: String = ""
-    @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) var scheme
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Ember.Space.sm) {
             if isEditing {
-                // Edit mode
                 Menu {
                     ForEach(SnippetCategoriesView.commonIcons, id: \.self) { icon in
-                        Button(action: {
-                            editedIcon = icon
-                        }) {
-                            Text(icon)
-                        }
+                        Button { editedIcon = icon } label: { Text(icon) }
                     }
                 } label: {
                     Text(editedIcon)
-                        .font(.title2)
-                        .frame(width: 40, height: 40)
-                        .background(Color.secondary.opacity(0.1))
-                        .cornerRadius(6)
+                        .font(.system(size: 20))
+                        .frame(width: 38, height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: Ember.Radius.md)
+                                .fill(Ember.cardBackground(scheme))
+                        )
                 }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
 
-                TextField(L("Name", settings: settings), text: $editedName)
+                TextField("Name", text: $editedName)
                     .textFieldStyle(.roundedBorder)
 
-                Button(L("Save", settings: settings)) {
+                Button("Save") {
                     onSave(editedIcon, editedName)
                 }
+                .buttonStyle(PrimaryActionButtonStyle())
                 .disabled(editedName.trimmingCharacters(in: .whitespaces).isEmpty)
 
-                Button(L("Cancel", settings: settings)) {
-                    onCancel()
-                }
+                Button("Cancel") { onCancel() }
+                    .buttonStyle(SecondaryActionButtonStyle())
             } else {
-                // View mode
                 Text(category.icon)
-                    .font(.title2)
-                    .frame(width: 40, height: 40)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(6)
+                    .font(.system(size: 22))
+                    .frame(width: 38, height: 38)
+                    .background(
+                        RoundedRectangle(cornerRadius: Ember.Radius.md)
+                            .fill(Ember.Palette.amberSoft)
+                    )
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(category.name)
-                        .font(.body)
-                        .fontWeight(.semibold)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(category.name)
+                    .font(Ember.Font.body.weight(.medium))
+                    .foregroundColor(Ember.primaryText(scheme))
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                Button(action: {
-                    editedName = category.name
-                    editedIcon = category.icon
-                    onEdit()
-                }) {
-                    Image(systemName: "pencil")
-                        .foregroundColor(.blue)
-                }
-                .buttonStyle(.plain)
-                .help(L("Edit", settings: settings))
+                HStack(spacing: 2) {
+                    Button {
+                        editedName = category.name
+                        editedIcon = category.icon
+                        onEdit()
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12))
+                            .foregroundColor(Ember.secondaryText(scheme))
+                            .frame(width: 26, height: 26)
+                    }
+                    .buttonStyle(.plain)
 
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12))
+                            .foregroundColor(Ember.Palette.rust.opacity(0.8))
+                            .frame(width: 26, height: 26)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-                .help(L("Delete", settings: settings))
             }
         }
-        .padding(12)
-        .background(Color.secondary.opacity(0.1))
-        .cornerRadius(8)
+        .padding(.horizontal, Ember.Space.md)
+        .padding(.vertical, Ember.Space.sm)
+        .background(
+            RoundedRectangle(cornerRadius: Ember.Radius.md)
+                .fill(Ember.cardBackground(scheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Ember.Radius.md)
+                .strokeBorder(Color.white.opacity(scheme == .dark ? 0.04 : 0.4), lineWidth: 0.5)
+        )
     }
 }

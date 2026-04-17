@@ -36,14 +36,19 @@ struct EditorStatusBar: View {
 
             Spacer()
 
-            // MARK: Center - Active Tool
-            HStack(spacing: 4) {
+            // MARK: Center - Active Tool chip (branded)
+            HStack(spacing: 5) {
                 Image(systemName: selectedTool.icon)
-                    .font(.system(size: 9))
+                    .font(.system(size: 9, weight: .semibold))
                 Text(selectedTool.displayName)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 10, weight: .semibold))
             }
-            .foregroundColor(.secondary.opacity(0.7))
+            .foregroundColor(Ember.Palette.amber)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(
+                Capsule().fill(Ember.Palette.amberSoft)
+            )
 
             Spacer()
 

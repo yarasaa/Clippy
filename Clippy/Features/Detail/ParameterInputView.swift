@@ -75,9 +75,12 @@ struct ParameterInputView: View {
 
     var body: some View {
         VStack(spacing: 15) {
-            Text(L("Fill in the Parameters", settings: settings))
-                .font(.title2)
-                .fontWeight(.semibold)
+            HStack(spacing: Ember.Space.sm) {
+                ClippyMark(size: 18)
+                Text("Fill in the Parameters")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                Spacer()
+            }
 
             ForEach(Array(definitions.enumerated()), id: \.offset) { index, definition in
                 inputView(for: definition, at: index)
@@ -126,16 +129,21 @@ struct ParameterInputView: View {
             }
 
             HStack {
-                Button(L("Cancel", settings: settings)) {
-                    onCancel()
-                }
-                .keyboardShortcut(.cancelAction)
+                Button("Cancel") { onCancel() }
+                    .buttonStyle(SecondaryActionButtonStyle())
+                    .keyboardShortcut(.cancelAction)
 
                 Spacer()
 
-                Button(L("Paste", settings: settings)) {
+                Button {
                     confirm()
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.down.doc")
+                        Text("Paste")
+                    }
                 }
+                .buttonStyle(PrimaryActionButtonStyle())
                 .keyboardShortcut(.defaultAction)
                 .disabled(values.contains(where: { $0.isEmpty }))
             }

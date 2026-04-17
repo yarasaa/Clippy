@@ -78,6 +78,16 @@ struct EditorContextBar: View {
         return viewModel.annotations.first(where: { $0.id == id })
     }
 
+    // Label shown in the slim top bar. Changes with context so the Studio Bar
+    // still hints at what's selected without carrying property controls.
+    private var brandLabel: String {
+        if isCropping { return "Cropping" }
+        if selectedAnnotationID != nil, let tool = currentAnnotation?.tool {
+            return "\(tool.displayName) selected"
+        }
+        return "Screenshot ∙ \(selectedTool.displayName)"
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             // MARK: Undo/Redo
@@ -98,76 +108,67 @@ struct EditorContextBar: View {
 
             thinDivider
 
-            // MARK: Color
-            ColorPicker("", selection: $selectedColor, supportsOpacity: false)
-                .labelsHidden()
-                .frame(width: 24, height: 24)
-
-            Menu {
-                let converted = ColorConverter.convertToAllFormats(NSColor(selectedColor))
-                colorFormatButton("HEX", value: converted.hex)
-                colorFormatButton("RGB", value: converted.rgb)
-                colorFormatButton("HSL", value: converted.hsl)
-                colorFormatButton("HSB", value: converted.hsb)
-                Divider()
-                colorFormatButton("RGBA", value: converted.rgba)
-                colorFormatButton("HSLA", value: converted.hsla)
-                colorFormatButton("HEX+Alpha", value: converted.hexWithAlpha)
-                Divider()
-                colorFormatButton("SwiftUI", value: converted.swiftUI)
-                colorFormatButton("NSColor", value: converted.nsColor)
-            } label: {
-                Text(showColorCopied ? L("Copied!", settings: settings) : selectedColor.hexString)
-                    .font(.system(.caption2, design: .monospaced))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Color.secondary.opacity(0.08))
-                    .cornerRadius(4)
+            // MARK: Brand mark + contextual label (properties now live in the right Inspector panel)
+            HStack(spacing: 6) {
+                ClippyMark(size: 16)
+                Text(brandLabel)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
 
-            // MARK: Line Width
-            Button(action: { showLineWidthPicker.toggle() }) {
-                HStack(spacing: 3) {
-                    Circle()
-                        .fill(Color.secondary)
-                        .frame(width: max(3, selectedLineWidth / 2.5), height: max(3, selectedLineWidth / 2.5))
-                    Text(selectedLineWidth <= 4 ? "S" : selectedLineWidth <= 8 ? "M" : "L")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.secondary)
+            // MARK: Crop mode — Apply / Cancel buttons (appear only while cropping)
+            if isCropping {
+                thinDivider
+
+                Button(action: onApplyCrop) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "crop")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Apply Crop")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule().fill(
+                            LinearGradient(
+                                colors: [Ember.Palette.amber, Ember.Palette.amberDark],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        )
+                    )
+                    .shadow(color: Ember.Palette.amber.opacity(0.35), radius: 4, y: 1)
                 }
-                .frame(width: 40, height: 24)
-                .background(Color.secondary.opacity(0.08))
-                .cornerRadius(4)
+                .buttonStyle(.plain)
+                .keyboardShortcut(.return, modifiers: [])
+                .help("Apply crop (⏎)")
+
+                Button(action: onCancelCrop) {
+                    Text("Cancel")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.escape, modifiers: [])
+                .help("Cancel crop (esc)")
             }
-            .buttonStyle(.plain)
-            .help(L("Line Width", settings: settings))
-            .popover(isPresented: $showLineWidthPicker, arrowEdge: .bottom) {
-                LineWidthPickerView(selectedLineWidth: $selectedLineWidth, isPresented: $showLineWidthPicker)
-            }
-
-            // MARK: Opacity
-            opacityControl
-
-            // MARK: Dashed Stroke
-            dashedStrokeToggle
-
-            // MARK: Sketch Style
-            sketchStyleToggle
-
-            thinDivider
-
-            // MARK: Recent Colors
-            recentColorsView
-
-            thinDivider
-
-            // MARK: Tool-specific controls (inline)
-            toolSpecificControls
 
             Spacer()
+
+            // MARK: Copied-hex flash (kept for quick color feedback)
+            if showColorCopied {
+                Text(L("Copied!", settings: settings))
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Ember.Palette.moss))
+                    .transition(.opacity)
+            }
 
             // MARK: Layer Ordering (when annotation selected)
             if selectedAnnotationID != nil {
@@ -212,7 +213,7 @@ struct EditorContextBar: View {
             Button(action: { showEffectsPanel.toggle() }) {
                 Image(systemName: "wand.and.rays")
                     .font(.system(size: 13))
-                    .foregroundColor(showEffectsPanel ? .accentColor : .secondary)
+                    .foregroundColor(showEffectsPanel ? Ember.Palette.amber : .secondary)
             }
             .buttonStyle(.plain)
             .help(L("Effects", settings: settings))
@@ -273,7 +274,7 @@ struct EditorContextBar: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.accentColor.opacity(annotationsEmpty ? 0.1 : 0.15))
+                .background(Ember.Palette.amber.opacity(annotationsEmpty ? 0.1 : 0.15))
                 .cornerRadius(5)
             }
             .buttonStyle(.plain)
@@ -300,7 +301,7 @@ struct EditorContextBar: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .foregroundColor(.white)
-                .background(Color.accentColor)
+                .background(Ember.Palette.amber)
                 .cornerRadius(5)
             }
             .buttonStyle(.plain)
@@ -410,11 +411,11 @@ struct EditorContextBar: View {
                 }) {
                     Image(systemName: mode.icon)
                         .font(.system(size: 12))
-                        .foregroundColor((currentAnnotation?.fillMode ?? shapeFillMode) == mode ? .accentColor : .secondary)
+                        .foregroundColor((currentAnnotation?.fillMode ?? shapeFillMode) == mode ? Ember.Palette.amber : .secondary)
                         .frame(width: 24, height: 24)
                         .background(
                             RoundedRectangle(cornerRadius: 4)
-                                .fill((currentAnnotation?.fillMode ?? shapeFillMode) == mode ? Color.accentColor.opacity(0.15) : Color.clear)
+                                .fill((currentAnnotation?.fillMode ?? shapeFillMode) == mode ? Ember.Palette.amber.opacity(0.15) : Color.clear)
                         )
                 }
                 .buttonStyle(.plain)
@@ -495,9 +496,9 @@ struct EditorContextBar: View {
             let isCurved = currentAnnotation?.controlPoint != nil
             Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
                 .font(.system(size: 11))
-                .foregroundColor(isCurved ? .accentColor : .secondary)
+                .foregroundColor(isCurved ? Ember.Palette.amber : .secondary)
                 .frame(width: 24, height: 24)
-                .background(isCurved ? Color.accentColor.opacity(0.15) : Color.clear)
+                .background(isCurved ? Ember.Palette.amber.opacity(0.15) : Color.clear)
                 .cornerRadius(4)
         }
         .buttonStyle(.plain)
@@ -519,9 +520,9 @@ struct EditorContextBar: View {
             }) {
                 Image(systemName: "bold")
                     .font(.system(size: 12))
-                    .foregroundColor((currentAnnotation?.isBold ?? textIsBold) ? .accentColor : .secondary)
+                    .foregroundColor((currentAnnotation?.isBold ?? textIsBold) ? Ember.Palette.amber : .secondary)
                     .frame(width: 24, height: 24)
-                    .background(RoundedRectangle(cornerRadius: 4).fill((currentAnnotation?.isBold ?? textIsBold) ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08)))
+                    .background(RoundedRectangle(cornerRadius: 4).fill((currentAnnotation?.isBold ?? textIsBold) ? Ember.Palette.amber.opacity(0.15) : Color.secondary.opacity(0.08)))
             }
             .buttonStyle(.plain)
             .help("Bold")
@@ -536,9 +537,9 @@ struct EditorContextBar: View {
             }) {
                 Image(systemName: "italic")
                     .font(.system(size: 12))
-                    .foregroundColor((currentAnnotation?.isItalic ?? textIsItalic) ? .accentColor : .secondary)
+                    .foregroundColor((currentAnnotation?.isItalic ?? textIsItalic) ? Ember.Palette.amber : .secondary)
                     .frame(width: 24, height: 24)
-                    .background(RoundedRectangle(cornerRadius: 4).fill((currentAnnotation?.isItalic ?? textIsItalic) ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08)))
+                    .background(RoundedRectangle(cornerRadius: 4).fill((currentAnnotation?.isItalic ?? textIsItalic) ? Ember.Palette.amber.opacity(0.15) : Color.secondary.opacity(0.08)))
             }
             .buttonStyle(.plain)
             .help("Italic")
@@ -555,7 +556,7 @@ struct EditorContextBar: View {
                     }) {
                         Image(systemName: alignment.icon)
                             .font(.system(size: 10))
-                            .foregroundColor((currentAnnotation?.textAlignment ?? textAlignment) == alignment ? .accentColor : .secondary)
+                            .foregroundColor((currentAnnotation?.textAlignment ?? textAlignment) == alignment ? Ember.Palette.amber : .secondary)
                             .frame(width: 20, height: 24)
                     }
                     .buttonStyle(.plain)
@@ -633,7 +634,7 @@ struct EditorContextBar: View {
         HStack(spacing: 6) {
             Text("\(viewModel.currentNumber)")
                 .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundColor(.accentColor)
+                .foregroundColor(Ember.Palette.amber)
 
             Button(action: { viewModel.currentNumber = 1 }) {
                 Image(systemName: "arrow.counterclockwise")
@@ -707,11 +708,11 @@ struct EditorContextBar: View {
                 }) {
                     Image(systemName: shape == .ellipse ? "circle" : "square")
                         .font(.system(size: 12))
-                        .foregroundColor((currentAnnotation?.spotlightShape ?? spotlightShape) == shape ? .accentColor : .secondary)
+                        .foregroundColor((currentAnnotation?.spotlightShape ?? spotlightShape) == shape ? Ember.Palette.amber : .secondary)
                         .frame(width: 24, height: 24)
                         .background(
                             RoundedRectangle(cornerRadius: 4)
-                                .fill((currentAnnotation?.spotlightShape ?? spotlightShape) == shape ? Color.accentColor.opacity(0.15) : Color.clear)
+                                .fill((currentAnnotation?.spotlightShape ?? spotlightShape) == shape ? Ember.Palette.amber.opacity(0.15) : Color.clear)
                         )
                 }
                 .buttonStyle(.plain)
@@ -797,12 +798,12 @@ struct EditorContextBar: View {
                 Button(action: { cropAspectRatio = ratio }) {
                     Text(ratio.rawValue)
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(cropAspectRatio == ratio ? .accentColor : .secondary)
+                        .foregroundColor(cropAspectRatio == ratio ? Ember.Palette.amber : .secondary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
                         .background(
                             RoundedRectangle(cornerRadius: 4)
-                                .fill(cropAspectRatio == ratio ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08))
+                                .fill(cropAspectRatio == ratio ? Ember.Palette.amber.opacity(0.15) : Color.secondary.opacity(0.08))
                         )
                 }
                 .buttonStyle(.plain)
@@ -821,7 +822,7 @@ struct EditorContextBar: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .foregroundColor(.white)
-                    .background(Color.accentColor)
+                    .background(Ember.Palette.amber)
                     .cornerRadius(5)
                 }
                 .buttonStyle(.plain)
@@ -910,12 +911,12 @@ struct EditorContextBar: View {
                 }) {
                     Text(mode.rawValue)
                         .font(.system(size: 9, weight: .medium))
-                        .foregroundColor((currentAnnotation?.blurMode ?? blurMode) == mode ? .accentColor : .secondary)
+                        .foregroundColor((currentAnnotation?.blurMode ?? blurMode) == mode ? Ember.Palette.amber : .secondary)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 3)
                         .background(
                             RoundedRectangle(cornerRadius: 4)
-                                .fill((currentAnnotation?.blurMode ?? blurMode) == mode ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08))
+                                .fill((currentAnnotation?.blurMode ?? blurMode) == mode ? Ember.Palette.amber.opacity(0.15) : Color.secondary.opacity(0.08))
                         )
                 }
                 .buttonStyle(.plain)
@@ -1033,9 +1034,9 @@ struct EditorContextBar: View {
             }) {
                 Image(systemName: (currentAnnotation?.dashedStroke ?? dashedStroke) ? "line.3.horizontal" : "minus")
                     .font(.system(size: 12))
-                    .foregroundColor((currentAnnotation?.dashedStroke ?? dashedStroke) ? .accentColor : .secondary)
+                    .foregroundColor((currentAnnotation?.dashedStroke ?? dashedStroke) ? Ember.Palette.amber : .secondary)
                     .frame(width: 24, height: 24)
-                    .background(RoundedRectangle(cornerRadius: 4).fill((currentAnnotation?.dashedStroke ?? dashedStroke) ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08)))
+                    .background(RoundedRectangle(cornerRadius: 4).fill((currentAnnotation?.dashedStroke ?? dashedStroke) ? Ember.Palette.amber.opacity(0.15) : Color.secondary.opacity(0.08)))
             }
             .buttonStyle(.plain)
             .help("Dashed Stroke")
@@ -1059,9 +1060,9 @@ struct EditorContextBar: View {
                 let isSketch = currentAnnotation?.sketchStyle ?? false
                 Image(systemName: "hand.draw")
                     .font(.system(size: 11))
-                    .foregroundColor(isSketch ? .accentColor : .secondary)
+                    .foregroundColor(isSketch ? Ember.Palette.amber : .secondary)
                     .frame(width: 24, height: 24)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(isSketch ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08)))
+                    .background(RoundedRectangle(cornerRadius: 4).fill(isSketch ? Ember.Palette.amber.opacity(0.15) : Color.secondary.opacity(0.08)))
             }
             .buttonStyle(.plain)
             .help("Sketch Style")
@@ -1093,10 +1094,10 @@ struct EditorContextBar: View {
                     Text("Contrast")
                         .font(.system(size: 10, weight: .medium))
                 }
-                .foregroundColor(contrastMode ? .accentColor : .secondary)
+                .foregroundColor(contrastMode ? Ember.Palette.amber : .secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
-                .background(RoundedRectangle(cornerRadius: 4).fill(contrastMode ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08)))
+                .background(RoundedRectangle(cornerRadius: 4).fill(contrastMode ? Ember.Palette.amber.opacity(0.15) : Color.secondary.opacity(0.08)))
             }
             .buttonStyle(.plain)
             .help("WCAG Contrast Checker")
@@ -1128,7 +1129,7 @@ struct EditorContextBar: View {
                             .frame(width: 14, height: 14)
                             .overlay(
                                 Circle()
-                                    .stroke(selectedColor == color ? Color.accentColor : Color.clear, lineWidth: 2)
+                                    .stroke(selectedColor == color ? Ember.Palette.amber : Color.clear, lineWidth: 2)
                             )
                     }
                     .buttonStyle(.plain)

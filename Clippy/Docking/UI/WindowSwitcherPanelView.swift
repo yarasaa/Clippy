@@ -53,9 +53,20 @@ struct WindowSwitcherItemView: View {
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.accentColor, lineWidth: isSelected ? 4 : 0)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Ember.Palette.amber, Ember.Palette.amberDark],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            ),
+                            lineWidth: isSelected ? 3 : 0
+                        )
                 )
-                .shadow(color: .black.opacity(0.3), radius: 5, y: 2)
+                .shadow(
+                    color: isSelected ? Ember.Palette.amber.opacity(0.5) : .black.opacity(isHovering ? 0.45 : 0.3),
+                    radius: isSelected ? 14 : (isHovering ? 8 : 5),
+                    y: isSelected ? 6 : 2
+                )
+                .scaleEffect(isSelected ? 1.04 : (isHovering ? 1.02 : 1.0))
 
             if let title = item.windowTitle, !title.isEmpty {
                 Text(title)
@@ -65,12 +76,16 @@ struct WindowSwitcherItemView: View {
             }
         }
         .padding(10)
-        .background(isHovering ? Color.primary.opacity(0.1) : Color.clear)
-        .cornerRadius(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isSelected
+                      ? Ember.Palette.amber.opacity(0.12)
+                      : (isHovering ? Color.primary.opacity(0.08) : Color.clear))
+        )
+        .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isSelected)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isHovering)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.1)) {
-                self.isHovering = hovering
-            }
+            self.isHovering = hovering
         }
     }
 }

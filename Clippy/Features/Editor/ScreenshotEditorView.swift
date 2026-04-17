@@ -17,7 +17,7 @@ struct ScreenshotEditorView: View {
     @StateObject private var viewModel = ScreenshotEditorViewModel()
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTool: DrawingTool = .select
-    @State private var selectedColor: Color = .red
+    @State private var selectedColor: Color = Ember.Palette.amber
     @State private var selectedLineWidth: CGFloat = 4
 
     @State private var isEditingText: Bool = false
@@ -203,6 +203,30 @@ struct ScreenshotEditorView: View {
 
                 // MARK: Canvas Area
                 canvasArea
+
+                Divider()
+
+                // MARK: Right Inspector Panel
+                EditorInspectorPanel(
+                    selectedTool: $selectedTool,
+                    selectedColor: $selectedColor,
+                    selectedLineWidth: $selectedLineWidth,
+                    annotationOpacity: $annotationOpacity,
+                    selectedBrushStyle: $selectedBrushStyle,
+                    shapeFillMode: $shapeFillMode,
+                    dashedStroke: $dashedStroke,
+                    textIsBold: $textIsBold,
+                    textIsItalic: $textIsItalic,
+                    textAlignment: $textAlignment,
+                    recentColors: $recentColors,
+                    backdropPadding: $backdropPadding,
+                    screenshotShadowRadius: $screenshotShadowRadius,
+                    screenshotCornerRadius: $screenshotCornerRadius,
+                    backdropCornerRadius: $backdropCornerRadius,
+                    borderConfig: $borderConfig,
+                    selectedAnnotationID: $selectedAnnotationID,
+                    viewModel: viewModel
+                )
             }
 
             // MARK: Bottom Status Bar
@@ -222,7 +246,10 @@ struct ScreenshotEditorView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(Capsule().fill(Color.accentColor))
+                    .background(Capsule().fill(LinearGradient(
+                        colors: [Ember.Palette.amber, Ember.Palette.amberDark],
+                        startPoint: .top, endPoint: .bottom
+                    )))
                     .shadow(radius: 4)
                     .padding(.top, 50)
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -472,35 +499,60 @@ struct ScreenshotEditorView: View {
 
                                                 if isEditing {
                                                     let maxTextWidth = annotation.rect.width * scale
+                                                    let annotationID = annotation.id
+
+                                                    // Build a font that honors bold / italic from the annotation itself,
+                                                    // so Inspector changes are visible even while editing.
+                                                    let editorFont: NSFont = {
+                                                        let size = annotation.lineWidth * 4 * scale
+                                                        var base: NSFont = annotation.isBold
+                                                            ? NSFont.boldSystemFont(ofSize: size)
+                                                            : NSFont.systemFont(ofSize: size)
+                                                        if annotation.isItalic {
+                                                            let desc = base.fontDescriptor.withSymbolicTraits(
+                                                                base.fontDescriptor.symbolicTraits.union(.italic)
+                                                            )
+                                                            base = NSFont(descriptor: desc, size: size) ?? base
+                                                        }
+                                                        return base
+                                                    }()
 
                                                     CustomTextEditor(
                                                         text: Binding(
-                                                            get: { viewModel.annotations[index].text },
+                                                            get: {
+                                                                viewModel.annotations.first(where: { $0.id == annotationID })?.text ?? ""
+                                                            },
                                                             set: { newText in
-                                                                let oldText = viewModel.annotations[index].text
+                                                                guard let idx = viewModel.annotations.firstIndex(where: { $0.id == annotationID }) else { return }
+                                                                let oldText = viewModel.annotations[idx].text
                                                                 if newText != oldText {
-                                                                    viewModel.updateAnnotationText(at: index, newText: newText, oldText: oldText, undoManager: undoManager)
+                                                                    viewModel.updateAnnotationText(at: idx, newText: newText, oldText: oldText, undoManager: undoManager)
                                                                 }
                                                             }
                                                         ),
-                                                        font: .systemFont(ofSize: annotation.lineWidth * 4 * scale),
+                                                        font: editorFont,
                                                         textColor: NSColor(annotation.color),
                                                         backgroundColor: annotation.backgroundColor.map { NSColor($0) },
                                                         maxWidth: maxTextWidth,
                                                         onHeightChange: { newHeight in
+                                                            guard let idx = viewModel.annotations.firstIndex(where: { $0.id == annotationID }) else { return }
                                                             let imageHeight = newHeight / scale
-                                                            if abs(viewModel.annotations[index].rect.size.height - imageHeight) > 1 {
-                                                                viewModel.annotations[index].rect.size.height = imageHeight
+                                                            // Only GROW the box — don't shrink so the user's manual
+                                                            // size (from Inspector BOX sliders) is preserved.
+                                                            if imageHeight > viewModel.annotations[idx].rect.size.height + 1 {
+                                                                viewModel.annotations[idx].rect.size.height = imageHeight
                                                             }
                                                         },
                                                         onSizeChange: { newSize in
+                                                            guard let idx = viewModel.annotations.firstIndex(where: { $0.id == annotationID }) else { return }
                                                             let imageHeight = newSize.height / scale
-                                                            if abs(viewModel.annotations[index].rect.size.height - imageHeight) > 1 {
-                                                                viewModel.annotations[index].rect.size.height = imageHeight
+                                                            if imageHeight > viewModel.annotations[idx].rect.size.height + 1 {
+                                                                viewModel.annotations[idx].rect.size.height = imageHeight
                                                             }
                                                         }
                                                     )
                                                     .focused($isTextFieldFocused)
+                                                    .opacity(Double(annotation.opacity))
                                                     .frame(width: canvasRect.width, height: max(canvasRect.height, 24))
                                                     .position(x: canvasRect.midX, y: canvasRect.midY)
                                                     .onSubmit { stopEditingText() }
@@ -639,6 +691,9 @@ struct ScreenshotEditorView: View {
         let dashed = annotation.dashedStroke
 
         func strokeStyle(lineWidth: CGFloat) -> StrokeStyle {
+            if let pattern = annotation.lineStyle.dashPattern {
+                return StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round, dash: pattern)
+            }
             if dashed {
                 return StrokeStyle(lineWidth: lineWidth, dash: [8, 4])
             }
@@ -2357,7 +2412,8 @@ struct ScreenshotEditorView: View {
                 }
                 .font(.system(size: 10))
                 .buttonStyle(.plain)
-                .foregroundColor(.accentColor)
+                .foregroundColor(Ember.Palette.amber)
+                .foregroundColor(Ember.Palette.amber)
             }
 
             // Preset buttons

@@ -2,346 +2,439 @@
 //  SettingsView.swift
 //  Clippy
 //
-//  Created by Mehmet Akbaba on 17.09.2025.
-//
-
 
 import SwiftUI
+
+// MARK: - Settings Sections
+
+enum SettingsSection: String, CaseIterable, Identifiable {
+    case general     = "General"
+    case features    = "Features"
+    case ai          = "AI"
+    case shortcuts   = "Shortcuts"
+    case snippets    = "Snippets"
+    case windows     = "Windows"
+    case permissions = "Privacy"
+    case about       = "About"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .general:     return "gearshape"
+        case .features:    return "checklist"
+        case .ai:          return "sparkles"
+        case .shortcuts:   return "command"
+        case .snippets:    return "text.badge.star"
+        case .windows:     return "macwindow"
+        case .permissions: return "lock.shield"
+        case .about:       return "info.circle"
+        }
+    }
+
+    var title: String { rawValue }
+}
+
+// MARK: - Root
 
 struct SettingsView: View {
     @EnvironmentObject var settings: SettingsManager
     @ObservedObject private var launchManager = LaunchAtLoginManager.shared
-    @State private var selectedTab = "General"
+    @State private var selection: SettingsSection = .general
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            generalSettings
-                .tabItem {
-                    Label(L("General", settings: settings), systemImage: "gear")
-                }
-                .tag("General")
-
-            appearanceSettings
-                .tabItem {
-                    Label(L("Appearance", settings: settings), systemImage: "paintbrush")
-                }
-                .tag("Appearance")
-
-            shortcutsSettings
-                .tabItem {
-                    Label(L("Shortcuts", settings: settings), systemImage: "keyboard")
-                }
-                .tag("Shortcuts")
-
-            featuresSettings
-                .tabItem {
-                    Label(L("Features", settings: settings), systemImage: "checklist")
-                }
-                .tag("Features")
-
-            aiSettings
-                .tabItem {
-                    Label(L("AI", settings: settings), systemImage: "brain")
-                }
-                .tag("AI")
-
-            advancedSettings
-                .tabItem {
-                    Label(L("Advanced", settings: settings), systemImage: "sparkles")
-                }
-                .tag("Advanced")
-
-            SnippetVariablesView()
-                .tabItem {
-                    Label(L("Variables", settings: settings), systemImage: "textformat.abc")
-                }
-                .tag("Variables")
-
-            SnippetCategoriesView()
-                .tabItem {
-                    Label(L("Categories", settings: settings), systemImage: "folder")
-                }
-                .tag("Categories")
+        NavigationSplitView {
+            sidebar
+                .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 220)
+        } detail: {
+            detailView
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(Ember.surface(.light).opacity(0.0)) // passes through
         }
         .preferredColorScheme(colorScheme)
-        .frame(minWidth: 480, minHeight: 320)
-        .padding()
+        .frame(minWidth: 720, minHeight: 520)
     }
 
-    private var generalSettings: some View {
-        Form {
-            Section {
-                Toggle(L("Launch Clippy on login", settings: settings), isOn: $launchManager.isEnabled)
-            }
-
-            Section(header: Text(L("Tab Visibility", settings: settings))) {
-                Toggle(L("Show Code Tab", settings: settings), isOn: $settings.showCodeTab)
-                Toggle(L("Show Images Tab", settings: settings), isOn: $settings.showImagesTab)
-                Toggle(L("Show Snippets Tab", settings: settings), isOn: $settings.showSnippetsTab)
-                Toggle(L("Show Favorites Tab", settings: settings), isOn: $settings.showFavoritesTab)
-            }
-
-            Section(header: Text(L("Storage Limits", settings: settings))) {
-                Stepper(String(format: L("History Limit: %d", settings: settings), settings.historyLimit), value: $settings.historyLimit, in: 10...100, step: 5)
-                Stepper(String(format: L("Favorites Limit: %d", settings: settings), settings.favoritesLimit), value: $settings.favoritesLimit, in: 10...200, step: 10)
-                Stepper(String(format: L("Image Limit: %d", settings: settings), settings.imagesLimit), value: $settings.imagesLimit, in: 5...50, step: 5)
-            }
-        }
-        .padding()
-    }
-
-    private var appearanceSettings: some View {
-        Form {
-            Section {
-                Picker(L("Theme", settings: settings), selection: $settings.appTheme) {
-                    Text(L("System Default", settings: settings)).tag("system")
-                    Text(L("Light", settings: settings)).tag("light")
-                    Text(L("Dark", settings: settings)).tag("dark")
+    private var sidebar: some View {
+        List(SettingsSection.allCases, selection: $selection) { section in
+            NavigationLink(value: section) {
+                HStack(spacing: 10) {
+                    Image(systemName: section.icon)
+                        .frame(width: 18)
+                        .foregroundColor(selection == section ? Ember.Palette.amber : .secondary)
+                    Text(section.title)
+                        .font(.system(size: 13))
                 }
-
-                Stepper(String(format: L("Popover Width: %d", settings: settings), settings.popoverWidth), value: $settings.popoverWidth, in: 300...800, step: 10)
-                Stepper(String(format: L("Popover Height: %d", settings: settings), settings.popoverHeight), value: $settings.popoverHeight, in: 300...1000, step: 10)
             }
         }
-        .padding()
-    }
-
-    private var shortcutsSettings: some View {
-        Form {
-            Group {
-                shortcutRow(label: L("Show/Hide App", settings: settings), key: $settings.hotkeyKey, modifiers: $settings.hotkeyModifiers)
-                shortcutRow(label: L("Paste Selected", settings: settings), key: $settings.pasteAllHotkeyKey, modifiers: $settings.pasteAllHotkeyModifiers)
+        .listStyle(.sidebar)
+        .safeAreaInset(edge: .top) {
+            HStack(spacing: 8) {
+                ClippyMark(size: 18)
+                Text("Clippy")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                Spacer()
             }
-            Divider()
-            Group {
-                shortcutRow(label: L("Sequential Copy", settings: settings), key: $settings.sequentialCopyHotkeyKey, modifiers: $settings.sequentialCopyHotkeyModifiers)
-                shortcutRow(label: L("Sequential Paste", settings: settings), key: $settings.sequentialPasteHotkeyKey, modifiers: $settings.sequentialPasteHotkeyModifiers)
-                shortcutRow(label: L("Clear Sequential Queue", settings: settings), key: $settings.clearQueueHotkeyKey, modifiers: $settings.clearQueueHotkeyModifiers)
-            }
-            Divider()
-            shortcutRow(label: L("Take Screenshot", settings: settings), key: $settings.screenshotHotkeyKey, modifiers: $settings.screenshotHotkeyModifiers)
-            Divider()
-            shortcutRow(label: L("Quick Preview", settings: settings), key: $settings.quickPreviewHotkeyKey, modifiers: $settings.quickPreviewHotkeyModifiers)
-            Divider()
-            shortcutRow(label: L("App Switcher", settings: settings), key: $settings.switcherHotkeyKey, modifiers: $settings.switcherHotkeyModifiers)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .padding()
     }
 
-    private var featuresSettings: some View {
+    @ViewBuilder
+    private var detailView: some View {
+        switch selection {
+        case .general:     GeneralSettingsPane()
+        case .features:    FeaturesSettingsPane()
+        case .ai:          AISettingsPane()
+        case .shortcuts:   ShortcutsSettingsPane()
+        case .snippets:    SnippetsSettingsPane()
+        case .windows:     WindowsSettingsPane()
+        case .permissions: PermissionsSettingsPane()
+        case .about:       AboutView()
+        }
+    }
+
+    private var colorScheme: ColorScheme? {
+        switch settings.appTheme {
+        case "light": return .light
+        case "dark":  return .dark
+        default:      return nil
+        }
+    }
+}
+
+// MARK: - Shared Pane Components
+
+struct SettingsPane<Content: View>: View {
+    let title: String
+    let subtitle: String?
+    @ViewBuilder let content: () -> Content
+    @Environment(\.colorScheme) var scheme
+
+    init(title: String, subtitle: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.subtitle = subtitle
+        self.content = content
+    }
+
+    var body: some View {
         ScrollView {
-            Form {
-                Section(header: Text(L("Clipboard Monitoring", settings: settings))) {
-                    Toggle(L("Auto Code Detection", settings: settings), isOn: $settings.enableAutoCodeDetection)
-                        .help(L("Automatically detect code snippets when copying text", settings: settings))
-
-                    Toggle(L("Content Detection", settings: settings), isOn: $settings.enableContentDetection)
-                        .help(L("Detect URLs, colors, dates, and JSON in clipboard content", settings: settings))
-
-                    Toggle(L("Duplicate Detection", settings: settings), isOn: $settings.enableDuplicateDetection)
-                        .help(L("Skip saving duplicate clipboard entries", settings: settings))
-
-                    Toggle(L("Source App Tracking", settings: settings), isOn: $settings.enableSourceAppTracking)
-                        .help(L("Track which application the content was copied from", settings: settings))
-                }
-
-                Section(header: Text(L("Tools", settings: settings))) {
-                    Toggle(L("Sequential Copy/Paste", settings: settings), isOn: $settings.enableSequentialPaste)
-                        .help(L("Enable sequential copy and paste queue", settings: settings))
-
-                    Toggle(L("Screenshot", settings: settings), isOn: $settings.enableScreenshot)
-                        .help(L("Enable screenshot capture feature", settings: settings))
-
-                    Toggle(L("OCR Text Recognition", settings: settings), isOn: $settings.enableOCR)
-                        .help(L("Enable text recognition from images", settings: settings))
-
-                    Toggle(L("File Converter", settings: settings), isOn: $settings.enableFileConverter)
-                        .help(L("Convert files between formats (images, documents, audio, video, data)", settings: settings))
-
-                    Toggle(L("Drag & Drop Shelf", settings: settings), isOn: $settings.enableDragDropShelf)
-                        .help(L("Floating shelf for temporary drag & drop storage", settings: settings))
-
-                    Toggle(L("Quick Preview Overlay", settings: settings), isOn: $settings.enableQuickPreview)
-                        .help(L("Show a floating panel with recent clipboard items via hotkey", settings: settings))
-
-                    if settings.enableQuickPreview {
-                        Stepper(String(format: L("Quick Preview Items: %d", settings: settings), settings.quickPreviewItemCount), value: $settings.quickPreviewItemCount, in: 3...15)
-
-                        Toggle(L("Auto-close after paste", settings: settings), isOn: $settings.quickPreviewAutoClose)
+            VStack(alignment: .leading, spacing: Ember.Space.xl) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundColor(Ember.primaryText(scheme))
+                    if let subtitle = subtitle {
+                        Text(subtitle)
+                            .font(Ember.Font.body)
+                            .foregroundColor(Ember.secondaryText(scheme))
                     }
                 }
 
-                Section(header: Text(L("Performance", settings: settings))) {
-                    Picker(L("Max Text Storage Length", settings: settings), selection: $settings.maxTextStorageLength) {
+                content()
+
+                Spacer(minLength: Ember.Space.xl)
+            }
+            .padding(.horizontal, Ember.Space.xl)
+            .padding(.vertical, Ember.Space.xl)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+struct SettingsGroup<Content: View>: View {
+    let title: String
+    let footer: String?
+    @ViewBuilder let content: () -> Content
+    @Environment(\.colorScheme) var scheme
+
+    init(_ title: String, footer: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.footer = footer
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Ember.Space.sm) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(Ember.secondaryText(scheme))
+                .textCase(.uppercase)
+                .tracking(0.8)
+
+            VStack(alignment: .leading, spacing: 0) {
+                content()
+            }
+            .padding(Ember.Space.md)
+            .background(
+                RoundedRectangle(cornerRadius: Ember.Radius.lg, style: .continuous)
+                    .fill(Ember.cardBackground(scheme))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Ember.Radius.lg, style: .continuous)
+                    .strokeBorder(Color.white.opacity(scheme == .dark ? 0.06 : 0.5), lineWidth: 0.5)
+            )
+
+            if let footer = footer {
+                Text(footer)
+                    .font(Ember.Font.caption)
+                    .foregroundColor(Ember.tertiaryText(scheme))
+                    .padding(.horizontal, 4)
+            }
+        }
+    }
+}
+
+struct SettingsRow<Content: View>: View {
+    let label: String
+    let help: String?
+    @ViewBuilder let trailing: () -> Content
+    @Environment(\.colorScheme) var scheme
+
+    init(_ label: String, help: String? = nil, @ViewBuilder trailing: @escaping () -> Content) {
+        self.label = label
+        self.help = help
+        self.trailing = trailing
+    }
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(Ember.Font.body)
+                    .foregroundColor(Ember.primaryText(scheme))
+                if let help = help {
+                    Text(help)
+                        .font(Ember.Font.caption)
+                        .foregroundColor(Ember.tertiaryText(scheme))
+                }
+            }
+            Spacer()
+            trailing()
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+// MARK: - General
+
+struct GeneralSettingsPane: View {
+    @EnvironmentObject var settings: SettingsManager
+    @ObservedObject private var launchManager = LaunchAtLoginManager.shared
+    @StateObject private var updater = UpdaterManager.shared
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        SettingsPane(title: "General", subtitle: "How Clippy starts, looks, and what you see.") {
+            SettingsGroup("Startup") {
+                SettingsRow("Launch Clippy on login", help: "Start Clippy automatically when you log in") {
+                    Toggle("", isOn: $launchManager.isEnabled).labelsHidden()
+                }
+            }
+
+            SettingsGroup("Updates", footer: "Clippy checks for new versions once a day. Your Mac tells you when one is ready.") {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text("Version \(updater.currentVersion)")
+                                .font(Ember.Font.body)
+                                .foregroundColor(Ember.primaryText(scheme))
+                            Text("build \(updater.build)")
+                                .font(Ember.Font.caption)
+                                .foregroundColor(Ember.tertiaryText(scheme))
+                        }
+                        if let date = updater.lastCheckDate {
+                            Text("Last checked \(date, style: .relative) ago")
+                                .font(Ember.Font.caption)
+                                .foregroundColor(Ember.tertiaryText(scheme))
+                        } else {
+                            Text("Never checked yet")
+                                .font(Ember.Font.caption)
+                                .foregroundColor(Ember.tertiaryText(scheme))
+                        }
+                    }
+
+                    Spacer()
+
+                    Button {
+                        updater.checkForUpdates()
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Check Now")
+                        }
+                    }
+                    .buttonStyle(PrimaryActionButtonStyle())
+                    .disabled(!updater.canCheckForUpdates)
+                }
+                .padding(.vertical, 4)
+            }
+
+            SettingsGroup("Appearance") {
+                SettingsRow("Theme") {
+                    Picker("", selection: $settings.appTheme) {
+                        Text("System").tag("system")
+                        Text("Light").tag("light")
+                        Text("Dark").tag("dark")
+                    }
+                    .labelsHidden()
+                    .frame(width: 120)
+                }
+
+                Divider().opacity(0.2)
+
+                SettingsRow("Popover width", help: "\(settings.popoverWidth) px") {
+                    Stepper("", value: $settings.popoverWidth, in: 300...800, step: 20).labelsHidden()
+                }
+
+                Divider().opacity(0.2)
+
+                SettingsRow("Popover height", help: "\(settings.popoverHeight) px") {
+                    Stepper("", value: $settings.popoverHeight, in: 300...1000, step: 20).labelsHidden()
+                }
+            }
+
+            SettingsGroup("Visible Tabs", footer: "Show or hide tabs in the main popover.") {
+                SettingsRow("Code") {
+                    Toggle("", isOn: $settings.showCodeTab).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("Images") {
+                    Toggle("", isOn: $settings.showImagesTab).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("Snippets") {
+                    Toggle("", isOn: $settings.showSnippetsTab).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("Starred") {
+                    Toggle("", isOn: $settings.showFavoritesTab).labelsHidden()
+                }
+            }
+
+            SettingsGroup("Storage", footer: "Clippy stores everything locally. Limits prevent runaway history.") {
+                SettingsRow("History limit", help: "\(settings.historyLimit) items") {
+                    Stepper("", value: $settings.historyLimit, in: 10...100, step: 5).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("Starred limit", help: "\(settings.favoritesLimit) items") {
+                    Stepper("", value: $settings.favoritesLimit, in: 10...200, step: 10).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("Images limit", help: "\(settings.imagesLimit) items") {
+                    Stepper("", value: $settings.imagesLimit, in: 5...50, step: 5).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("Max text length", help: "Longer items get truncated") {
+                    Picker("", selection: $settings.maxTextStorageLength) {
                         Text("50K").tag(50_000)
                         Text("100K").tag(100_000)
                         Text("500K").tag(500_000)
                         Text("1M").tag(1_000_000)
-                        Text(L("Unlimited", settings: settings)).tag(Int.max)
+                        Text("Unlimited").tag(Int.max)
                     }
-                    .help(L("Maximum character length for storing clipboard text. Longer texts will be truncated.", settings: settings))
-
-                    Text(L("Shorter limits improve performance with large texts", settings: settings))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    .labelsHidden()
+                    .frame(width: 120)
                 }
             }
-            .padding()
         }
     }
+}
 
-    private var advancedSettings: some View {
-        ScrollView {
-            Form {
-                Section(header: Text(L("Keyword Expansion", settings: settings))) {
-                Toggle(L("Enable Keyword Expansion", settings: settings), isOn: $settings.isKeywordExpansionEnabled)
-                    .help(L("When enabled, typing a keyword (e.g., ;sig) will automatically replace it with the corresponding content.", settings: settings))
+// MARK: - Features
 
+struct FeaturesSettingsPane: View {
+    @EnvironmentObject var settings: SettingsManager
+
+    var body: some View {
+        SettingsPane(title: "Features", subtitle: "Turn on only what you use.") {
+            SettingsGroup("Clipboard Monitoring", footer: "Controls what Clippy detects and tracks when you copy.") {
+                SettingsRow("Auto code detection", help: "Tag copied text that looks like code") {
+                    Toggle("", isOn: $settings.enableAutoCodeDetection).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("Content detection", help: "URLs, colors, dates, JSON") {
+                    Toggle("", isOn: $settings.enableContentDetection).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("Duplicate detection", help: "Skip saving the same thing twice") {
+                    Toggle("", isOn: $settings.enableDuplicateDetection).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("Source app tracking", help: "Remember which app content came from") {
+                    Toggle("", isOn: $settings.enableSourceAppTracking).labelsHidden()
+                }
+            }
+
+            SettingsGroup("Tools") {
+                SettingsRow("Sequential paste", help: "Copy many, paste one by one") {
+                    Toggle("", isOn: $settings.enableSequentialPaste).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("Screenshot editor", help: "Capture + annotate + OCR") {
+                    Toggle("", isOn: $settings.enableScreenshot).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("OCR text recognition", help: "Extract text from copied images") {
+                    Toggle("", isOn: $settings.enableOCR).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("File converter", help: "Images, docs, audio, video, data formats") {
+                    Toggle("", isOn: $settings.enableFileConverter).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("Drag & Drop shelf", help: "Floating tray for temporary drag sources") {
+                    Toggle("", isOn: $settings.enableDragDropShelf).labelsHidden()
+                }
+            }
+
+            SettingsGroup("Quick Preview", footer: "Hotkey-triggered overlay for lightning-fast paste.") {
+                SettingsRow("Enable Quick Preview") {
+                    Toggle("", isOn: $settings.enableQuickPreview).labelsHidden()
+                }
+                if settings.enableQuickPreview {
+                    Divider().opacity(0.2)
+                    SettingsRow("Number of items", help: "\(settings.quickPreviewItemCount) items shown") {
+                        Stepper("", value: $settings.quickPreviewItemCount, in: 3...15).labelsHidden()
+                    }
+                    Divider().opacity(0.2)
+                    SettingsRow("Auto-close after paste") {
+                        Toggle("", isOn: $settings.quickPreviewAutoClose).labelsHidden()
+                    }
+                }
+            }
+
+            SettingsGroup("Keyword Expansion", footer: "Type a keyword like ;sig to auto-expand into text.") {
+                SettingsRow("Enable keyword expansion") {
+                    Toggle("", isOn: $settings.isKeywordExpansionEnabled).labelsHidden()
+                }
                 if settings.isKeywordExpansionEnabled {
-                    Stepper(String(format: L("Snippet Timeout: %.1f seconds", settings: settings), settings.snippetTimeoutDuration), value: $settings.snippetTimeoutDuration, in: 1.0...10.0, step: 0.5)
-                        .disabled(!settings.isKeywordExpansionEnabled)
-                }
-            }
-
-            Section(header: Text(L("Dock Preview", settings: settings))) {
-                Toggle(L("Enable Dock Preview", settings: settings), isOn: $settings.enableDockPreview)
-                    .help(L("Show window previews when hovering over dock icons", settings: settings))
-
-                if settings.enableDockPreview {
-                    Picker(L("Animation Style", settings: settings), selection: $settings.dockPreviewAnimationStyle) {
-                        Text(L("Spring", settings: settings)).tag("spring")
-                        Text(L("Ease In Out", settings: settings)).tag("easeInOut")
-                        Text(L("Linear", settings: settings)).tag("linear")
-                        Text(L("None", settings: settings)).tag("none")
-                    }
-
-                    Picker(L("Preview Size", settings: settings), selection: $settings.dockPreviewSize) {
-                        Text(L("Small", settings: settings)).tag("small")
-                        Text(L("Medium", settings: settings)).tag("medium")
-                        Text(L("Large", settings: settings)).tag("large")
-                        Text(L("Extra Large", settings: settings)).tag("xlarge")
-                        Text(L("Extra Extra Large", settings: settings)).tag("xxlarge")
-                    }
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(L("Hover Delay:", settings: settings))
-                            Spacer()
-                            Text(String(format: "%.1fs", settings.dockPreviewHoverDelay))
-                                .foregroundColor(.secondary)
-                        }
-                        Slider(value: $settings.dockPreviewHoverDelay, in: 0.0...2.0, step: 0.1)
-                        Text(L("Time to wait before showing preview (0s = instant)", settings: settings))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.vertical, 4)
-
-                    Toggle(L("Show Window Titles", settings: settings), isOn: $settings.showWindowTitles)
-
-                    Toggle(L("Enable Keyboard Shortcuts", settings: settings), isOn: $settings.enableDockPreviewKeyboardShortcuts)
-                        .help(L("Use 1-9, arrows, Enter, ESC to navigate window previews", settings: settings))
-
-                    Toggle(L("Enable Trackpad Gestures", settings: settings), isOn: $settings.enableDockPreviewGestures)
-
-                    if settings.enableDockPreviewGestures {
-                        Picker(L("Swipe Up Action", settings: settings), selection: $settings.dockSwipeUpAction) {
-                            Text(L("None", settings: settings)).tag("none")
-                            Text(L("Close Window", settings: settings)).tag("close")
-                            Text(L("Minimize Window", settings: settings)).tag("minimize")
-                            Text(L("Select Window", settings: settings)).tag("select")
-                        }
-
-                        Picker(L("Swipe Down Action", settings: settings), selection: $settings.dockSwipeDownAction) {
-                            Text(L("None", settings: settings)).tag("none")
-                            Text(L("Close Window", settings: settings)).tag("close")
-                            Text(L("Minimize Window", settings: settings)).tag("minimize")
-                            Text(L("Select Window", settings: settings)).tag("select")
-                        }
-                    }
-
-                    Picker(L("Middle Click Action", settings: settings), selection: $settings.middleClickAction) {
-                        Text(L("None", settings: settings)).tag("none")
-                        Text(L("Close Window", settings: settings)).tag("close")
-                        Text(L("Minimize Window", settings: settings)).tag("minimize")
-                        Text(L("Select Window", settings: settings)).tag("select")
-                    }
-
-                    Divider()
-
-                    Toggle(L("Enable Window Caching", settings: settings), isOn: $settings.enableWindowCaching)
-                        .help(L("Cache window previews for better performance", settings: settings))
-
-                    if settings.enableWindowCaching {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(L("Performance & Memory", settings: settings))
-                                .font(.headline)
-                                .padding(.top, 8)
-
-                            Picker(L("Max Cache Size", settings: settings), selection: $settings.maxCacheSizeMB) {
-                                Text("50 MB").tag(50)
-                                Text("100 MB").tag(100)
-                                Text("200 MB").tag(200)
-                                Text("500 MB").tag(500)
-                                Text(L("Unlimited", settings: settings)).tag(Int.max)
-                            }
-                            .help(L("Maximum memory to use for caching window previews", settings: settings))
-
-                            Toggle(L("Auto-Clear on Memory Pressure", settings: settings), isOn: $settings.enableMemoryPressureHandling)
-                                .help(L("Automatically clear cache when system memory is low", settings: settings))
-
-                            Button(L("Clear Cache Now", settings: settings)) {
-                                Task { @MainActor in
-                                    MemoryManager.shared.clearAllCaches()
-                                }
-                            }
-                            .help(L("Manually clear all cached window previews", settings: settings))
-
-                            Text(MemoryManager.shared.getFormattedStats())
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 4)
-                        }
-
-                        Divider()
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(L("Live Preview", settings: settings))
-                                .font(.headline)
-                                .padding(.top, 8)
-
-                            Toggle(L("Enable Live Preview", settings: settings), isOn: $settings.enableAutoRefresh)
-                                .help(L("Show real-time live preview using ScreenCaptureKit (macOS 12.3+)", settings: settings))
-
-                            if settings.enableAutoRefresh {
-                                Text(L("Live preview uses ScreenCaptureKit to stream window content in real-time at 15 FPS. Perfect for monitoring Teams messages, videos, and dynamic content.", settings: settings))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
+                    Divider().opacity(0.2)
+                    SettingsRow("Timeout", help: String(format: "%.1f seconds", settings.snippetTimeoutDuration)) {
+                        Stepper("", value: $settings.snippetTimeoutDuration, in: 1.0...10.0, step: 0.5).labelsHidden()
                     }
                 }
             }
-            }
-            .padding()
         }
     }
+}
 
+// MARK: - AI
+
+struct AISettingsPane: View {
+    @EnvironmentObject var settings: SettingsManager
     @State private var aiValidationState: AIValidationState = .idle
     @State private var aiValidationMessage: String = ""
     @State private var aiUseCustomModel: Bool = false
 
-    private enum AIValidationState {
-        case idle, testing, success, failure
-    }
+    enum AIValidationState { case idle, testing, success, failure }
 
-    private var modelsForProvider: [(name: String, label: String)] {
+    var modelsForProvider: [(name: String, label: String)] {
         switch settings.aiProvider {
         case "openai":
             return [
-                ("gpt-4o-mini", "GPT-4o Mini (fast & cheap)"),
-                ("gpt-4o", "GPT-4o (best quality)"),
+                ("gpt-4o-mini", "GPT-4o Mini (fast)"),
+                ("gpt-4o", "GPT-4o"),
                 ("gpt-4.1-mini", "GPT-4.1 Mini"),
                 ("gpt-4.1", "GPT-4.1"),
                 ("o3-mini", "o3-mini (reasoning)"),
@@ -349,13 +442,13 @@ struct SettingsView: View {
         case "anthropic":
             return [
                 ("claude-sonnet-4-5-20250929", "Claude Sonnet 4.5"),
-                ("claude-haiku-4-5-20251001", "Claude Haiku 4.5 (fast)"),
+                ("claude-haiku-4-5-20251001", "Claude Haiku 4.5"),
                 ("claude-opus-4-6", "Claude Opus 4.6"),
             ]
         case "google":
             return [
-                ("gemini-2.0-flash", "Gemini 2.0 Flash (fast)"),
-                ("gemini-2.5-pro", "Gemini 2.5 Pro (best)"),
+                ("gemini-2.0-flash", "Gemini 2.0 Flash"),
+                ("gemini-2.5-pro", "Gemini 2.5 Pro"),
                 ("gemini-2.5-flash", "Gemini 2.5 Flash"),
             ]
         default:
@@ -363,56 +456,64 @@ struct SettingsView: View {
         }
     }
 
-    private var isCustomModel: Bool {
-        let knownModels = modelsForProvider.map { $0.name }
-        return !knownModels.contains(settings.aiModel) && !settings.aiModel.isEmpty
+    var isCustomModel: Bool {
+        let known = modelsForProvider.map { $0.name }
+        return !known.contains(settings.aiModel) && !settings.aiModel.isEmpty
     }
 
-    private var aiSettings: some View {
-        ScrollView {
-            Form {
-                Section(header: Text(L("AI Assistant", settings: settings))) {
-                    Toggle(L("Enable AI Features", settings: settings), isOn: $settings.enableAI)
-                        .help(L("Enable AI-powered text transformations and analysis", settings: settings))
+    var body: some View {
+        SettingsPane(title: "AI", subtitle: "Transform your clipboard with summaries, translations, and more.") {
+            SettingsGroup("Enable") {
+                SettingsRow("AI features", help: "Unlock Summarize, Translate, Fix Grammar, and 8+ more actions") {
+                    Toggle("", isOn: $settings.enableAI).labelsHidden()
                 }
+            }
 
-                if settings.enableAI {
-                    Section(header: Text(L("Provider", settings: settings))) {
-                        Picker(L("AI Provider", settings: settings), selection: $settings.aiProvider) {
-                            Text("Ollama (\(L("Free, Local", settings: settings)))").tag("ollama")
+            if settings.enableAI {
+                SettingsGroup("Provider", footer: "Use Ollama for free local AI, or a cloud provider for best quality.") {
+                    SettingsRow("Provider") {
+                        Picker("", selection: $settings.aiProvider) {
+                            Text("Ollama (local)").tag("ollama")
                             Text("OpenAI").tag("openai")
                             Text("Anthropic").tag("anthropic")
                             Text("Google Gemini").tag("google")
                         }
+                        .labelsHidden()
+                        .frame(width: 180)
                         .onChange(of: settings.aiProvider) { _ in
                             aiValidationState = .idle
                             aiValidationMessage = ""
                             aiUseCustomModel = false
-                            // Set default model for new provider
                             if settings.aiProvider != "ollama" {
                                 let models = modelsForProvider
-                                if !models.isEmpty {
-                                    settings.aiModel = models[0].name
-                                }
+                                if !models.isEmpty { settings.aiModel = models[0].name }
                             }
                         }
+                    }
 
-                        if settings.aiProvider == "ollama" {
-                            TextField(L("Ollama URL", settings: settings), text: $settings.ollamaURL)
+                    Divider().opacity(0.2)
+
+                    if settings.aiProvider == "ollama" {
+                        SettingsRow("Ollama URL") {
+                            TextField("http://localhost:11434", text: $settings.ollamaURL)
                                 .textFieldStyle(.roundedBorder)
-
-                            TextField(L("Model", settings: settings), text: $settings.ollamaModel)
+                                .frame(width: 220)
+                        }
+                        Divider().opacity(0.2)
+                        SettingsRow("Model", help: "Run ollama pull llama3.2 in Terminal") {
+                            TextField("llama3.2", text: $settings.ollamaModel)
                                 .textFieldStyle(.roundedBorder)
-
-                            Text(L("Install Ollama from ollama.com and run: ollama pull llama3.2", settings: settings))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        } else {
-                            SecureField(L("API Key", settings: settings), text: $settings.aiAPIKey)
+                                .frame(width: 180)
+                        }
+                    } else {
+                        SettingsRow("API key") {
+                            SecureField("sk-…", text: $settings.aiAPIKey)
                                 .textFieldStyle(.roundedBorder)
-
-                            // Model picker with known models + custom option
-                            Picker(L("Model", settings: settings), selection: $settings.aiModel) {
+                                .frame(width: 220)
+                        }
+                        Divider().opacity(0.2)
+                        SettingsRow("Model") {
+                            Picker("", selection: $settings.aiModel) {
                                 ForEach(modelsForProvider, id: \.name) { model in
                                     Text(model.label).tag(model.name)
                                 }
@@ -420,8 +521,10 @@ struct SettingsView: View {
                                 if isCustomModel || aiUseCustomModel {
                                     Text(settings.aiModel).tag(settings.aiModel)
                                 }
-                                Text(L("Custom...", settings: settings)).tag("__custom__")
+                                Text("Custom…").tag("__custom__")
                             }
+                            .labelsHidden()
+                            .frame(width: 220)
                             .onChange(of: settings.aiModel) { newValue in
                                 if newValue == "__custom__" {
                                     aiUseCustomModel = true
@@ -430,142 +533,356 @@ struct SettingsView: View {
                                     aiUseCustomModel = false
                                 }
                             }
-
-                            if aiUseCustomModel || isCustomModel {
-                                TextField(L("Custom Model Name", settings: settings), text: $settings.aiModel)
+                        }
+                        if aiUseCustomModel || isCustomModel {
+                            Divider().opacity(0.2)
+                            SettingsRow("Custom model") {
+                                TextField("model-id", text: $settings.aiModel)
                                     .textFieldStyle(.roundedBorder)
+                                    .frame(width: 220)
                             }
-                        }
-
-                        // Test Connection Button
-                        HStack(spacing: 8) {
-                            Button {
-                                aiValidationState = .testing
-                                aiValidationMessage = ""
-                                Task {
-                                    let error = await AIService.shared.validateConnection()
-                                    await MainActor.run {
-                                        if let error = error {
-                                            aiValidationState = .failure
-                                            aiValidationMessage = error
-                                        } else {
-                                            aiValidationState = .success
-                                            aiValidationMessage = L("Connection successful!", settings: settings)
-                                        }
-                                    }
-                                }
-                            } label: {
-                                HStack(spacing: 4) {
-                                    if aiValidationState == .testing {
-                                        ProgressView()
-                                            .controlSize(.small)
-                                    }
-                                    Text(L("Test Connection", settings: settings))
-                                }
-                            }
-                            .disabled(aiValidationState == .testing)
-
-                            switch aiValidationState {
-                            case .success:
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                            case .failure:
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.red)
-                            default:
-                                EmptyView()
-                            }
-                        }
-
-                        if !aiValidationMessage.isEmpty {
-                            Text(aiValidationMessage)
-                                .font(.caption)
-                                .foregroundColor(aiValidationState == .success ? .green : .red)
-                                .textSelection(.enabled)
                         }
                     }
 
-                    Section(header: Text(L("Available AI Actions", settings: settings))) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            aiActionRow(icon: "text.bubble", title: L("Summarize", settings: settings))
-                            aiActionRow(icon: "arrow.up.left.and.arrow.down.right", title: L("Expand", settings: settings))
-                            aiActionRow(icon: "checkmark.circle", title: L("Fix Grammar", settings: settings))
-                            aiActionRow(icon: "globe", title: L("Translate (any language)", settings: settings))
-                            aiActionRow(icon: "list.bullet", title: L("Convert to Bullet Points", settings: settings))
-                            aiActionRow(icon: "envelope", title: L("Draft Email", settings: settings))
-                            aiActionRow(icon: "chevron.left.forwardslash.chevron.right", title: L("Explain Code", settings: settings))
-                            aiActionRow(icon: "text.cursor", title: L("Free Prompt", settings: settings))
+                    Divider().opacity(0.2)
+
+                    HStack {
+                        Spacer()
+                        Button {
+                            aiValidationState = .testing
+                            aiValidationMessage = ""
+                            Task {
+                                let error = await AIService.shared.validateConnection()
+                                await MainActor.run {
+                                    if let error = error {
+                                        aiValidationState = .failure
+                                        aiValidationMessage = error
+                                    } else {
+                                        aiValidationState = .success
+                                        aiValidationMessage = "Connection successful"
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                if aiValidationState == .testing {
+                                    ProgressView().controlSize(.small)
+                                } else if aiValidationState == .success {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(Ember.Palette.moss)
+                                } else if aiValidationState == .failure {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(Ember.Palette.rust)
+                                }
+                                Text("Test Connection")
+                            }
                         }
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .buttonStyle(PrimaryActionButtonStyle())
+                        .disabled(aiValidationState == .testing)
+                    }
+                    .padding(.top, 4)
+
+                    if !aiValidationMessage.isEmpty {
+                        Text(aiValidationMessage)
+                            .font(Ember.Font.caption)
+                            .foregroundColor(aiValidationState == .success ? Ember.Palette.moss : Ember.Palette.rust)
+                            .textSelection(.enabled)
+                            .padding(.top, 4)
+                    }
+                }
+
+                SettingsGroup("Available Actions") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        aiActionRow("text.bubble", "Summarize")
+                        aiActionRow("arrow.up.left.and.arrow.down.right", "Expand")
+                        aiActionRow("checkmark.circle", "Fix Grammar")
+                        aiActionRow("globe", "Translate (30+ languages)")
+                        aiActionRow("list.bullet", "Convert to Bullet Points")
+                        aiActionRow("envelope", "Draft Email")
+                        aiActionRow("chevron.left.forwardslash.chevron.right", "Explain / Optimize / Debug Code")
+                        aiActionRow("text.cursor", "Free Prompt")
                     }
                 }
             }
-            .padding()
         }
     }
 
-    private func aiActionRow(icon: String, title: String) -> some View {
-        HStack(spacing: 6) {
+    private func aiActionRow(_ icon: String, _ title: String) -> some View {
+        HStack(spacing: 10) {
             Image(systemName: icon)
+                .foregroundColor(Ember.Palette.amber)
                 .frame(width: 16)
             Text(title)
+                .font(Ember.Font.body)
+        }
+    }
+}
+
+// MARK: - Shortcuts
+
+struct ShortcutsSettingsPane: View {
+    @EnvironmentObject var settings: SettingsManager
+
+    var body: some View {
+        SettingsPane(title: "Shortcuts", subtitle: "Summon Clippy from anywhere. Customize everything.") {
+            SettingsGroup("Main") {
+                shortcutRow("Show / Hide", $settings.hotkeyKey, $settings.hotkeyModifiers)
+                Divider().opacity(0.2)
+                shortcutRow("Paste Selected", $settings.pasteAllHotkeyKey, $settings.pasteAllHotkeyModifiers)
+                Divider().opacity(0.2)
+                shortcutRow("Quick Preview", $settings.quickPreviewHotkeyKey, $settings.quickPreviewHotkeyModifiers)
+            }
+
+            SettingsGroup("Sequential Paste") {
+                shortcutRow("Sequential Copy", $settings.sequentialCopyHotkeyKey, $settings.sequentialCopyHotkeyModifiers)
+                Divider().opacity(0.2)
+                shortcutRow("Sequential Paste", $settings.sequentialPasteHotkeyKey, $settings.sequentialPasteHotkeyModifiers)
+                Divider().opacity(0.2)
+                shortcutRow("Clear Queue", $settings.clearQueueHotkeyKey, $settings.clearQueueHotkeyModifiers)
+            }
+
+            SettingsGroup("Tools") {
+                shortcutRow("Screenshot", $settings.screenshotHotkeyKey, $settings.screenshotHotkeyModifiers)
+                Divider().opacity(0.2)
+                shortcutRow("App Switcher", $settings.switcherHotkeyKey, $settings.switcherHotkeyModifiers)
+            }
         }
     }
 
-    private var colorScheme: ColorScheme? {
-        switch settings.appTheme {
-        case "light":
-            return .light
-        case "dark":
-            return .dark
-        default:
-            return nil
-        }
-    }
-
-    private func shortcutRow(label: String, key: Binding<String>, modifiers: Binding<UInt>) -> some View {
-        LabeledContent(label) {
+    private func shortcutRow(_ label: String, _ key: Binding<String>, _ modifiers: Binding<UInt>) -> some View {
+        SettingsRow(label) {
             HotkeySettingsView(hotkeyKey: key, hotkeyModifiers: modifiers)
         }
     }
 }
 
-struct HotkeySettingsView: View {
-    @Binding var hotkeyKey: String
-    @Binding var hotkeyModifiers: UInt
+// MARK: - Snippets
+
+struct SnippetsSettingsPane: View {
+    @EnvironmentObject var settings: SettingsManager
+    @State private var subSection: SnippetSection = .variables
+
+    enum SnippetSection: String, CaseIterable {
+        case variables, categories
+
+        var title: String {
+            switch self {
+            case .variables:  return "Variables"
+            case .categories: return "Categories"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .variables:  return "textformat.abc"
+            case .categories: return "folder"
+            }
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 4) {
+                ForEach(SnippetSection.allCases, id: \.self) { s in
+                    snippetPill(s)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, Ember.Space.xl)
+            .padding(.top, Ember.Space.xl)
+            .padding(.bottom, Ember.Space.md)
+
+            Group {
+                switch subSection {
+                case .variables:  SnippetVariablesView()
+                case .categories: SnippetCategoriesView()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func snippetPill(_ s: SnippetSection) -> some View {
+        let active = subSection == s
+        return Button {
+            withAnimation(Ember.Motion.snap) { subSection = s }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: s.icon).font(.system(size: 11, weight: .semibold))
+                Text(s.title).font(.system(size: 12, weight: .medium))
+            }
+            .foregroundColor(active ? .white : .secondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .background(
+                Capsule()
+                    .fill(active ? AnyShapeStyle(
+                        LinearGradient(
+                            colors: [Ember.Palette.amber, Ember.Palette.amberDark],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    ) : AnyShapeStyle(Color.clear))
+            )
+            .overlay(
+                Capsule().strokeBorder(active ? .clear : Ember.Palette.smoke.opacity(0.25), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Windows (Dock Preview)
+
+struct WindowsSettingsPane: View {
     @EnvironmentObject var settings: SettingsManager
 
     var body: some View {
-        HStack {
-            modifierToggle(label: "⌘", flag: .command)
-            modifierToggle(label: "⇧", flag: .shift)
-            modifierToggle(label: "⌥", flag: .option)
-            modifierToggle(label: "⌃", flag: .control)
+        SettingsPane(title: "Windows", subtitle: "Hover over the Dock to see live previews. Switch windows faster.") {
+            SettingsGroup("Dock Preview") {
+                SettingsRow("Enable Dock Preview") {
+                    Toggle("", isOn: $settings.enableDockPreview).labelsHidden()
+                }
+            }
 
-            TextField(L("Key", settings: settings), text: $hotkeyKey)
-                .frame(width: 80)
+            if settings.enableDockPreview {
+                SettingsGroup("Appearance") {
+                    SettingsRow("Animation style") {
+                        Picker("", selection: $settings.dockPreviewAnimationStyle) {
+                            Text("Spring").tag("spring")
+                            Text("Ease").tag("easeInOut")
+                            Text("Linear").tag("linear")
+                            Text("None").tag("none")
+                        }.labelsHidden().frame(width: 130)
+                    }
+                    Divider().opacity(0.2)
+                    SettingsRow("Preview size") {
+                        Picker("", selection: $settings.dockPreviewSize) {
+                            Text("Small").tag("small")
+                            Text("Medium").tag("medium")
+                            Text("Large").tag("large")
+                            Text("X-Large").tag("xlarge")
+                            Text("XX-Large").tag("xxlarge")
+                        }.labelsHidden().frame(width: 130)
+                    }
+                    Divider().opacity(0.2)
+                    SettingsRow("Hover delay", help: String(format: "%.1fs — 0s means instant", settings.dockPreviewHoverDelay)) {
+                        Slider(value: $settings.dockPreviewHoverDelay, in: 0.0...2.0, step: 0.1)
+                            .frame(width: 140)
+                    }
+                    Divider().opacity(0.2)
+                    SettingsRow("Show window titles") {
+                        Toggle("", isOn: $settings.showWindowTitles).labelsHidden()
+                    }
+                }
+
+                SettingsGroup("Interaction") {
+                    SettingsRow("Keyboard shortcuts", help: "1-9, arrows, Enter, ESC") {
+                        Toggle("", isOn: $settings.enableDockPreviewKeyboardShortcuts).labelsHidden()
+                    }
+                    Divider().opacity(0.2)
+                    SettingsRow("Trackpad gestures") {
+                        Toggle("", isOn: $settings.enableDockPreviewGestures).labelsHidden()
+                    }
+                    if settings.enableDockPreviewGestures {
+                        Divider().opacity(0.2)
+                        SettingsRow("Swipe up") {
+                            actionPicker($settings.dockSwipeUpAction)
+                        }
+                        Divider().opacity(0.2)
+                        SettingsRow("Swipe down") {
+                            actionPicker($settings.dockSwipeDownAction)
+                        }
+                    }
+                    Divider().opacity(0.2)
+                    SettingsRow("Middle click") {
+                        actionPicker($settings.middleClickAction)
+                    }
+                }
+
+                SettingsGroup("Performance") {
+                    SettingsRow("Window caching") {
+                        Toggle("", isOn: $settings.enableWindowCaching).labelsHidden()
+                    }
+                    if settings.enableWindowCaching {
+                        Divider().opacity(0.2)
+                        SettingsRow("Max cache size") {
+                            Picker("", selection: $settings.maxCacheSizeMB) {
+                                Text("50 MB").tag(50)
+                                Text("100 MB").tag(100)
+                                Text("200 MB").tag(200)
+                                Text("500 MB").tag(500)
+                                Text("Unlimited").tag(Int.max)
+                            }.labelsHidden().frame(width: 130)
+                        }
+                        Divider().opacity(0.2)
+                        SettingsRow("Auto-clear on memory pressure") {
+                            Toggle("", isOn: $settings.enableMemoryPressureHandling).labelsHidden()
+                        }
+                        Divider().opacity(0.2)
+                        HStack {
+                            Text(MemoryManager.shared.getFormattedStats())
+                                .font(Ember.Font.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Button("Clear Now") {
+                                Task { @MainActor in
+                                    MemoryManager.shared.clearAllCaches()
+                                }
+                            }
+                            .controlSize(.small)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
+                SettingsGroup("Live Preview", footer: "Uses ScreenCaptureKit to stream 15 FPS live window content.") {
+                    SettingsRow("Enable live preview") {
+                        Toggle("", isOn: $settings.enableAutoRefresh).labelsHidden()
+                    }
+                }
+            }
+        }
+    }
+
+    private func actionPicker(_ binding: Binding<String>) -> some View {
+        Picker("", selection: binding) {
+            Text("None").tag("none")
+            Text("Close").tag("close")
+            Text("Minimize").tag("minimize")
+            Text("Select").tag("select")
+        }.labelsHidden().frame(width: 110)
+    }
+}
+
+// MARK: - Hotkey field (preserved)
+
+struct HotkeySettingsView: View {
+    @Binding var hotkeyKey: String
+    @Binding var hotkeyModifiers: UInt
+
+    var body: some View {
+        HStack(spacing: 3) {
+            modifierToggle("⌘", flag: .command)
+            modifierToggle("⇧", flag: .shift)
+            modifierToggle("⌥", flag: .option)
+            modifierToggle("⌃", flag: .control)
+
+            TextField("", text: $hotkeyKey)
+                .frame(width: 38)
                 .multilineTextAlignment(.center)
                 .textFieldStyle(.roundedBorder)
                 .onChange(of: hotkeyKey) { newValue in
-                    if newValue.count > 1 {
-                        hotkeyKey = String(newValue.prefix(1))
-                    }
+                    if newValue.count > 1 { hotkeyKey = String(newValue.prefix(1)) }
                 }
         }
     }
 
-    private func modifierToggle(label: String, flag: NSEvent.ModifierFlags) -> some View {
+    private func modifierToggle(_ label: String, flag: NSEvent.ModifierFlags) -> some View {
         Toggle(label, isOn: Binding(
             get: { hotkeyModifiers & flag.rawValue != 0 },
             set: { isOn in hotkeyModifiers = isOn ? hotkeyModifiers | flag.rawValue : hotkeyModifiers & ~flag.rawValue }
         ))
         .toggleStyle(.button)
-    }
-}
-
-struct SettingsView_Previews: PreviewProvider {
-    static var previews: some View {
-        SettingsView().environmentObject(SettingsManager.shared)
+        .controlSize(.small)
     }
 }

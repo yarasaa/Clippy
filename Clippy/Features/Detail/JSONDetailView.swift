@@ -2,9 +2,6 @@
 //  JSONDetailView.swift
 //  Clippy
 //
-//  Created by Mehmet Akbaba on 25.09.2025.
-//
-
 
 import SwiftUI
 
@@ -12,10 +9,10 @@ struct JSONDetailView: View {
     @State private var editedText: String
     let onSave: (String) -> Void
     @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) var scheme
 
     @State private var parsedValue: JSONValue?
     @State private var parseError: String?
-
     @State private var showRawText = false
 
     init(initialText: String, onSave: @escaping (String) -> Void) {
@@ -26,73 +23,69 @@ struct JSONDetailView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             headerView
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 4)
 
-            Divider()
+            Divider().opacity(0.3)
 
             if showRawText {
                 PlainTextEditor(text: $editedText)
-                    .font(.system(.body, design: .monospaced))
-                    .padding(5)
-            } else {
-                if let parsedValue = parsedValue {
-                    ScrollView {
-                        JSONTreeView(key: nil, value: parsedValue, currentPath: "")
-                            .padding()
-                    }
-                } else {
-                    PlainTextEditor(text: $editedText)
-                        .font(.system(.body, design: .monospaced))
-                        .padding(5)
+            } else if let parsedValue = parsedValue {
+                ScrollView {
+                    JSONTreeView(key: nil, value: parsedValue, currentPath: "")
+                        .padding(Ember.Space.md)
                 }
+            } else {
+                PlainTextEditor(text: $editedText)
             }
         }
-        .preferredColorScheme(colorScheme)
+        .background(Ember.surface(scheme))
         .onAppear(perform: parseJSON)
         .onChange(of: editedText, perform: { _ in parseJSON() })
     }
 
     @ViewBuilder
     private var headerView: some View {
-        HStack {
-            if let error = parseError {
-                Label(L("Invalid JSON", settings: settings), systemImage: "xmark.octagon.fill")
-                    .foregroundColor(.red)
-                    .help(error)
-            } else {
-                Label(L("Valid JSON", settings: settings), systemImage: "checkmark.circle.fill")
-                    .foregroundColor(.green)
+        HStack(spacing: Ember.Space.sm) {
+            HStack(spacing: 5) {
+                Image(systemName: parseError == nil ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(parseError == nil ? Ember.Palette.moss : Ember.Palette.rust)
+
+                Text(parseError == nil ? "Valid JSON" : "Invalid JSON")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Ember.primaryText(scheme))
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(
+                Capsule()
+                    .fill(parseError == nil
+                          ? Ember.Palette.moss.opacity(0.12)
+                          : Ember.Palette.rust.opacity(0.12))
+            )
+            .help(parseError ?? "")
 
             Spacer()
 
             Button {
                 showRawText.toggle()
             } label: {
-                Image(systemName: showRawText ? "list.bullet.indent" : "pencil.and.scribble")
+                HStack(spacing: 5) {
+                    Image(systemName: showRawText ? "list.bullet.indent" : "pencil.and.scribble")
+                    Text(showRawText ? "Tree" : "Raw")
+                }
             }
-            .buttonStyle(.borderless)
-            .help(showRawText ? L("Show Tree View", settings: settings) : L("Edit Raw Text", settings: settings))
+            .buttonStyle(SecondaryActionButtonStyle())
 
-            Button(L("Save", settings: settings)) {
+            Button {
                 onSave(editedText)
+            } label: {
+                Text("Save")
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(PrimaryActionButtonStyle())
             .disabled(parseError != nil)
         }
-    }
-
-    private var colorScheme: ColorScheme? {
-        switch settings.appTheme {
-        case "light":
-            return .light
-        case "dark":
-            return .dark
-        default:
-            return nil
-        }
+        .padding(.horizontal, Ember.Space.md)
+        .padding(.vertical, Ember.Space.sm)
     }
 
     private func parseJSON() {

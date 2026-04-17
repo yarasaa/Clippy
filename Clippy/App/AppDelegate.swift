@@ -58,21 +58,94 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(systemDidWake), name: NSWorkspace.didWakeNotification, object: nil)
 
         setupAdvancedWindowFeatures()
-        
+
         // GEÇICI TEST: Dock Preview'u otomatik etkinleştir
         SettingsManager.shared.enableDockPreview = true
 
+        showOnboardingIfNeeded()
+    }
+
+    private var onboardingWindow: NSWindow?
+
+    func showOnboardingIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") else { return }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 500),
+            styleMask: [.titled, .fullSizeContentView, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = true
+        window.center()
+        window.level = .floating
+        window.isReleasedWhenClosed = false
+
+        let hosting = NSHostingController(
+            rootView: OnboardingView(onComplete: { [weak self] in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    self.onboardingWindow?.orderOut(nil)
+                    self.onboardingWindow = nil
+                }
+            })
+            .environmentObject(SettingsManager.shared)
+        )
+        window.contentViewController = hosting
+
+        self.onboardingWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func setupHotkey() {
         let settings = SettingsManager.shared
 
-        settings.objectWillChange
+        // Granular subscriptions — avoid rebuilding hotkeys + menu on every unrelated setting change.
+        // Previously any @Published property triggered updateAllHotkeys + recreateMenu together.
+
+        let hotkeyPublishers: [AnyPublisher<Void, Never>] = [
+            settings.$hotkeyKey.map { _ in () }.eraseToAnyPublisher(),
+            settings.$hotkeyModifiers.map { _ in () }.eraseToAnyPublisher(),
+            settings.$pasteAllHotkeyKey.map { _ in () }.eraseToAnyPublisher(),
+            settings.$pasteAllHotkeyModifiers.map { _ in () }.eraseToAnyPublisher(),
+            settings.$sequentialCopyHotkeyKey.map { _ in () }.eraseToAnyPublisher(),
+            settings.$sequentialCopyHotkeyModifiers.map { _ in () }.eraseToAnyPublisher(),
+            settings.$sequentialPasteHotkeyKey.map { _ in () }.eraseToAnyPublisher(),
+            settings.$sequentialPasteHotkeyModifiers.map { _ in () }.eraseToAnyPublisher(),
+            settings.$clearQueueHotkeyKey.map { _ in () }.eraseToAnyPublisher(),
+            settings.$clearQueueHotkeyModifiers.map { _ in () }.eraseToAnyPublisher(),
+            settings.$screenshotHotkeyKey.map { _ in () }.eraseToAnyPublisher(),
+            settings.$screenshotHotkeyModifiers.map { _ in () }.eraseToAnyPublisher(),
+            settings.$quickPreviewHotkeyKey.map { _ in () }.eraseToAnyPublisher(),
+            settings.$quickPreviewHotkeyModifiers.map { _ in () }.eraseToAnyPublisher(),
+            settings.$switcherHotkeyKey.map { _ in () }.eraseToAnyPublisher(),
+            settings.$switcherHotkeyModifiers.map { _ in () }.eraseToAnyPublisher()
+        ]
+
+        Publishers.MergeMany(hotkeyPublishers)
+            .dropFirst()
             .receive(on: DispatchQueue.main)
-            .debounce(for: .milliseconds(100), scheduler: RunLoop.main)
+            .debounce(for: .milliseconds(150), scheduler: RunLoop.main)
             .sink { [weak self] in
                 self?.updateAllHotkeys()
+            }
+            .store(in: &cancellables)
+
+        settings.$isKeywordExpansionEnabled
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
                 self?.toggleKeywordExpansion()
+            }
+            .store(in: &cancellables)
+
+        settings.$appLanguage
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
                 self?.recreateUIForLanguageChange()
             }
             .store(in: &cancellables)
@@ -439,10 +512,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        let checkUpdatesItem = NSMenuItem(
+            title: "Check for Updates…",
+            action: #selector(checkForUpdates),
+            keyEquivalent: ""
+        )
+        checkUpdatesItem.target = self
+        menu.addItem(checkUpdatesItem)
+
+        menu.addItem(NSMenuItem.separator())
+
         menu.addItem(withTitle: L("Quit Clippy", settings: SettingsManager.shared), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         statusBarController?.rightClickMenu = menu
         menu.delegate = self
+    }
+
+    @objc private func checkForUpdates() {
+        Task { @MainActor in
+            UpdaterManager.shared.checkForUpdates()
+        }
     }
 
     @objc func openSettings() {
@@ -564,17 +653,48 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
-        mainPopoverWindow.addChildWindow(window, ordered: .above)
-
         window.title = L("Detail", settings: SettingsManager.shared)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.delegate = self
-        window.center()
+
+        // Position on the same screen as the popover, centered and clamped within visible frame.
+        positionWindowOnPopoverScreen(window, popoverWindow: mainPopoverWindow)
+
+        mainPopoverWindow.addChildWindow(window, ordered: .above)
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
         self.detailWindow = window
+    }
+
+    /// Centers `window` on the same NSScreen as `popoverWindow`, then clamps
+    /// its frame fully inside that screen's visible area. Prevents detail
+    /// windows from spawning partly off-screen when the menu bar icon is
+    /// at the far right of a display.
+    private func positionWindowOnPopoverScreen(_ window: NSWindow, popoverWindow: NSWindow) {
+        let anchorPoint = NSPoint(x: popoverWindow.frame.midX, y: popoverWindow.frame.midY)
+        let screen = NSScreen.screens.first { $0.frame.contains(anchorPoint) }
+            ?? popoverWindow.screen
+            ?? NSScreen.main
+            ?? NSScreen.screens.first
+
+        guard let visible = screen?.visibleFrame else {
+            window.center()
+            return
+        }
+
+        let size = window.frame.size
+        var origin = NSPoint(
+            x: visible.origin.x + (visible.width - size.width) / 2,
+            y: visible.origin.y + (visible.height - size.height) / 2
+        )
+
+        // Clamp so the window stays fully inside the screen.
+        origin.x = max(visible.minX, min(origin.x, visible.maxX - size.width))
+        origin.y = max(visible.minY, min(origin.y, visible.maxY - size.height))
+
+        window.setFrameOrigin(origin)
     }
 
     func showDiffWindow(oldText: String, newText: String) {

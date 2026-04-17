@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		72B441A22F9281F0002C80FE /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 72B441A12F9281F0002C80FE /* Sparkle */; };
 		AC5A5A672E7E22DD00184C3B /* HotKey in Frameworks */ = {isa = PBXBuildFile; productRef = AC5A5A662E7E22DD00184C3B /* HotKey */; };
 /* End PBXBuildFile section */
 
@@ -42,6 +43,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AC5A5A672E7E22DD00184C3B /* HotKey in Frameworks */,
+				72B441A22F9281F0002C80FE /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -86,6 +88,7 @@
 			name = Clippy;
 			packageProductDependencies = (
 				AC5A5A662E7E22DD00184C3B /* HotKey */,
+				72B441A12F9281F0002C80FE /* Sparkle */,
 			);
 			productName = Clippy;
 			productReference = ACCEE1F32E7B0B480030C681 /* Clippy.app */;
@@ -117,6 +120,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				AC5A5A652E7E22DD00184C3B /* XCRemoteSwiftPackageReference "HotKey" */,
+				72B441A02F9281F0002C80FE /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = ACCEE1F42E7B0B480030C681 /* Products */;
@@ -304,7 +308,7 @@
 				);
 				LSUIElement = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.0.3;
+				MARKETING_VERSION = 1.0.4;
 				MTL_ENABLE_INDEX_STORE = YES;
 				MTL_LANGUAGE_REVISION = UseDeploymentTarget;
 				NSApplicationSupportsAutomaticTermination = YES;
@@ -351,7 +355,7 @@
 				);
 				LSUIElement = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.0.3;
+				MARKETING_VERSION = 1.0.4;
 				MTL_ENABLE_INDEX_STORE = YES;
 				MTL_LANGUAGE_REVISION = UseDeploymentTarget;
 				NSApplicationSupportsAutomaticTermination = YES;
@@ -393,6 +397,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		72B441A02F9281F0002C80FE /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.1;
+			};
+		};
 		AC5A5A652E7E22DD00184C3B /* XCRemoteSwiftPackageReference "HotKey" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/soffes/HotKey.git";
@@ -404,6 +416,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		72B441A12F9281F0002C80FE /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 72B441A02F9281F0002C80FE /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
 		AC5A5A662E7E22DD00184C3B /* HotKey */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = AC5A5A652E7E22DD00184C3B /* XCRemoteSwiftPackageReference "HotKey" */;

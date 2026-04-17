@@ -33,18 +33,18 @@ struct ShapePickerView: View {
                         ZStack {
                             if shape == .rectangle {
                                 RoundedRectangle(cornerRadius: 2)
-                                    .stroke(Color.accentColor, lineWidth: 2)
+                                    .stroke(Ember.Palette.amber, lineWidth: 2)
                                     .frame(width: 32, height: 24)
                             } else if shape == .ellipse {
                                 Ellipse()
-                                    .stroke(Color.accentColor, lineWidth: 2)
+                                    .stroke(Ember.Palette.amber, lineWidth: 2)
                                     .frame(width: 32, height: 24)
                             } else if shape == .line {
                                 Path { path in
                                     path.move(to: CGPoint(x: 0, y: 12))
                                     path.addLine(to: CGPoint(x: 32, y: 12))
                                 }
-                                .stroke(Color.accentColor, lineWidth: 2)
+                                .stroke(Ember.Palette.amber, lineWidth: 2)
                                 .frame(width: 32, height: 24)
                             }
                         }
@@ -57,7 +57,7 @@ struct ShapePickerView: View {
 
                         if selectedTool == shape {
                             Image(systemName: "checkmark")
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(Ember.Palette.amber)
                         }
                     }
                     .padding(.horizontal, 12)
@@ -65,7 +65,7 @@ struct ShapePickerView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .background(selectedTool == shape ? Color.accentColor.opacity(0.1) : Color.clear)
+                .background(selectedTool == shape ? Ember.Palette.amber.opacity(0.1) : Color.clear)
             }
         }
         .frame(width: 200)
@@ -129,12 +129,12 @@ struct EmojiPickerView: View {
                         VStack(spacing: 2) {
                             Image(systemName: category.icon)
                                 .font(.system(size: 16))
-                                .foregroundColor(selectedCategory == category ? .accentColor : .secondary)
+                                .foregroundColor(selectedCategory == category ? Ember.Palette.amber : .secondary)
                         }
                         .frame(width: 44, height: 32)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(selectedCategory == category ? Color.accentColor.opacity(0.15) : Color.clear)
+                                .fill(selectedCategory == category ? Ember.Palette.amber.opacity(0.15) : Color.clear)
                         )
                     }
                     .buttonStyle(.plain)
@@ -158,11 +158,11 @@ struct EmojiPickerView: View {
                                 .frame(width: 44, height: 44)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(selectedEmoji == emoji ? Color.accentColor.opacity(0.15) : Color.clear)
+                                        .fill(selectedEmoji == emoji ? Ember.Palette.amber.opacity(0.15) : Color.clear)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .stroke(selectedEmoji == emoji ? Color.accentColor : Color.clear, lineWidth: 2)
+                                        .stroke(selectedEmoji == emoji ? Ember.Palette.amber : Color.clear, lineWidth: 2)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -206,7 +206,7 @@ struct LineWidthPickerView: View {
                     HStack(spacing: 12) {
                         ZStack {
                             Capsule()
-                                .fill(Color.accentColor)
+                                .fill(Ember.Palette.amber)
                                 .frame(width: 40, height: width.value)
                         }
                         .frame(width: 50, height: 32)
@@ -218,7 +218,7 @@ struct LineWidthPickerView: View {
 
                         if selectedLineWidth == width.value {
                             Image(systemName: "checkmark")
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(Ember.Palette.amber)
                         }
                     }
                     .padding(.horizontal, 12)
@@ -226,7 +226,7 @@ struct LineWidthPickerView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .background(selectedLineWidth == width.value ? Color.accentColor.opacity(0.1) : Color.clear)
+                .background(selectedLineWidth == width.value ? Ember.Palette.amber.opacity(0.1) : Color.clear)
             }
         }
         .frame(width: 220)
@@ -491,11 +491,11 @@ struct ToolControlPanel: View {
                 }) {
                     Image(systemName: mode.icon)
                         .font(.system(size: 14))
-                        .foregroundColor((currentAnnotation?.fillMode ?? shapeFillMode) == mode ? .accentColor : .secondary)
+                        .foregroundColor((currentAnnotation?.fillMode ?? shapeFillMode) == mode ? Ember.Palette.amber : .secondary)
                         .frame(width: 28, height: 28)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
-                                .fill((currentAnnotation?.fillMode ?? shapeFillMode) == mode ? Color.accentColor.opacity(0.15) : Color.clear)
+                                .fill((currentAnnotation?.fillMode ?? shapeFillMode) == mode ? Ember.Palette.amber.opacity(0.15) : Color.clear)
                         )
                 }
                 .buttonStyle(.plain)
@@ -622,11 +622,11 @@ struct ToolControlPanel: View {
                 }) {
                     Image(systemName: shape == .ellipse ? "circle" : "square")
                         .font(.system(size: 14))
-                        .foregroundColor((currentAnnotation?.spotlightShape ?? spotlightShape) == shape ? .accentColor : .secondary)
+                        .foregroundColor((currentAnnotation?.spotlightShape ?? spotlightShape) == shape ? Ember.Palette.amber : .secondary)
                         .frame(width: 28, height: 28)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
-                                .fill((currentAnnotation?.spotlightShape ?? spotlightShape) == shape ? Color.accentColor.opacity(0.15) : Color.clear)
+                                .fill((currentAnnotation?.spotlightShape ?? spotlightShape) == shape ? Ember.Palette.amber.opacity(0.15) : Color.clear)
                         )
                 }
                 .buttonStyle(.plain)

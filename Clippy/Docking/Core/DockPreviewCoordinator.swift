@@ -23,6 +23,12 @@ final class DockPreviewCoordinator {
     private var lastCapturedWindows: [CapturedWindow] = []
     private var currentHoverTask: Task<Void, Never>?
 
+    // Event-driven mouse move monitor — fires on every cursor movement.
+    // We use it instead of timer polling so hide is truly instant and we
+    // don't burn CPU while the cursor is stationary.
+    private var mouseMoveMonitor: Any?
+    private var currentSafeZone: CGRect = .zero
+
     private init?() {
         guard let imageProcessingService = ImageProcessingService() else {
             return nil
@@ -91,6 +97,8 @@ final class DockPreviewCoordinator {
                         await self.handleHover(on: dockItem)
                     }
                 } else {
+                    // Mouse exited — clear intent so any sleeping hover task bails out on wake.
+                    self.lastHoveredItem = nil
                     self.currentHoverTask = nil
                     panelController.hide()
                 }
@@ -109,6 +117,7 @@ final class DockPreviewCoordinator {
                         await self.handleHover(on: dockItem)
                     }
                 } else {
+                    self.lastHoveredItem = nil
                     self.currentHoverTask = nil
                     panelController.hide()
                 }
@@ -123,6 +132,7 @@ final class DockPreviewCoordinator {
         mouseExitTask?.cancel()
         cmdTabTask?.cancel()
         currentHoverTask?.cancel()
+        Task { @MainActor in self.stopMouseMoveMonitor() }
         dockMonitor.stop()
         cmdTabMonitor.stop()
         panelController.hide()
@@ -132,6 +142,18 @@ final class DockPreviewCoordinator {
 
     /// Calculates optimal downsample size based on preview size setting
     /// Smaller previews need less processing, saving GPU/CPU resources
+    /// Converts NSEvent.mouseLocation (bottom-left origin, Cocoa) to the top-left-origin
+    /// coordinate space that AX uses for AXUIElement positions. This lets us compare the
+    /// live mouse location against the dock icon's AX frame without axis-flipping bugs.
+    private static func mouseInAXCoords() -> CGPoint {
+        let ns = NSEvent.mouseLocation
+        // AX/CG coordinates are anchored to the top-left of the PRIMARY screen.
+        // NSScreen.screens[0] is the primary; its frame.maxY equals the height
+        // of the primary screen in Cocoa coords.
+        guard let primary = NSScreen.screens.first else { return ns }
+        return CGPoint(x: ns.x, y: primary.frame.maxY - ns.y)
+    }
+
     private func getOptimalDownsampleSize() -> CGFloat {
         let sizeStyle = SettingsManager.shared.dockPreviewSize
         switch sizeStyle {
@@ -150,15 +172,36 @@ final class DockPreviewCoordinator {
 
     private func handleHover(on dockItem: DockItem) async {
 
-        // Apply hover delay
+        // Dwell behavior with ACTIVE mouse tracking.
+        // Dock's AX doesn't always emit a deselect when the mouse leaves the dock
+        // area entirely (no new icon is hovered), so we poll the mouse position
+        // and bail out if it leaves the icon's hit region. Both coordinate systems
+        // are converted to match (NSEvent is bottom-left, AX is top-left-primary).
         let delay = SettingsManager.shared.dockPreviewHoverDelay
+        let hitRegion = dockItem.frame.insetBy(dx: -8, dy: -8)
+
         if delay > 0 {
-            try? await Task.sleep(for: .milliseconds(Int(delay * 1000)))
+            let stepMs = 40
+            let steps = max(1, Int(delay * 1000) / stepMs)
+            for _ in 0..<steps {
+                try? await Task.sleep(for: .milliseconds(stepMs))
+                guard !Task.isCancelled else { return }
+                guard self.lastHoveredItem?.pid == dockItem.pid else { return }
+
+                // Bail early if mouse left the icon during the dwell.
+                let mouse = Self.mouseInAXCoords()
+                if !hitRegion.contains(mouse) {
+                    return
+                }
+            }
         }
 
-        guard !Task.isCancelled else {
-            return
-        }
+        guard !Task.isCancelled else { return }
+        guard self.lastHoveredItem?.pid == dockItem.pid else { return }
+
+        // Final confirmation right before committing to show.
+        let finalMouse = Self.mouseInAXCoords()
+        guard hitRegion.contains(finalMouse) else { return }
 
         guard let app = NSRunningApplication(processIdentifier: dockItem.pid) else {
             panelController.hide()
@@ -287,48 +330,61 @@ final class DockPreviewCoordinator {
         }
     }
 
+    /// Event-driven exit watcher. Registers a global mouse-move monitor that
+    /// fires on every cursor movement and hides the panel the moment the mouse
+    /// leaves the safe zone (panel ∪ dock icon + small bridge margin).
+    /// No polling, no CPU cost while the cursor is stationary.
     private func startMouseExitMonitor(dockIconFrame: CGRect) {
         mouseExitTask?.cancel()
+        stopMouseMoveMonitor()
 
+        // Convert dockIconFrame from AX (top-left origin) to Cocoa (bottom-left origin)
+        // so we can union it with the panel frame (which is already Cocoa) and compare
+        // directly against NSEvent.mouseLocation (also Cocoa).
+        let panelFrame = self.panelController.frame
+        let dockInCocoa: CGRect = {
+            guard let primary = NSScreen.screens.first else { return dockIconFrame }
+            return CGRect(
+                x: dockIconFrame.origin.x,
+                y: primary.frame.maxY - dockIconFrame.origin.y - dockIconFrame.height,
+                width: dockIconFrame.width,
+                height: dockIconFrame.height
+            )
+        }()
+        let safeZone = panelFrame.union(dockInCocoa).insetBy(dx: -6, dy: -6)
+        self.currentSafeZone = safeZone
+
+        // Short grace period so the first "show" mouse event doesn't trigger
+        // an immediate hide if the cursor briefly leaves during the panel's
+        // open animation.
         mouseExitTask = Task {
-            let startTime = Date()
-            // Reduced initial delay from 300ms to 100ms for faster response
-            try? await Task.sleep(for: .milliseconds(100))
+            try? await Task.sleep(for: .milliseconds(80))
+            guard !Task.isCancelled else { return }
+            await MainActor.run { self.installMouseMoveMonitor() }
+        }
+    }
 
-            while !Task.isCancelled {
-                let mouseLocation = NSEvent.mouseLocation
-                let panelFrame = self.panelController.frame
-
-                if let screen = NSScreen.main {
-                    let globalMouseLocation = NSPoint(x: mouseLocation.x, y: screen.frame.height - mouseLocation.y)
-
-                    let y = screen.frame.height - panelFrame.origin.y - panelFrame.size.height
-                    let globalPanelFrame = CGRect(origin: CGPoint(x: panelFrame.origin.x, y: y), size: panelFrame.size)
-
-                    // Reduced safe zone margin from 10px to 5px for tighter bounds
-                    let safeZone = globalPanelFrame.union(dockIconFrame).insetBy(dx: -5, dy: -5)
-
-                    if !safeZone.contains(globalMouseLocation) {
-                        self.panelController.hide()
-                        break
-                    }
-                }
-
-                // Aggressive adaptive polling for maximum CPU savings:
-                // - First 1 sec: 50ms (very responsive for initial exit)
-                // - 1-3 sec: 100ms (balanced)
-                // - After 3 sec: 200ms (minimal CPU, user is likely interacting with panel)
-                let elapsed = Date().timeIntervalSince(startTime)
-                let pollInterval: Int
-                if elapsed < 1.0 {
-                    pollInterval = 50   // Very responsive initially
-                } else if elapsed < 3.0 {
-                    pollInterval = 100  // Balanced
-                } else {
-                    pollInterval = 200  // Minimal CPU after 3 seconds
-                }
-                try? await Task.sleep(for: .milliseconds(pollInterval))
+    @MainActor
+    private func installMouseMoveMonitor() {
+        guard mouseMoveMonitor == nil else { return }
+        mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
+            guard let self = self else { return }
+            // NSEvent.mouseLocation already matches NSScreen's Cocoa bottom-left
+            // space. Our safe zone (derived from panel.frame which is also Cocoa)
+            // can be compared directly — no coord conversions to get wrong.
+            let mouse = NSEvent.mouseLocation
+            if !self.currentSafeZone.contains(mouse) {
+                self.panelController.hide()
+                self.stopMouseMoveMonitor()
             }
+        }
+    }
+
+    @MainActor
+    private func stopMouseMoveMonitor() {
+        if let monitor = mouseMoveMonitor {
+            NSEvent.removeMonitor(monitor)
+            mouseMoveMonitor = nil
         }
     }
 

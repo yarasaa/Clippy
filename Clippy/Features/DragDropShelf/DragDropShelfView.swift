@@ -43,7 +43,7 @@ struct DragDropShelfView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 10)
                 .stroke(isTargeted && viewModel.internalDragIDs == nil
-                        ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 2)
+                        ? Ember.Palette.amber.opacity(0.6) : Color.clear, lineWidth: 2)
                 .animation(.easeInOut(duration: 0.15), value: isTargeted)
         )
         .overlay(alignment: .top) {
@@ -72,8 +72,13 @@ struct DragDropShelfView: View {
         .padding(.vertical, 6)
         .background(
             Capsule()
-                .fill(Color.green.gradient)
-                .shadow(color: .green.opacity(0.3), radius: 8, y: 2)
+                .fill(
+                    LinearGradient(
+                        colors: [Ember.Palette.moss, Ember.Palette.moss.opacity(0.85)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                .shadow(color: Ember.Palette.moss.opacity(0.4), radius: 8, y: 2)
         )
         .padding(.top, 48)
     }
@@ -82,22 +87,17 @@ struct DragDropShelfView: View {
 
     private var headerBar: some View {
         HStack(spacing: 8) {
-            Image(systemName: "tray.2.fill")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.linearGradient(
-                    colors: [.accentColor, .accentColor.opacity(0.7)],
-                    startPoint: .top, endPoint: .bottom
-                ))
+            ClippyMark(size: 14)
 
             Text("Shelf")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
 
             if !viewModel.items.isEmpty {
                 Text("\(viewModel.items.count)")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                     .frame(minWidth: 18, minHeight: 18)
-                    .background(Circle().fill(Color.accentColor.opacity(0.7)))
+                    .background(Circle().fill(Ember.Palette.amber))
             }
 
             Spacer()
@@ -126,10 +126,10 @@ struct DragDropShelfView: View {
                 }) {
                     Text(viewModel.allSelected ? "Deselect" : "Select All")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(Ember.Palette.amber)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Color.accentColor.opacity(0.08))
+                        .background(Ember.Palette.amber.opacity(0.08))
                         .cornerRadius(5)
                 }
                 .buttonStyle(.plain)
@@ -153,27 +153,31 @@ struct DragDropShelfView: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             Spacer()
 
             ZStack {
+                Circle()
+                    .fill(Ember.Palette.amber.opacity(0.12))
+                    .frame(width: 100, height: 100)
+                    .blur(radius: 16)
+
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [8, 5]))
-                    .foregroundColor(.secondary.opacity(0.2))
+                    .foregroundColor(Ember.Palette.amber.opacity(0.5))
                     .frame(width: 88, height: 88)
 
                 Image(systemName: "arrow.down.doc")
-                    .font(.system(size: 30, weight: .light))
-                    .foregroundColor(.secondary.opacity(0.4))
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundColor(Ember.Palette.amber.opacity(0.7))
             }
 
             VStack(spacing: 5) {
-                Text("Drop Items Here")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.secondary.opacity(0.8))
-                Text("Drag files, images or text")
+                Text("Drop items here")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                Text("Files, images, or text for later")
                     .font(.system(size: 11))
-                    .foregroundColor(.secondary.opacity(0.5))
+                    .foregroundColor(.secondary)
             }
 
             Spacer()
@@ -191,7 +195,7 @@ struct DragDropShelfView: View {
                         // Drop indicator for reorder
                         if viewModel.dropTargetID == item.id {
                             RoundedRectangle(cornerRadius: 1)
-                                .fill(Color.accentColor)
+                                .fill(Ember.Palette.amber)
                                 .frame(height: 2)
                                 .padding(.horizontal, 12)
                                 .transition(.opacity)
@@ -263,11 +267,13 @@ struct DragDropShelfView: View {
         VStack(spacing: 0) {
             Divider().opacity(0.5)
             HStack(spacing: 10) {
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 11))
-                        .foregroundColor(.accentColor)
-                    Text("\(viewModel.selectedIDs.count) selected")
+                HStack(spacing: 5) {
+                    Text("\(viewModel.selectedIDs.count)")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(minWidth: 18, minHeight: 18)
+                        .background(Circle().fill(Ember.Palette.amber))
+                    Text("selected")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.secondary)
                 }
@@ -282,13 +288,20 @@ struct DragDropShelfView: View {
                         Image(systemName: "doc.on.doc")
                             .font(.system(size: 10))
                         Text("Copy")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 11, weight: .semibold))
                     }
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Color.accentColor.opacity(0.1))
-                    .cornerRadius(6)
+                    .background(
+                        Capsule().fill(
+                            LinearGradient(
+                                colors: [Ember.Palette.amber, Ember.Palette.amberDark],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        )
+                    )
+                    .shadow(color: Ember.Palette.amber.opacity(0.35), radius: 4, y: 1)
                 }
                 .buttonStyle(.plain)
 
@@ -303,11 +316,10 @@ struct DragDropShelfView: View {
                         Text("Delete")
                             .font(.system(size: 11, weight: .medium))
                     }
-                    .foregroundColor(.red.opacity(0.8))
+                    .foregroundColor(Ember.Palette.rust)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Color.red.opacity(0.08))
-                    .cornerRadius(6)
+                    .background(Capsule().fill(Ember.Palette.rust.opacity(0.1)))
                 }
                 .buttonStyle(.plain)
             }
@@ -335,7 +347,7 @@ struct DragDropShelfView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "tray.2.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(Ember.Palette.amber)
                     Text("Shelf Guide")
                         .font(.system(size: 14, weight: .bold))
                 }
@@ -398,7 +410,7 @@ struct DragDropShelfView: View {
             HStack(spacing: 5) {
                 Image(systemName: icon)
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(Ember.Palette.amber)
                     .frame(width: 16)
                 Text(title)
                     .font(.system(size: 11, weight: .semibold))
@@ -521,9 +533,8 @@ struct ShelfItemCard: View {
             if hasAnySelection || isHovering {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 15))
-                    .foregroundColor(isSelected ? .accentColor : .secondary.opacity(0.25))
+                    .foregroundColor(isSelected ? Ember.Palette.amber : .secondary.opacity(0.25))
                     .frame(width: 28)
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
             HStack(spacing: 10) {
@@ -547,10 +558,10 @@ struct ShelfItemCard: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                if isHovering && !hasAnySelection {
-                    hoverActions
-                        .transition(.opacity)
-                }
+                // Reserve trailing space so layout doesn't shift when hover actions appear.
+                // Actual buttons live in an overlay above the drag layer (below).
+                Color.clear
+                    .frame(width: (isHovering && !hasAnySelection) ? 55 : 0, height: 28)
             }
         }
         .padding(.horizontal, 10)
@@ -564,7 +575,7 @@ struct ShelfItemCard: View {
                 onCmdTap: onCmdSelect,
                 onDoubleTap: onDoubleTap,
                 onHoverChanged: { hovering in
-                    withAnimation(.easeInOut(duration: 0.15)) { isHovering = hovering }
+                    isHovering = hovering
                 },
                 onCopy: onCopy,
                 onDelete: onDelete,
@@ -576,9 +587,17 @@ struct ShelfItemCard: View {
                 makeDragItems: makeDragItems
             )
         )
+        .overlay(alignment: .trailing) {
+            // Hover actions layered ABOVE the drag overlay so they are clickable.
+            if isHovering && !hasAnySelection {
+                hoverActions
+                    .padding(.trailing, 12)
+                    .allowsHitTesting(true)
+            }
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.accentColor.opacity(isFocused && !isSelected ? 0.5 : 0), lineWidth: 1.5)
+                .stroke(Ember.Palette.amber.opacity(isFocused && !isSelected ? 0.5 : 0), lineWidth: 1.5)
         )
         .animation(.easeInOut(duration: 0.15), value: hasAnySelection)
         .animation(.easeInOut(duration: 0.15), value: isFocused)
@@ -590,17 +609,27 @@ struct ShelfItemCard: View {
         Group {
             if isSelected {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.accentColor.opacity(0.08))
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Ember.Palette.amber.opacity(0.12),
+                                Ember.Palette.amberDark.opacity(0.05)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.accentColor.opacity(0.25), lineWidth: 1)
+                            .stroke(Ember.Palette.amber.opacity(0.35), lineWidth: 1)
                     )
+                    .shadow(color: Ember.Palette.amber.opacity(0.12), radius: 6, y: 2)
             } else if isFocused {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.accentColor.opacity(0.04))
+                    .fill(Ember.Palette.amber.opacity(0.04))
             } else if isHovering {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.primary.opacity(0.04))
+                    .fill(Color.primary.opacity(0.05))
             } else {
                 Color.clear
             }
@@ -614,10 +643,12 @@ struct ShelfItemCard: View {
             Button(action: onCopy) {
                 Image(systemName: "doc.on.doc")
                     .font(.system(size: 10))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Ember.Palette.amber)
                     .frame(width: 24, height: 24)
-                    .background(Color.secondary.opacity(0.08))
-                    .cornerRadius(6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Ember.Palette.amber.opacity(0.12))
+                    )
             }
             .buttonStyle(.plain)
             .help("Copy")
@@ -625,10 +656,12 @@ struct ShelfItemCard: View {
             Button(action: onDelete) {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Ember.Palette.rust.opacity(0.85))
                     .frame(width: 24, height: 24)
-                    .background(Color.secondary.opacity(0.08))
-                    .cornerRadius(6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Ember.Palette.rust.opacity(0.1))
+                    )
             }
             .buttonStyle(.plain)
             .help("Remove")
@@ -649,11 +682,11 @@ struct ShelfItemCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
+                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
                     )
-                    .shadow(color: .black.opacity(0.06), radius: 2, y: 1)
+                    .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
             } else {
-                thumbnailPlaceholder(icon: "photo.fill", color: .blue)
+                thumbnailPlaceholder(icon: "photo.fill", color: Color(red: 0.28, green: 0.55, blue: 0.92))
             }
         case .file:
             if let icon = item.thumbnail {
@@ -664,23 +697,23 @@ struct ShelfItemCard: View {
                     .frame(width: 44, height: 44)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.orange.opacity(0.06))
+                            .fill(Ember.Palette.amber.opacity(0.08))
                     )
             } else {
-                thumbnailPlaceholder(icon: "doc.fill", color: .orange)
+                thumbnailPlaceholder(icon: "doc.fill", color: Ember.Palette.amber)
             }
         case .text:
-            thumbnailPlaceholder(icon: "text.alignleft", color: .green)
+            thumbnailPlaceholder(icon: "text.alignleft", color: Ember.Palette.moss)
         }
     }
 
     private func thumbnailPlaceholder(icon: String, color: Color) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8)
-                .fill(color.opacity(0.08))
+                .fill(color.opacity(0.12))
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .medium))
-                .foregroundColor(color.opacity(0.6))
+                .foregroundColor(color)
         }
         .frame(width: 44, height: 44)
     }
@@ -690,25 +723,25 @@ struct ShelfItemCard: View {
     private var typeBadge: some View {
         let (label, color): (String, Color) = {
             switch item.contentType {
-            case .text: return ("\(item.content.count) chars", .green)
+            case .text:
+                return ("\(item.content.count) chars", Ember.Palette.moss)
             case .image:
                 if let img = item.image {
-                    return ("\(Int(img.size.width))×\(Int(img.size.height))", .blue)
+                    return ("\(Int(img.size.width))×\(Int(img.size.height))", Color(red: 0.28, green: 0.55, blue: 0.92))
                 }
-                return ("Image", .blue)
+                return ("Image", Color(red: 0.28, green: 0.55, blue: 0.92))
             case .file:
                 let ext = (item.content as NSString).pathExtension.uppercased()
-                return (ext.isEmpty ? "File" : ext, .orange)
+                return (ext.isEmpty ? "File" : ext, Ember.Palette.amber)
             }
         }()
 
         return Text(label)
-            .font(.system(size: 9, weight: .semibold))
-            .foregroundColor(color.opacity(0.8))
+            .font(.system(size: 9, weight: .bold, design: .rounded))
+            .foregroundColor(color)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(color.opacity(0.08))
-            .cornerRadius(4)
+            .background(Capsule().fill(color.opacity(0.12)))
     }
 }
 
