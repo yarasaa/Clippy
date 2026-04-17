@@ -8,6 +8,20 @@
         <description>Latest Clippy updates</description>
         <language>en</language>
 
+<item>
+            <title>Clippy 1.0.5</title>
+            <pubDate>Fri, 17 Apr 2026 16:12:04 +0000</pubDate>
+            <sparkle:version>1.0.5</sparkle:version>
+            <sparkle:shortVersionString>1.0.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:releaseNotesLink>https://github.com/yarasaa/Clippy/releases/tag/v1.0.5</sparkle:releaseNotesLink>
+            <enclosure
+                url="https://github.com/yarasaa/Clippy/releases/download/v1.0.5/Clippy-v1.dmg"
+                sparkle:edSignature="3oXxlP0MyCzY9qMo/iS2lxEDLpo6+UDC9mGq/UwmzlJaYX52+fJ17yR6sm/WMR7bMIo31K8lfZug6TZ9GdVZAw=="
+                length="4920327"
+                type="application/x-apple-diskimage" />
+        </item>
+
         <!--
             Release items are appended here automatically by the GitHub Actions
             workflow in .github/workflows/release.yml. Every time you publish a
