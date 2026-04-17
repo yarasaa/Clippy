@@ -32,7 +32,23 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack {
+        // Header is a stable sibling of the list (not a safeAreaInset of it)
+        // so its @FocusState survives when the list swaps between ScrollView
+        // and EmptyStateView — otherwise typing a search that returns no
+        // results reconstructs the inset content and kicks the cursor out
+        // of the search field.
+        VStack(spacing: 0) {
+            ClippyHeader(
+                selectedTab: $selectedTab,
+                selectedCategory: $selectedCategory,
+                searchText: $searchText,
+                isEmpty: items.isEmpty,
+                onClear: { monitor.clear(tab: selectedTab) },
+                onImportSnippets: { importSnippets() },
+                onGenerateUUID: { monitor.generateUUID() },
+                onGenerateLorem: { monitor.generateLoremIpsum() }
+            )
+
             ClipboardListView(
                 items: items,
                 monitor: monitor,
@@ -40,18 +56,6 @@ struct ContentView: View {
                 searchText: $searchText,
                 comparisonData: $comparisonData
             )
-            .safeAreaInset(edge: .top) {
-                ClippyHeader(
-                    selectedTab: $selectedTab,
-                    selectedCategory: $selectedCategory,
-                    searchText: $searchText,
-                    isEmpty: items.isEmpty,
-                    onClear: { monitor.clear(tab: selectedTab) },
-                    onImportSnippets: { importSnippets() },
-                    onGenerateUUID: { monitor.generateUUID() },
-                    onGenerateLorem: { monitor.generateLoremIpsum() }
-                )
-            }
         }
         .safeAreaInset(edge: .bottom) {
             bottomBar

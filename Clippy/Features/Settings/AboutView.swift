@@ -74,17 +74,6 @@ struct AboutView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.top, Ember.Space.md)
-
-                // Credits
-                VStack(spacing: 4) {
-                    Text("Made with ♥ in Turkey")
-                        .font(Ember.Font.meta)
-                        .foregroundColor(Ember.tertiaryText(scheme))
-                    Text("by Mehmet Akbaba")
-                        .font(Ember.Font.caption)
-                        .foregroundColor(Ember.secondaryText(scheme))
-                }
-                .padding(.top, Ember.Space.lg)
                 .padding(.bottom, Ember.Space.xl)
             }
             .frame(maxWidth: .infinity)
