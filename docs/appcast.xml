@@ -9,6 +9,20 @@
         <language>en</language>
 
 <item>
+            <title>Clippy 1.0.6</title>
+            <pubDate>Fri, 17 Apr 2026 20:55:24 +0000</pubDate>
+            <sparkle:version>1.0.6</sparkle:version>
+            <sparkle:shortVersionString>1.0.6</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:releaseNotesLink>https://github.com/yarasaa/Clippy/releases/tag/v1.0.6</sparkle:releaseNotesLink>
+            <enclosure
+                url="https://github.com/yarasaa/Clippy/releases/download/v1.0.6/Clippy-v1.dmg"
+                sparkle:edSignature="6QG9G94ZUtoNr33PD4EwBRzA3+0feACTnYAWY7g+xtUtuPZfxDZ9CJpDXIn4EKnulrko/VOM1cM4Jd6unhXeDw=="
+                length="4919288"
+                type="application/x-apple-diskimage" />
+        </item>
+
+<item>
             <title>Clippy 1.0.5</title>
             <pubDate>Fri, 17 Apr 2026 16:12:04 +0000</pubDate>
             <sparkle:version>1.0.5</sparkle:version>
