@@ -15,9 +15,17 @@ LENGTH="${3:?missing length}"
 DMG_FILENAME="${4:-Clippy-${VERSION}.dmg}"
 
 APPCAST="docs/appcast.xml"
-DMG_URL="https://github.com/yarasaa/Clippy/releases/download/v${VERSION}/${DMG_FILENAME}"
+ASSET_URL="https://github.com/yarasaa/Clippy/releases/download/v${VERSION}/${DMG_FILENAME}"
 RELEASE_NOTES_URL="https://github.com/yarasaa/Clippy/releases/tag/v${VERSION}"
 PUB_DATE=$(date -u "+%a, %d %b %Y %H:%M:%S +0000")
+
+# Mime type hint for Sparkle clients. Most just care that it exists, but being
+# accurate helps older Sparkle versions and corporate proxies.
+case "${DMG_FILENAME}" in
+    *.zip) MIME_TYPE="application/zip" ;;
+    *.dmg) MIME_TYPE="application/x-apple-diskimage" ;;
+    *)     MIME_TYPE="application/octet-stream" ;;
+esac
 
 read -r -d '' NEW_ITEM <<EOF || true
         <item>
@@ -28,10 +36,10 @@ read -r -d '' NEW_ITEM <<EOF || true
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
             <sparkle:releaseNotesLink>${RELEASE_NOTES_URL}</sparkle:releaseNotesLink>
             <enclosure
-                url="${DMG_URL}"
+                url="${ASSET_URL}"
                 sparkle:edSignature="${SIGNATURE}"
                 length="${LENGTH}"
-                type="application/octet-stream" />
+                type="${MIME_TYPE}" />
         </item>
 EOF
 

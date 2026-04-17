@@ -32,33 +32,36 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Download DMG from the release
+      - name: Download update asset from the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Pick the first .dmg attached to the release. If you upload more
-          # than one (e.g. arm64 / x86_64 split), adjust to handle both.
-          DMG_NAME=$(gh release view "${{ steps.meta.outputs.tag }}" \
+          # Sparkle supports both .dmg and .zip. Grab whichever is attached;
+          # prefer .dmg if both exist (better UX on install). Fails clearly
+          # if neither is present.
+          ASSET_NAME=$(gh release view "${{ steps.meta.outputs.tag }}" \
             --json assets \
-            --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -n 1)
-          if [ -z "$DMG_NAME" ]; then
-            echo "::error::No .dmg asset found on release ${{ steps.meta.outputs.tag }}"
+            --jq '[.assets[] | select(.name | test("\\.dmg$|\\.zip$"))]
+                  | sort_by(if (.name | endswith(".dmg")) then 0 else 1 end)
+                  | .[0].name')
+          if [ -z "$ASSET_NAME" ] || [ "$ASSET_NAME" = "null" ]; then
+            echo "::error::No .dmg or .zip asset found on release ${{ steps.meta.outputs.tag }}"
             exit 1
           fi
-          echo "DMG_NAME=$DMG_NAME" >> "$GITHUB_ENV"
-          gh release download "${{ steps.meta.outputs.tag }}" --pattern "$DMG_NAME" --clobber
+          echo "Found asset: $ASSET_NAME"
+          echo "ASSET_NAME=$ASSET_NAME" >> "$GITHUB_ENV"
+          gh release download "${{ steps.meta.outputs.tag }}" --pattern "$ASSET_NAME" --clobber
 
       - name: Install Sparkle CLI (for sign_update)
         run: brew install --cask sparkle
 
-      - name: Sign the DMG with EdDSA
+      - name: Sign the asset with EdDSA
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
-          # Write the key to a temp file so sign_update can read it with -f
           echo "$SPARKLE_PRIVATE_KEY" | base64 --decode > sparkle_private
           SPARKLE_BIN=$(find /opt/homebrew/Caskroom/sparkle -type f -name sign_update -perm +111 | head -n 1)
-          SIGNED=$("$SPARKLE_BIN" "$DMG_NAME" -f sparkle_private)
+          SIGNED=$("$SPARKLE_BIN" "$ASSET_NAME" -f sparkle_private)
           rm sparkle_private
 
           echo "Sparkle output: $SIGNED"
@@ -74,7 +77,7 @@ jobs:
           echo "SPARKLE_LENGTH=$LENGTH" >> "$GITHUB_ENV"
 
       - name: Update appcast.xml
-        run: ./scripts/update-appcast.sh "${{ steps.meta.outputs.version }}" "$SPARKLE_SIGNATURE" "$SPARKLE_LENGTH" "$DMG_NAME"
+        run: ./scripts/update-appcast.sh "${{ steps.meta.outputs.version }}" "$SPARKLE_SIGNATURE" "$SPARKLE_LENGTH" "$ASSET_NAME"
 
       - name: Commit appcast changes
         run: |

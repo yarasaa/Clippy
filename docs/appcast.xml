@@ -23,45 +23,14 @@
         </item>
 
         <!--
-            This file is the Sparkle feed. Sparkle reads it, compares the top
-            <item>'s version against the running app, and prompts the user when
-            a newer version is available.
+            Release items are appended here automatically by the GitHub Actions
+            workflow in .github/workflows/release.yml. Every time you publish a
+            GitHub Release with a .zip or .dmg attached, the workflow signs it,
+            prepends a new <item>, and commits this file back to main.
 
-            The GitHub Actions workflow in .github/workflows/release.yml
-            appends a new <item> at the top of the <channel> on every tag push,
-            signs the DMG with the private EdDSA key, and commits this file
-            back to main.
-
-            Do NOT edit manually unless you know what you're doing — an invalid
-            signature means no one can update. If you really need to roll back,
-            remove the offending <item>.
+            Do not edit by hand unless you're rolling back a bad release —
+            see docs/SPARKLE_SETUP.md "Rolling back a bad release".
         -->
-
-        <item>
-            <title>Clippy 2.0 — The Ember Redesign</title>
-            <pubDate>Fri, 17 Apr 2026 00:00:00 +0000</pubDate>
-            <sparkle:version>2.0.0</sparkle:version>
-            <sparkle:shortVersionString>2.0.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[
-                <h2>Clippy 2.0 — The Ember Redesign 🧡</h2>
-                <p>Every screen has been rebuilt in a warm, branded design language we call <strong>Ember</strong>.</p>
-                <h3>Highlights</h3>
-                <ul>
-                    <li>Brand-new look — amber accent, rounded typography, card-based history</li>
-                    <li>Context-aware Inspector panel across the app</li>
-                    <li>Screenshot editor reimagined with Studio Bar + Inspector</li>
-                    <li>Windows-style Dock Preview animations</li>
-                    <li>Privacy & Permissions panel with one-click reset</li>
-                </ul>
-                <p><a href="https://github.com/yarasaa/Clippy/releases/tag/v2.0.0">Full release notes</a></p>
-            ]]></description>
-            <enclosure
-                url="https://github.com/yarasaa/Clippy/releases/download/v2.0.0/Clippy-2.0.0.dmg"
-                sparkle:edSignature="REPLACE_WITH_EDDSA_SIGNATURE"
-                length="0"
-                type="application/octet-stream" />
-        </item>
 
     </channel>
 </rss>
