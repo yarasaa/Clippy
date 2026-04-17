@@ -19,16 +19,22 @@ jobs:
       contents: write
 
     steps:
+      # Check out main (not the tag) so pushing the appcast commit is a
+      # fast-forward. We still reference the tag via github.event.release.tag_name
+      # for the version metadata.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Resolve version from release tag
         id: meta
         run: |
           TAG="${{ github.event.release.tag_name }}"
+          # Strip leading v/V so "v1.0.5" and "V1.0.5" both yield "1.0.5".
           VERSION="${TAG#v}"
+          VERSION="${VERSION#V}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -84,7 +90,21 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/appcast.xml
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: update appcast for ${{ steps.meta.outputs.tag }}"
-            git push origin HEAD:main
+          if git diff --cached --quiet; then
+            echo "No appcast changes to commit."
+            exit 0
           fi
+          git commit -m "chore: update appcast for ${{ steps.meta.outputs.tag }}"
+
+          # Retry a few times in case someone else pushed to main while we were running.
+          # Rebase + push; bail out hard if the conflict is on appcast itself.
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt). Rebasing on latest main..."
+            git pull --rebase origin main
+          done
+
+          echo "::error::Could not push appcast update after 3 attempts"
+          exit 1
