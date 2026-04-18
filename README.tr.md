@@ -22,7 +22,7 @@
   </a>
 </p>
 
-**English:** [README.md](README.md)
+**🌐** [English](README.md) · [Türkçe](README.tr.md) · [日本語](README.ja.md) · [简体中文](README.zh.md)
 
 ---
 
