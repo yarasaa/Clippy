@@ -114,13 +114,76 @@
 
 ### 自动输入的片段
 
-将任何剪贴板条目保存为带关键字的可复用片段。在任何地方输入关键字都会
-触发展开。`{{DATE}}`、`{{CLIPBOARD}}`、`{{UUID}}` 等变量会在展开时
-自动填充。
+将任何文本保存为带关键字的可复用片段。在 Mac 的任何地方输入 `;keyword` —
+Clippy 会检测触发字符、删除它,并粘贴展开后的内容。TextExpander 的体验,
+内置且免费。
 
 <p align="center">
   <img src="docs/screenshots/07-snippets-tab.png" alt="Snippets 选项卡" width="420">
 </p>
+
+每个片段都有自己的详情窗口:关键字、应用范围、模板正文,以及实时使用
+统计 (触发次数、最后使用时间)。
+
+<p align="center">
+  <img src="docs/screenshots/24-snippet-detail.png" alt="带有模板和使用统计的片段详情窗口" width="640">
+</p>
+
+**动态占位符** — 在粘贴的瞬间自动解析:
+
+| 占位符 | 展开为 |
+|---|---|
+| `{{DATE}}` | 今天的日期 `yyyy-MM-dd` |
+| `{{TIME}}` | 当前时间 `HH:mm:ss` |
+| `{{DATETIME}}` | 日期+时间 `yyyy-MM-dd HH:mm` |
+| `{{UUID}}` | 新生成的随机 UUID |
+| `{{CLIPBOARD}}` | 最近一次复制的文本 |
+| `{{RANDOM:1-100}}` | 指定范围内的随机整数 |
+| `{{FILE:~/notes.txt}}` | 本地文件的内容 |
+| `{{SHELL:date +%s}}` | shell 命令的输出 |
+| `{{MY_NAME}}` | 在 Settings → Snippets 中定义的自定义变量 |
+| `{{;other}}` | 通过关键字调用另一个片段 (嵌套,最多 5 层) |
+
+**填空式参数** — 用单花括号在粘贴时弹出小表单:
+
+```
+你好 {name},
+
+附件是 {project:choice:网站,应用,咨询} 项目的发票 #{number:number}。
+截止日期: {due:date}。
+
+{signature=此致,\nMehmet}
+```
+
+输入 `;invoice`,弹出一个简短对话框包含文本框、数字输入、下拉菜单、
+日期选择器,以及预填充的签名。底部的实时 **Preview** 面板会随着你的
+输入显示最终文本。点击 **Paste** — 每个占位符都会被替换并插入到
+当前聚焦的应用中。
+
+<p align="center">
+  <img src="docs/screenshots/25-snippet-parameter-dialog.png" alt="带有实时预览的参数输入对话框" width="440">
+</p>
+
+支持的参数类型:
+`{name}`、`{name:text}`、`{name:number}`、`{name:date}`、`{name:time}`、
+`{name:choice:A,B,C}`,以及使用 `{name=default}` 为任意类型预设默认值。
+
+**全局变量** — 在 **Settings → Snippets → Variables** 中一次性定义
+可复用的占位符 (`{{MY_NAME}}`、`{{MY_EMAIL}}`、`{{MY_COMPANY}}` 等),
+即可在任何片段中引用。修改一次变量,所有片段自动采用新值。
+
+<p align="center">
+  <img src="docs/screenshots/26-snippet-variables.png" alt="Settings 中的自定义片段变量" width="640">
+</p>
+
+**应用范围限定** — 将片段绑定到特定应用 (例如 Mail + Outlook),
+这样 `;signature` 只在你想要的地方触发。
+
+**嵌套组合** — 用小片段拼出更大的模板 (例如邮件正文里组合
+`{{;greeting}}` + `{{;signature}}`)。
+
+**使用频率追踪** — Clippy 记录每个片段的触发次数,在 detail inspector
+中一眼看出你的高频片段。
 
 ### 右键菜单的强大功能
 

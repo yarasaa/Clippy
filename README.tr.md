@@ -115,13 +115,83 @@ onları gör.
 
 ### Kendi kendine yazan snippet'ler
 
-Herhangi bir pano öğesini keyword ile yeniden kullanılabilir snippet
-olarak kaydet. Keyword'ü her yerde yazınca genişletir. `{{DATE}}`,
-`{{CLIPBOARD}}`, `{{UUID}}` gibi değişkenler anında çözülür.
+Herhangi bir metni bir keyword ile tekrar kullanılabilir snippet olarak
+kaydet. Mac'te her yerde `;keyword` yaz — Clippy tetikleyiciyi algılar,
+siler ve genişletilmiş içeriği yapıştırır. TextExpander'ın yaptığının
+aynısı, yerleşik ve ücretsiz.
 
 <p align="center">
   <img src="docs/screenshots/07-snippets-tab.png" alt="Snippets sekmesi" width="420">
 </p>
+
+Her snippet'in kendi detay penceresi var: keyword, uygulama kapsamı,
+şablon gövdesi ve canlı kullanım istatistikleri (kaç kez tetiklendi,
+son ne zaman kullanıldı).
+
+<p align="center">
+  <img src="docs/screenshots/24-snippet-detail.png" alt="Şablon ve kullanım istatistikleri ile snippet detay penceresi" width="640">
+</p>
+
+**Dinamik placeholder'lar** — yapıştırma anında otomatik çözülür:
+
+| Placeholder | Neye dönüşür |
+|---|---|
+| `{{DATE}}` | Bugünün tarihi, `yyyy-MM-dd` |
+| `{{TIME}}` | Geçerli saat, `HH:mm:ss` |
+| `{{DATETIME}}` | Birleşik, `yyyy-MM-dd HH:mm` |
+| `{{UUID}}` | Yeni rastgele UUID |
+| `{{CLIPBOARD}}` | En son panodaki metin |
+| `{{RANDOM:1-100}}` | Verilen aralıkta rastgele tam sayı |
+| `{{FILE:~/notlar.txt}}` | Yerel dosyanın içeriği |
+| `{{SHELL:date +%s}}` | Bir shell komutunun çıktısı |
+| `{{BENIM_ADIM}}` | Settings → Snippets'te tanımladığın özel değişken |
+| `{{;digeri}}` | Başka bir snippet'i keyword'üyle aç (iç içe, 5 seviyeye kadar) |
+
+**Boşluk doldurmalı parametreler** — yapıştırma anında tek süslü
+parantezle küçük bir form aç:
+
+```
+Merhaba {isim},
+
+{proje:choice:Website,Mobil Uygulama,Danışmanlık} projesi için
+#{numara:number} numaralı fatura ekte. Son ödeme tarihi: {tarih:date}.
+
+{imza=Saygılarımla,\nMehmet}
+```
+
+`;fatura` yazınca metin kutusu, sayı girişi, dropdown, tarih seçici ve
+önceden doldurulmuş imzayla kısa bir dialog açılır. Alt kısımdaki
+canlı **Preview** sen doldururken final metni gösterir. **Paste**'e
+bas — her placeholder yerine değer konulup odaklanmış uygulamaya
+yapıştırılır.
+
+<p align="center">
+  <img src="docs/screenshots/25-snippet-parameter-dialog.png" alt="Canlı önizlemeli parametre giriş dialog'u" width="440">
+</p>
+
+Desteklenen parametre tipleri:
+`{isim}`, `{isim:text}`, `{isim:number}`, `{isim:date}`, `{isim:time}`,
+`{isim:choice:A,B,C}`, ayrıca herhangi birine default değer vermek için
+`{isim=default}`.
+
+**Global değişkenler** — yeniden kullanılabilir placeholder'ları tek
+seferlik **Settings → Snippets → Variables** içinde tanımla
+(`{{MY_NAME}}`, `{{MY_EMAIL}}`, `{{MY_COMPANY}}` …) ve her snippet'ten
+referans ver. Bir değişkeni değiştir, tüm snippet'ler yeni değeri
+otomatik alır.
+
+<p align="center">
+  <img src="docs/screenshots/26-snippet-variables.png" alt="Settings'te özel snippet değişkenleri" width="640">
+</p>
+
+**Uygulama bazlı kapsam** — bir snippet'i belirli uygulamalara bağla
+(ör. Mail + Outlook) ki `;imza` sadece istediğin yerde tetiklensin.
+
+**İç içe kompozisyon** — küçük snippet'lerden daha uzun şablonlar kur
+(`{{;selamlama}}` + `{{;imza}}` bir e-posta gövdesinin içinde).
+
+**Kullanım takibi** — Clippy her snippet'in kaç kez tetiklendiğini tutar,
+detail inspector'dan güçlü kullananlarını bir bakışta görürsün.
 
 ### Sağ tık güç menüsü
 

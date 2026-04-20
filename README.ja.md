@@ -117,9 +117,81 @@
 
 ### 自動展開スニペット
 
-任意のクリップボードアイテムを、キーワード付きの再利用可能なスニペットとして
-保存できます。そのキーワードをどのアプリで入力しても、自動で本文に展開されます。
-`{{DATE}}`、`{{CLIPBOARD}}`、`{{UUID}}` などの変数は展開時に値に置換されます。
+任意のテキストをキーワード付きの再利用可能なスニペットとして保存できます。
+Macのどこでも `;keyword` と入力すると、Clippyがトリガーを検出して削除し、
+展開された内容を貼り付けます。TextExpanderと同じ動きが、内蔵で無料で
+使えます。
+
+<p align="center">
+  <img src="docs/screenshots/07-snippets-tab.png" alt="Snippetsタブ" width="420">
+</p>
+
+各スニペットには専用の詳細ウィンドウがあります。キーワード、対象アプリ、
+テンプレート本文、使用状況の統計 (起動回数、最終使用時刻) がすべて
+一画面で確認できます。
+
+<p align="center">
+  <img src="docs/screenshots/24-snippet-detail.png" alt="テンプレートと使用状況統計を含むスニペット詳細ウィンドウ" width="640">
+</p>
+
+**動的プレースホルダー** — 貼り付けの瞬間に自動で解決されます:
+
+| プレースホルダー | 展開される値 |
+|---|---|
+| `{{DATE}}` | 今日の日付 `yyyy-MM-dd` |
+| `{{TIME}}` | 現在時刻 `HH:mm:ss` |
+| `{{DATETIME}}` | 日時 `yyyy-MM-dd HH:mm` |
+| `{{UUID}}` | 新しいランダムUUID |
+| `{{CLIPBOARD}}` | 最新のクリップボードテキスト |
+| `{{RANDOM:1-100}}` | 指定範囲のランダムな整数 |
+| `{{FILE:~/notes.txt}}` | ローカルファイルの内容 |
+| `{{SHELL:date +%s}}` | シェルコマンドの出力 |
+| `{{MY_NAME}}` | Settings → Snippetsで定義したカスタム変数 |
+| `{{;other}}` | 他のスニペットをキーワードで呼び出す (ネスト、最大5階層) |
+
+**入力フォーム付きパラメータ** — 単一波括弧で貼り付け時に簡易フォームを
+表示:
+
+```
+{name}様、
+
+{project:choice:Website,App,Consulting} の請求書 #{number:number} を
+添付しました。お支払い期限: {due:date}。
+
+{signature=よろしくお願いいたします。\nMehmet}
+```
+
+`;invoice` と入力するとテキストフィールド、数値入力、ドロップダウン、
+日付ピッカー、そして事前入力された署名を含む短いダイアログが開きます。
+下部のライブ **Preview** は入力中の最終テキストをリアルタイムで表示。
+**Paste** を押すと各プレースホルダーが置換され、フォーカス中のアプリに
+挿入されます。
+
+<p align="center">
+  <img src="docs/screenshots/25-snippet-parameter-dialog.png" alt="ライブプレビュー付きパラメータ入力ダイアログ" width="440">
+</p>
+
+サポートされるパラメータタイプ:
+`{name}`、`{name:text}`、`{name:number}`、`{name:date}`、`{name:time}`、
+`{name:choice:A,B,C}`、そしてデフォルト値を事前設定する `{name=default}`。
+
+**グローバル変数** — **Settings → Snippets → Variables** で再利用可能な
+プレースホルダーを一度定義すれば (`{{MY_NAME}}`、`{{MY_EMAIL}}`、
+`{{MY_COMPANY}}` など)、どのスニペットからも参照できます。変数を一度
+変更するだけで、すべてのスニペットが新しい値を自動的に反映します。
+
+<p align="center">
+  <img src="docs/screenshots/26-snippet-variables.png" alt="Settingsのカスタムスニペット変数" width="640">
+</p>
+
+**アプリ別スコープ** — スニペットを特定のアプリ (例: Mail + Outlook) に
+紐づけて、意図した場所でのみ `;signature` が発動するようにできます。
+
+**ネスト構成** — 小さなスニペットを組み合わせてより長いテンプレートを
+構築 (メール本文の中に `{{;greeting}}` + `{{;signature}}` など)。
+
+**利用状況の記録** — Clippyは各スニペットの使用回数を記録し、detail
+inspectorからよく使うスニペットを一目で確認できます。
 
 <p align="center">
   <img src="docs/screenshots/07-snippets-tab.png" alt="Snippetsタブ" width="420">

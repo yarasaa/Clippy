@@ -112,13 +112,79 @@ Tabs at the top narrow the list to a single content type — All,
 
 ### Snippets that type themselves
 
-Save any clipboard item as a reusable snippet with a keyword. Typing the
-keyword anywhere triggers expansion. Variables like `{{DATE}}`,
-`{{CLIPBOARD}}`, `{{UUID}}` interpolate at expansion time.
+Save any text as a reusable snippet with a keyword. Type `;keyword`
+anywhere on your Mac — Clippy detects the trigger, deletes it, and
+pastes the expanded content. Think TextExpander, but built in and free.
 
 <p align="center">
   <img src="docs/screenshots/07-snippets-tab.png" alt="Snippets tab" width="420">
 </p>
+
+Each snippet gets its own detail window: keyword, app scope, template
+body, and live usage stats (how many times fired, last used).
+
+<p align="center">
+  <img src="docs/screenshots/24-snippet-detail.png" alt="Snippet detail window with template and usage stats" width="640">
+</p>
+
+**Dynamic placeholders** — resolved automatically at paste time:
+
+| Placeholder | Expands to |
+|---|---|
+| `{{DATE}}` | Today's date, `yyyy-MM-dd` |
+| `{{TIME}}` | Current time, `HH:mm:ss` |
+| `{{DATETIME}}` | Combined, `yyyy-MM-dd HH:mm` |
+| `{{UUID}}` | A new random UUID |
+| `{{CLIPBOARD}}` | Your most recent clipboard text |
+| `{{RANDOM:1-100}}` | Random integer in that range |
+| `{{FILE:~/notes.txt}}` | Contents of a local file |
+| `{{SHELL:date +%s}}` | Output of a shell command |
+| `{{MY_NAME}}` | A custom variable defined in Settings → Snippets |
+| `{{;other}}` | Expand another snippet by keyword (nested, up to 5 levels deep) |
+
+**Fill-in-the-blank parameters** — prompt a quick form at paste time
+using single braces:
+
+```
+Hi {name},
+
+Attached is invoice #{number:number} for {project:choice:Website,App,Consulting}.
+Due date: {due:date}.
+
+{signature=Best,\nMehmet}
+```
+
+Typing `;invoice` pops up a short dialog with a text field, a number
+input, a dropdown, a date picker, and a pre-filled signature. A live
+**Preview** at the bottom shows the final text as you fill it in.
+Press **Paste** — every placeholder is replaced inline and inserted
+into the focused app.
+
+<p align="center">
+  <img src="docs/screenshots/25-snippet-parameter-dialog.png" alt="Parameter input dialog with live preview" width="440">
+</p>
+
+Supported parameter types:
+`{name}`, `{name:text}`, `{name:number}`, `{name:date}`, `{name:time}`,
+`{name:choice:A,B,C}`, plus `{name=default}` to pre-fill any of them.
+
+**Global variables** — define reusable placeholders once in
+**Settings → Snippets → Variables** (`{{MY_NAME}}`, `{{MY_EMAIL}}`,
+`{{MY_COMPANY}}` …) and reference them from any snippet. Change a
+variable once, every snippet picks up the new value.
+
+<p align="center">
+  <img src="docs/screenshots/26-snippet-variables.png" alt="Custom snippet variables in Settings" width="640">
+</p>
+
+**App-scoped** — tie a snippet to specific apps (e.g. Mail + Outlook)
+so `;signature` only fires where you want it.
+
+**Nested composition** — build longer templates out of smaller snippets
+(`{{;greeting}}` + `{{;signature}}` inside a bigger email body).
+
+**Usage-aware** — Clippy tracks how often each snippet fires, so you
+can see your power-users at a glance from the detail inspector.
 
 ### Right-click power menu
 
