@@ -11,7 +11,57 @@ struct PreviewPanelView: View {
 
     @State private var showItems = false
     @State private var availableScreens: [NSScreen] = NSScreen.screens
+    @State private var keyboardWasUsed = false
     @Environment(\.colorScheme) private var scheme
+
+    // Reads launch-animation setting once per body eval. Stored as a
+    // `let` shadow so all helpers see a stable string within one render.
+    private var launchAnimation: String {
+        SettingsManager.shared.dockPreviewLaunchAnimation
+    }
+
+    /// Initial offset applied to a card before the panel finishes appearing.
+    /// `index` is the card's position from left; we use it to fan cards out
+    /// horizontally for "fan-out", but keep them stationary for other modes.
+    private func launchOffset(for index: Int) -> CGSize {
+        switch launchAnimation {
+        case "fan-out":
+            // Cards rise from below and fan outward. Center card barely
+            // moves horizontally; cards on the edges spread further out.
+            let centerIndex = Double(items.count - 1) / 2.0
+            let spread = (Double(index) - centerIndex) * 24
+            return CGSize(width: spread, height: 60)
+        case "scale-pop":
+            return .zero
+        case "none":
+            return .zero
+        default: // "fade-stagger"
+            return CGSize(width: 0, height: 16)
+        }
+    }
+
+    private func launchScale(for index: Int) -> CGFloat {
+        switch launchAnimation {
+        case "fan-out":   return 0.5
+        case "scale-pop": return 0.6
+        case "none":      return 1.0
+        default:          return 1.0   // "fade-stagger"
+        }
+    }
+
+    private func launchAnimationCurve(for index: Int) -> Animation {
+        let stagger = Double(index) * 0.04
+        switch launchAnimation {
+        case "fan-out":
+            return .spring(response: 0.55, dampingFraction: 0.72).delay(stagger)
+        case "scale-pop":
+            return .spring(response: 0.36, dampingFraction: 0.62).delay(stagger)
+        case "none":
+            return .linear(duration: 0)
+        default:
+            return .spring(response: 0.42, dampingFraction: 0.78).delay(stagger)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -21,7 +71,7 @@ struct PreviewPanelView: View {
                 .opacity(0.25)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
+                HStack(spacing: 20) {  // bumped from 14 for breathing room
                     ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                         PreviewItemView(
                             image: item.image,
@@ -31,62 +81,127 @@ struct PreviewPanelView: View {
                             onClose: onWindowClose,
                             onMinimize: onWindowMinimize,
                             onSelect: onWindowSelect,
-                            onMoveToMonitor: onMoveToMonitor
+                            onMoveToMonitor: onMoveToMonitor,
+                            keyboardActive: keyboardWasUsed
                         )
                         .id(item.id)
                         .opacity(showItems ? 1 : 0)
-                        .offset(y: showItems ? 0 : 16)
-                        .animation(
-                            .spring(response: 0.42, dampingFraction: 0.78).delay(Double(index) * 0.04),
-                            value: showItems
-                        )
+                        .offset(showItems ? .zero : launchOffset(for: index))
+                        .scaleEffect(showItems ? 1.0 : launchScale(for: index),
+                                     anchor: .bottom)
+                        .animation(launchAnimationCurve(for: index), value: showItems)
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
+                // CRITICAL: tell SwiftUI the HStack should claim its
+                // ideal natural width (= sum of card widths). Without
+                // this, the ScrollView reports an unbounded ideal width
+                // to the parent VStack, and the panel ends up sized to
+                // whatever NSHostingController chose first — leaving
+                // empty space on the right when the actual content is
+                // narrower than that initial choice.
+                .fixedSize(horizontal: true, vertical: false)
             }
 
-            if SettingsManager.shared.enableDockPreviewKeyboardShortcuts {
-                Divider().opacity(0.25)
-                keyboardHintsFooter
+            // Footer follows the same hint-mode rules as the index badges:
+            // hidden in "never" mode, fades in on-keypress, always shown
+            // in "always" mode (the historical default).
+            if SettingsManager.shared.enableDockPreviewKeyboardShortcuts,
+               SettingsManager.shared.dockPreviewKeyboardHintMode != "never" {
+                let hintMode = SettingsManager.shared.dockPreviewKeyboardHintMode
+                let visible = (hintMode == "always") || (hintMode == "on-keypress" && keyboardWasUsed)
+
+                if visible {
+                    Divider().opacity(0.25)
+                    keyboardHintsFooter
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
             }
         }
-        .background(panelBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        // .fixedSize() applied IMMEDIATELY after the content VStack —
+        // before any background/material/shadow modifiers. The order
+        // matters: fixedSize tells SwiftUI to lock the layout to ideal
+        // intrinsic size at that point in the chain. If we apply it
+        // last (after .background, .overlay, .shadow), the background
+        // material's sizing behavior can re-introduce flexibility and
+        // the panel ends up wider than its actual content. Pin it now,
+        // then decorate.
+        .fixedSize()
+        .modifier(PanelSurface(scheme: scheme))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(borderGradient, lineWidth: 0.6)
         )
         .shadow(color: .black.opacity(scheme == .dark ? 0.5 : 0.18), radius: 28, y: 14)
         .shadow(color: Ember.Palette.amber.opacity(scheme == .dark ? 0.1 : 0.04), radius: 40, y: 0)
-        .fixedSize()
-        .onAppear { showItems = true }
-        .onDisappear { showItems = false }
+        .onAppear {
+            showItems = true
+            // Reset the "user has used the keyboard" flag every time the
+            // panel appears, so the on-keypress hint mode starts hidden.
+            keyboardWasUsed = false
+            installKeyboardWatcher()
+        }
+        .onDisappear {
+            showItems = false
+            removeKeyboardWatcher()
+        }
+    }
+
+    // Local NSEvent monitor that flips `keyboardWasUsed` to true on the
+    // first key press while the panel is showing. Used by the
+    // "on-keypress" badge mode so badges stay hidden for mouse users
+    // and fade in only when keyboard navigation begins.
+    @State private var keyMonitor: Any?
+
+    private func installKeyboardWatcher() {
+        guard SettingsManager.shared.dockPreviewKeyboardHintMode == "on-keypress" else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            if !keyboardWasUsed {
+                withAnimation(.easeOut(duration: 0.18)) { keyboardWasUsed = true }
+            }
+            return event
+        }
+    }
+
+    private func removeKeyboardWatcher() {
+        if let monitor = keyMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyMonitor = nil
+        }
     }
 
     // MARK: - Header
 
     private var header: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                if let appIcon = appIcon {
-                    Image(nsImage: appIcon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 30, height: 30)
-                        .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
-                }
+        // Single-line layout reads cleaner against the glass background:
+        // [icon] AppName · 2 windows                    [chip]
+        // The bullet separator implies an inline relationship between
+        // the app name and window count without forcing a second
+        // baseline that competes with the thumbnail title bars below.
+        HStack(spacing: 10) {
+            if let appIcon = appIcon {
+                Image(nsImage: appIcon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 22, height: 22)
+                    .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
             }
 
-            VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 6) {
                 Text(appName)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundColor(.primary)
+                    .lineLimit(1)
+
+                Text("·")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.secondary.opacity(0.4))
 
                 Text(windowCountLabel)
-                    .font(.system(size: 11, design: .serif))
-                    .italic()
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 12, weight: .regular, design: .rounded))
+                    .foregroundColor(.secondary.opacity(0.85))
+                    .lineLimit(1)
             }
 
             Spacer()
@@ -95,13 +210,13 @@ struct PreviewPanelView: View {
                 monitorChip
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
     private var windowCountLabel: String {
         let n = items.count
-        return "\(n) window\(n == 1 ? "" : "s") open"
+        return "\(n) window\(n == 1 ? "" : "s")"
     }
 
     private var monitorChip: some View {
@@ -121,15 +236,46 @@ struct PreviewPanelView: View {
     // MARK: - Keyboard Hints Footer
 
     private var keyboardHintsFooter: some View {
-        HStack(spacing: 14) {
-            kbdHint(keys: "1-9", label: "open")
-            kbdHint(keys: "⏎", label: "select")
-            kbdHint(keys: "⌘W", label: "close")
-            kbdHint(keys: "esc", label: "dismiss")
-            Spacer()
+        // Compact mode for "small" preview — labels alongside the keys
+        // (open / select / close / dismiss) push the footer's natural
+        // width past ~310pt, which is wider than a small card section
+        // (≈232pt for one card). That width then drives the panel
+        // wider than its actual content, leaving empty space on the
+        // right of the single thumbnail.
+        // In compact mode we drop the labels and lean on hover
+        // tooltips — keys still readable, footer stays narrow.
+        let compact = SettingsManager.shared.dockPreviewSize == "small"
+
+        return HStack(spacing: compact ? 10 : 14) {
+            if compact {
+                kbdGlyph("1-9").help("Open by number")
+                kbdGlyph("⏎").help("Select highlighted")
+                kbdGlyph("⌘W").help("Close window")
+                kbdGlyph("esc").help("Dismiss")
+            } else {
+                kbdHint(keys: "1-9", label: "open")
+                kbdHint(keys: "⏎", label: "select")
+                kbdHint(keys: "⌘W", label: "close")
+                kbdHint(keys: "esc", label: "dismiss")
+            }
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
+        .padding(.horizontal, compact ? 10 : 14)
+        .padding(.vertical, compact ? 5 : 7)
+    }
+
+    /// Compact key glyph used by the small-preview footer.
+    /// Same visual style as the boxed key portion of `kbdHint`, no label.
+    private func kbdGlyph(_ keys: String) -> some View {
+        Text(keys)
+            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Ember.Palette.smoke.opacity(scheme == .dark ? 0.2 : 0.08))
+            )
     }
 
     private func kbdHint(keys: String, label: String) -> some View {
@@ -151,17 +297,6 @@ struct PreviewPanelView: View {
 
     // MARK: - Theme
 
-    private var panelBackground: some View {
-        ZStack {
-            // Use NSVisualEffectView for real vibrancy / material
-            Rectangle()
-                .fill(scheme == .dark
-                      ? Color(red: 0.07, green: 0.09, blue: 0.16).opacity(0.72)
-                      : Color.white.opacity(0.68))
-                .background(.ultraThinMaterial)
-        }
-    }
-
     private var borderGradient: some ShapeStyle {
         LinearGradient(
             colors: scheme == .dark
@@ -171,7 +306,88 @@ struct PreviewPanelView: View {
             endPoint: .bottomTrailing
         )
     }
+
 }
+
+// MARK: - VisualEffectBackground
+//
+// NSVisualEffectView wrapper for SwiftUI. Apple updates the system
+// materials (.hudWindow, .menu, .popover, etc.) every macOS release —
+// on macOS 26 these materials automatically receive the new Liquid
+// Glass treatment. SwiftUI's own `.glassEffect()` is scoped for leaf
+// controls (buttons, badges, capsules); for a panel-sized refractive
+// surface NSVisualEffectView is the proven, system-native path.
+private struct VisualEffectBackground: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        view.isEmphasized = true
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
+}
+
+// MARK: - PanelSurface
+//
+// Applies the panel's "background material" — Liquid Glass on macOS 26+
+// when the user picks "auto", ultraThinMaterial on older systems, or an
+// opaque tint when "solid". Lives as a ViewModifier so the body of
+// `PreviewPanelView` can stay flat instead of branching `if`s for each
+// material option.
+private struct PanelSurface: ViewModifier {
+    let scheme: ColorScheme
+
+    func body(content: Content) -> some View {
+        let mode = SettingsManager.shared.dockPreviewMaterial
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+
+        switch mode {
+        case "solid":
+            content
+                .background(
+                    shape.fill(scheme == .dark
+                               ? Color(red: 0.10, green: 0.11, blue: 0.18)
+                               : Color(red: 0.97, green: 0.97, blue: 0.97))
+                )
+                .clipShape(shape)
+
+        case "auto":
+            // `.hudWindow` is Apple's "floating panel HUD" material. On
+            // macOS 26 this material is rendered with Liquid Glass —
+            // refractive, tinted by the wallpaper, with the new specular
+            // highlights. On older macOS it's a strong frosted look.
+            // Either way it's clearly distinct from the standard
+            // ultraThin used by "translucent" mode.
+            content
+                .background(
+                    VisualEffectBackground(material: .hudWindow,
+                                           blendingMode: .behindWindow)
+                        .clipShape(shape)
+                )
+                .clipShape(shape)
+
+        default:  // "translucent"
+            content
+                .background(
+                    shape.fill(scheme == .dark
+                               ? Color(red: 0.07, green: 0.09, blue: 0.16).opacity(0.72)
+                               : Color.white.opacity(0.68))
+                        .background(.ultraThinMaterial, in: shape)
+                )
+                .clipShape(shape)
+        }
+    }
+}
+
 struct PreviewItemView: View {
     let image: NSImage
     let windowID: CGWindowID
@@ -181,6 +397,9 @@ struct PreviewItemView: View {
     let onMinimize: (CGWindowID) -> Void
     let onSelect: (CGWindowID) -> Void
     var onMoveToMonitor: ((CGWindowID, NSScreen) -> Void)? = nil
+    /// True when the user has pressed any key during this panel session.
+    /// Used by the "on-keypress" keyboard-hint mode to fade index badges in.
+    var keyboardActive: Bool = false
 
     @State private var isHovering = false
     @State private var showMonitorMenu = false
@@ -190,7 +409,7 @@ struct PreviewItemView: View {
     // Cache CGImage to prevent view recreation
     private let initialCGImage: CGImage?
 
-    init(image: NSImage, windowID: CGWindowID, title: String?, index: Int = 0, onClose: @escaping (CGWindowID) -> Void, onMinimize: @escaping (CGWindowID) -> Void, onSelect: @escaping (CGWindowID) -> Void, onMoveToMonitor: ((CGWindowID, NSScreen) -> Void)? = nil) {
+    init(image: NSImage, windowID: CGWindowID, title: String?, index: Int = 0, onClose: @escaping (CGWindowID) -> Void, onMinimize: @escaping (CGWindowID) -> Void, onSelect: @escaping (CGWindowID) -> Void, onMoveToMonitor: ((CGWindowID, NSScreen) -> Void)? = nil, keyboardActive: Bool = false) {
         self.image = image
         self.windowID = windowID
         self.title = title
@@ -199,8 +418,10 @@ struct PreviewItemView: View {
         self.onMinimize = onMinimize
         self.onSelect = onSelect
         self.onMoveToMonitor = onMoveToMonitor
+        self.keyboardActive = keyboardActive
         self.initialCGImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
     }
+
 
     private var previewSize: (maxWidth: CGFloat, maxHeight: CGFloat) {
         let sizeStyle = SettingsManager.shared.dockPreviewSize
@@ -219,17 +440,24 @@ struct PreviewItemView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if SettingsManager.shared.showWindowTitles {
-                inlineTitleBar
+        // The title bar lives as an `.overlay` on the preview thumbnail
+        // (NOT a ZStack sibling) for one important reason: the overlay
+        // is sized by its host's frame, so any `.frame(maxWidth: .infinity)`
+        // inside the title bar resolves to the thumbnail's actual width.
+        // In a ZStack that infinity would have leaked outward and caused
+        // the surrounding panel to widen — visible as empty space on the
+        // right when only a single window was previewed.
+        previewBody
+            .overlay(alignment: .top) {
+                if SettingsManager.shared.showWindowTitles {
+                    inlineTitleBar
+                }
             }
-            previewBody
-        }
-        .frame(maxWidth: previewSize.maxWidth)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(cardBorder)
-        .overlay(alignment: .topTrailing) { notificationBadgeOverlay }
-        .overlay(alignment: .bottomLeading) { indexBadge }
+            .frame(maxWidth: previewSize.maxWidth)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(cardBorder)
+            .overlay(alignment: .topTrailing) { notificationBadgeOverlay }
+            .overlay(alignment: .bottomLeading) { indexBadge }
         .scaleEffect(isHovering ? 1.025 : 1.0)
         .shadow(
             color: isActiveWindow() ? Ember.Palette.amber.opacity(0.5) : .black.opacity(isHovering ? 0.5 : 0.35),
@@ -280,8 +508,13 @@ struct PreviewItemView: View {
     private var inlineTitleBar: some View {
         HStack(spacing: 8) {
             Text(displayTitle)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(isActiveWindow() ? Ember.Palette.amber : .primary.opacity(0.85))
+                .font(.system(size: 11, weight: .semibold))
+                // White-on-gradient: title floats over the thumbnail now,
+                // so we always use a high-contrast color and let the
+                // gradient backdrop carry the legibility. Active windows
+                // get an amber tint that still reads against any wallpaper.
+                .foregroundColor(isActiveWindow() ? Ember.Palette.amber : .white)
+                .shadow(color: .black.opacity(0.4), radius: 1.5, y: 0.5)
                 .lineLimit(1)
                 .truncationMode(.middle)
 
@@ -289,25 +522,50 @@ struct PreviewItemView: View {
 
             if isHovering {
                 HStack(spacing: 4) {
-                    if onMoveToMonitor != nil, availableScreens.count > 1 {
-                        Menu {
-                            ForEach(Array(availableScreens.enumerated()), id: \.offset) { _, screen in
-                                Button {
-                                    onMoveToMonitor?(windowID, screen)
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "display")
-                                        Text(screen.localizedName)
+                    if let onMoveToMonitor = onMoveToMonitor, availableScreens.count > 1 {
+                        if availableScreens.count == 2 {
+                            // One-click: send to the other display immediately.
+                            // The user wanted this behavior — no dropdown, no
+                            // extra confirmation, just move. With 2 displays
+                            // "the other one" is unambiguous.
+                            Button {
+                                if let target = nextScreenForCurrentWindow() {
+                                    onMoveToMonitor(windowID, target)
+                                }
+                            } label: {
+                                titleIconButton(systemName: "rectangle.on.rectangle.angled")
+                            }
+                            .buttonStyle(.plain)
+                            .help("Send to other display")
+                        } else {
+                            // 3+ displays: keep the picker menu. Add a "Next"
+                            // entry at the top so a single click still works
+                            // when the user just wants "wherever".
+                            Menu {
+                                Button("Next display") {
+                                    if let target = nextScreenForCurrentWindow() {
+                                        onMoveToMonitor(windowID, target)
                                     }
                                 }
+                                Divider()
+                                ForEach(Array(availableScreens.enumerated()), id: \.offset) { _, screen in
+                                    Button {
+                                        onMoveToMonitor(windowID, screen)
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: "display")
+                                            Text(screen.localizedName)
+                                        }
+                                    }
+                                }
+                            } label: {
+                                titleIconButton(systemName: "rectangle.on.rectangle.angled")
                             }
-                        } label: {
-                            titleIconButton(systemName: "display")
+                            .menuStyle(.borderlessButton)
+                            .menuIndicator(.hidden)
+                            .fixedSize()
+                            .help("Move to another display")
                         }
-                        .menuStyle(.borderlessButton)
-                        .menuIndicator(.hidden)
-                        .fixedSize()
-                        .help("Move to another monitor")
                     }
 
                     Button { onMinimize(windowID) } label: {
@@ -326,36 +584,98 @@ struct PreviewItemView: View {
             }
         }
         .padding(.horizontal, 10)
-        .frame(height: 26)
-        .background(titleBarBackground)
+        .padding(.vertical, 5)
+        // Stretch to the overlay's full width (== previewBody's width)
+        // so the gradient backdrop spans edge-to-edge of the card. The
+        // overlay parent provides the bound, so this `infinity` doesn't
+        // leak outward.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // Background extends a bit BELOW the text into the thumbnail so
+        // the gradient fade looks natural (text on solid → fade to clear).
+        .background(
+            titleBarBackground
+                .frame(height: 36)
+                .frame(maxHeight: .infinity, alignment: .top),
+            alignment: .top
+        )
     }
 
     private func titleIconButton(systemName: String, destructive: Bool = false) -> some View {
         ZStack {
+            // Slightly stronger backdrop now that the title bar lives over
+            // the thumbnail (no more material strip behind to soften).
             RoundedRectangle(cornerRadius: 4)
-                .fill(destructive ? Ember.Palette.rust.opacity(0.15) : Ember.Palette.smoke.opacity(0.15))
+                .fill(destructive
+                      ? Ember.Palette.rust.opacity(0.85)
+                      : Color.white.opacity(0.22))
             Image(systemName: systemName)
                 .font(.system(size: 8, weight: .bold))
-                .foregroundColor(destructive ? Ember.Palette.rust : .secondary)
+                .foregroundColor(destructive ? .white : .white.opacity(0.95))
         }
         .frame(width: 18, height: 18)
+        .shadow(color: .black.opacity(0.25), radius: 1, y: 0.5)
     }
 
     private var titleBarBackground: some View {
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-            Rectangle()
-                .fill(
-                    isActiveWindow()
-                    ? Ember.Palette.amber.opacity(scheme == .dark ? 0.18 : 0.1)
-                    : Color.clear
-                )
-        }
+        // Gradient backdrop — black at the top fading to clear at the
+        // bottom of the strip. Gives white text legibility over any
+        // thumbnail content without the heavy frosted look that
+        // ultraThinMaterial produces (which also competes with the panel's
+        // Liquid Glass background and creates a "double frost" effect).
+        LinearGradient(
+            colors: [
+                Color.black.opacity(0.55),
+                Color.black.opacity(0.0)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .overlay(
+            isActiveWindow()
+            ? LinearGradient(
+                colors: [
+                    Ember.Palette.amber.opacity(0.18),
+                    Color.clear
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            : nil
+        )
     }
 
     private var displayTitle: String {
         if let t = title, !t.isEmpty { return t }
         return "Window \(windowID)"
+    }
+
+    /// Find the "next" screen relative to the one the window currently
+    /// lives on. Used by the one-click display-toggle button.
+    /// Falls back to the second screen (index 1) if we can't locate
+    /// the current one.
+    private func nextScreenForCurrentWindow() -> NSScreen? {
+        let screens = NSScreen.screens
+        guard screens.count > 1 else { return nil }
+
+        // Locate the screen containing the window's center.
+        let currentScreen: NSScreen? = {
+            guard let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], windowID) as? [[String: Any]],
+                  let first = info.first,
+                  let boundsDict = first[kCGWindowBounds as String] as? [String: Any],
+                  let bounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary),
+                  let primary = screens.first else {
+                return nil
+            }
+            // CG bounds use top-left anchored to primary; convert to Cocoa.
+            let cocoaCenter = CGPoint(x: bounds.midX,
+                                      y: primary.frame.maxY - bounds.midY)
+            return screens.first(where: { $0.frame.contains(cocoaCenter) })
+        }()
+
+        guard let cur = currentScreen, let idx = screens.firstIndex(of: cur) else {
+            return screens.dropFirst().first
+        }
+        return screens[(idx + 1) % screens.count]
     }
 
     // MARK: - Preview Body (actual thumbnail)
@@ -411,7 +731,17 @@ struct PreviewItemView: View {
 
     @ViewBuilder
     private var indexBadge: some View {
-        if SettingsManager.shared.enableDockPreviewKeyboardShortcuts, index < 9 {
+        // The badge is gated by both the master keyboard-shortcut switch
+        // (must be enabled for the hotkeys to do anything) and the visual
+        // hint mode (`always` / `on-keypress` / `never`). The `on-keypress`
+        // mode keeps the badge hidden until the user actually presses a key,
+        // which avoids a noisy permanent overlay for mouse-only users.
+        if SettingsManager.shared.enableDockPreviewKeyboardShortcuts,
+           SettingsManager.shared.dockPreviewKeyboardHintMode != "never",
+           index < 9 {
+            let hintMode = SettingsManager.shared.dockPreviewKeyboardHintMode
+            let visible = (hintMode == "always") || (hintMode == "on-keypress" && keyboardActive)
+
             Text("\(index + 1)")
                 .font(.system(size: 10, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
@@ -434,6 +764,9 @@ struct PreviewItemView: View {
                 )
                 .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
                 .padding(8)
+                .opacity(visible ? 1 : 0)
+                .scaleEffect(visible ? 1 : 0.7)
+                .animation(.easeOut(duration: 0.18), value: visible)
         }
     }
 

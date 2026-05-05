@@ -141,6 +141,33 @@ class SettingsManager: ObservableObject {
         didSet { UserDefaults.standard.set(dockPreviewHoverDelay, forKey: "dockPreviewHoverDelay") }
     }
 
+    // Launch animation when the panel appears.
+    //   "fade-stagger" — current behavior, soft up-fade with staggered delay
+    //   "fan-out"      — cards swoop up from the dock, slight horizontal spread
+    //   "scale-pop"    — quick scale from 0.6→1.0, no offset
+    //   "none"         — no animation, instant appearance
+    @Published var dockPreviewLaunchAnimation: String {
+        didSet { UserDefaults.standard.set(dockPreviewLaunchAnimation, forKey: "dockPreviewLaunchAnimation") }
+    }
+
+    // Background material for the panel.
+    //   "auto"        — Liquid Glass on macOS 26+, ultraThin on older
+    //   "translucent" — always ultraThinMaterial (current default behavior)
+    //   "solid"       — opaque tinted background (best on slow Macs)
+    @Published var dockPreviewMaterial: String {
+        didSet { UserDefaults.standard.set(dockPreviewMaterial, forKey: "dockPreviewMaterial") }
+    }
+
+    // When to show the numeric "1, 2, 3..." keyboard-shortcut badges on cards.
+    // Independent of `enableDockPreviewKeyboardShortcuts` (which gates the
+    // hotkeys themselves); this just controls visual presentation.
+    //   "always"      — always visible (current behavior)
+    //   "on-keypress" — hidden until any key is pressed, then fades in
+    //   "never"       — never show badges (cleaner for mouse-only users)
+    @Published var dockPreviewKeyboardHintMode: String {
+        didSet { UserDefaults.standard.set(dockPreviewKeyboardHintMode, forKey: "dockPreviewKeyboardHintMode") }
+    }
+
     // MARK: - Memory Management Settings
 
     @Published var maxCacheSizeMB: Int {
@@ -270,6 +297,12 @@ class SettingsManager: ObservableObject {
         self.dockSwipeDownAction = UserDefaults.standard.string(forKey: "dockSwipeDownAction") ?? "minimize"
         self.middleClickAction = UserDefaults.standard.string(forKey: "middleClickAction") ?? "close"
         self.dockPreviewHoverDelay = UserDefaults.standard.object(forKey: "dockPreviewHoverDelay") as? Double ?? 0.5
+
+        // Defaults match the previous hard-coded behavior so existing users
+        // see no change after upgrade. New users can flip these in Settings.
+        self.dockPreviewLaunchAnimation = UserDefaults.standard.string(forKey: "dockPreviewLaunchAnimation") ?? "fade-stagger"
+        self.dockPreviewMaterial = UserDefaults.standard.string(forKey: "dockPreviewMaterial") ?? "auto"
+        self.dockPreviewKeyboardHintMode = UserDefaults.standard.string(forKey: "dockPreviewKeyboardHintMode") ?? "always"
 
         // Memory Management Settings
         self.maxCacheSizeMB = UserDefaults.standard.object(forKey: "maxCacheSizeMB") as? Int ?? 100

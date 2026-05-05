@@ -78,7 +78,26 @@ class PreviewPanelController {
             }
         )
 
-        panel.contentViewController = NSHostingController(rootView: contentView)
+        // Build a fresh hosting controller and tell it to track the
+        // SwiftUI view's intrinsic size. Without this, when the same panel
+        // is reused across hover events the contentView's fittingSize can
+        // report a STALE value from the previous show — which is why
+        // hovering a single-window app right after a multi-window one was
+        // leaving a panel sized for the previous content.
+        let host = NSHostingController(rootView: contentView)
+        if #available(macOS 13.0, *) {
+            // `.intrinsicContentSize` re-publishes the SwiftUI ideal size
+            // on every layout pass; `.preferredContentSize` propagates it
+            // up to the panel so window-level sizing can pick it up.
+            host.sizingOptions = [.intrinsicContentSize, .preferredContentSize]
+        }
+        panel.contentViewController = host
+
+        // Force a synchronous layout pass NOW so the call to
+        // `fittingSize` inside `positionPanel` reads the freshly-computed
+        // size for THIS content, not whatever was cached from before.
+        host.view.layoutSubtreeIfNeeded()
+        panel.contentView?.layoutSubtreeIfNeeded()
 
         positionPanel(panel, above: position, dockIconFrame: dockIconFrame)
 
@@ -164,7 +183,18 @@ class PreviewPanelController {
     }
 
     private func positionPanel(_ panel: NSPanel, above point: NSPoint, dockIconFrame: CGRect = .zero) {
-        let panelSize = panel.contentView?.fittingSize ?? .zero
+        // Prefer the hosting controller's view for fittingSize. The panel's
+        // top-level contentView is sometimes a wrapper that caches its
+        // size from the previous controller; the hosting controller's
+        // own `view` reflects the live SwiftUI intrinsic size and is what
+        // we just asked to lay out in `show()`.
+        let panelSize: CGSize = {
+            if let hostView = panel.contentViewController?.view {
+                hostView.layoutSubtreeIfNeeded()
+                return hostView.fittingSize
+            }
+            return panel.contentView?.fittingSize ?? .zero
+        }()
 
         guard let screen = findScreenContaining(point: point) else {
             return
@@ -183,7 +213,16 @@ class PreviewPanelController {
         x = max(screenFrame.minX, min(x, screenFrame.maxX - panelSize.width))
         y = max(screenFrame.minY, min(y, screenFrame.maxY - panelSize.height))
 
-        panel.setFrameOrigin(NSPoint(x: x, y: y))
+        // IMPORTANT: set the full frame (not just origin). Otherwise the
+        // panel keeps whatever size it had before — when the previous app
+        // had 3 windows the panel is wide, then hovering an app with 1
+        // window leaves a wide panel with empty space on the right
+        // because the panel was never resized down to the new content's
+        // fittingSize. Setting the rect both repositions and resizes.
+        panel.setFrame(
+            NSRect(origin: NSPoint(x: x, y: y), size: panelSize),
+            display: false
+        )
     }
 
     private func findScreenContaining(point: NSPoint) -> NSScreen? {

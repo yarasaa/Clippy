@@ -773,11 +773,41 @@ struct WindowsSettingsPane: View {
                     SettingsRow("Show window titles") {
                         Toggle("", isOn: $settings.showWindowTitles).labelsHidden()
                     }
+                    Divider().opacity(0.2)
+                    SettingsRow("Launch animation",
+                                help: "How the panel animates in when you hover the Dock") {
+                        Picker("", selection: $settings.dockPreviewLaunchAnimation) {
+                            Text("Fade stagger").tag("fade-stagger")
+                            Text("Fan-out").tag("fan-out")
+                            Text("Scale pop").tag("scale-pop")
+                            Text("None").tag("none")
+                        }.labelsHidden().frame(width: 130)
+                    }
+                    Divider().opacity(0.2)
+                    SettingsRow("Material",
+                                help: "Auto uses Liquid Glass on macOS 26+, translucent everywhere else") {
+                        Picker("", selection: $settings.dockPreviewMaterial) {
+                            Text("Auto").tag("auto")
+                            Text("Translucent").tag("translucent")
+                            Text("Solid").tag("solid")
+                        }.labelsHidden().frame(width: 130)
+                    }
                 }
 
                 SettingsGroup("Interaction") {
                     SettingsRow("Keyboard shortcuts", help: "1-9, arrows, Enter, ESC") {
                         Toggle("", isOn: $settings.enableDockPreviewKeyboardShortcuts).labelsHidden()
+                    }
+                    if settings.enableDockPreviewKeyboardShortcuts {
+                        Divider().opacity(0.2)
+                        SettingsRow("Show key hints",
+                                    help: "When to show the 1-9 numeric badges and footer") {
+                            Picker("", selection: $settings.dockPreviewKeyboardHintMode) {
+                                Text("Always").tag("always")
+                                Text("On keypress").tag("on-keypress")
+                                Text("Never").tag("never")
+                            }.labelsHidden().frame(width: 130)
+                        }
                     }
                     Divider().opacity(0.2)
                     SettingsRow("Trackpad gestures") {
