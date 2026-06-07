@@ -45,6 +45,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         keywordManager?.startMonitoring()
         clipboardMonitor?.startMonitoring()
 
+        // One-shot prune on launch — clears any overgrowth from
+        // previous versions that didn't have auto-pruning, and trims
+        // anything accumulated while the app was closed (orphaned
+        // image files from a prior crash, etc.).
+        Task.detached(priority: .utility) {
+            await HistoryPruner.shared.pruneNow()
+        }
+
         statusBarController = StatusBarController(clipboardMonitor: clipboardMonitor!)
         clipboardMonitor?.appDelegate = self
 

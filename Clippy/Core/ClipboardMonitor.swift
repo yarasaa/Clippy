@@ -277,7 +277,12 @@ class ClipboardMonitor: ObservableObject {
             newItemEntity.content = imagePath
         }
 
-        applyLimits()
+        // Note: the per-type `applyLimits()` (kept below as dead code
+        // for now) was replaced by `HistoryPruner` — it batches across
+        // 25 inserts on a background context AND protects pinned,
+        // starred, snippet, and encrypted items by predicate, which
+        // the old per-type sweep didn't. notifyInsert() is fired by
+        // saveContext() once the row is actually committed.
         scheduleSave()
     }
 
@@ -1053,41 +1058,26 @@ class ClipboardMonitor: ObservableObject {
         do {
             try viewContext.save()
             NotificationCenter.default.post(name: .keywordsDidChange, object: nil)
+            // Tell the pruner an insert/update happened. It batches
+            // (every Nth insert) so this is cheap on the hot path —
+            // disk cleanup runs on a background context, not here.
+            HistoryPruner.shared.notifyInsert()
         } catch {
             let nsError = error as NSError
         }
     }
-    private func applyLimits() {
-        let settings = SettingsManager.shared
-
-        applyLimit(for: "text", isFavorite: false, limit: settings.historyLimit)
-
-        applyLimit(for: "image", isFavorite: false, limit: settings.imagesLimit, deleteFiles: true)
-
-        applyLimit(for: nil, isFavorite: true, limit: settings.favoritesLimit, deleteFiles: true)
-    }
-
-    private func applyLimit(for contentType: String?, isFavorite: Bool, limit: Int, deleteFiles: Bool = false) {
-        let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
-        var predicates = [NSPredicate(format: "isFavorite == %@", NSNumber(value: isFavorite))]
-        if let type = contentType {
-            predicates.append(NSPredicate(format: "contentType == %@", type))
-        }
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
-        fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \ClipboardItemEntity.date, ascending: false)]
-
-        do {
-            let results = try viewContext.fetch(fetchRequest)
-            if results.count > limit {
-                let itemsToDelete = results.dropFirst(limit)
-                for item in itemsToDelete {
-                    if deleteFiles { deleteImageFile(for: item) }
-                    viewContext.delete(item)
-                }
-            }
-        } catch {
-        }
-    }
+    // applyLimits() / applyLimit(for:isFavorite:limit:) — REMOVED.
+    //
+    // The previous implementation's NSPredicate only filtered by
+    // `isFavorite` and `contentType` — it did NOT exclude `isPinned`.
+    // Result: once the per-type limit was hit (text default = 100),
+    // any non-favorite item was eligible for deletion INCLUDING
+    // pinned ones. That's the source of the "pins keep disappearing
+    // on their own" bug some users reported.
+    //
+    // Replaced by `HistoryPruner` whose predicate explicitly excludes
+    // every protected category: pinned, favorite, snippet (has keyword),
+    // and encrypted.
 }
 
 extension Collection {

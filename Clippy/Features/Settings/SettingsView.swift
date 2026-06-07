@@ -312,31 +312,112 @@ struct GeneralSettingsPane: View {
                 }
             }
 
-            SettingsGroup("Storage", footer: "Clippy stores everything locally. Limits prevent runaway history.") {
-                SettingsRow("History limit", help: "\(settings.historyLimit) items") {
-                    Stepper("", value: $settings.historyLimit, in: 10...100, step: 5).labelsHidden()
+            SettingsGroup("Storage", footer: "Pinned, starred, snippets and encrypted items are never pruned.") {
+                SettingsRow("Auto-prune history",
+                            help: "Delete oldest history items once the limit is reached") {
+                    Toggle("", isOn: $settings.enableHistoryAutoPrune).labelsHidden()
                 }
                 Divider().opacity(0.2)
-                SettingsRow("Starred limit", help: "\(settings.favoritesLimit) items") {
-                    Stepper("", value: $settings.favoritesLimit, in: 10...200, step: 10).labelsHidden()
+                SettingsRow("Text history limit",
+                            help: "\(settings.historyTextLimit) text items kept · oldest deleted") {
+                    Picker("", selection: $settings.historyTextLimit) {
+                        Text("10").tag(10)
+                        Text("25").tag(25)
+                        Text("50").tag(50)
+                        Text("75").tag(75)
+                        Text("100").tag(100)
+                    }
+                    .labelsHidden()
+                    .frame(width: 90)
+                    .disabled(!settings.enableHistoryAutoPrune)
                 }
                 Divider().opacity(0.2)
-                SettingsRow("Images limit", help: "\(settings.imagesLimit) items") {
-                    Stepper("", value: $settings.imagesLimit, in: 5...50, step: 5).labelsHidden()
+                SettingsRow("Image history limit",
+                            help: "\(settings.historyImageLimit) image items kept · files deleted from disk too") {
+                    Picker("", selection: $settings.historyImageLimit) {
+                        Text("5").tag(5)
+                        Text("10").tag(10)
+                        Text("15").tag(15)
+                        Text("20").tag(20)
+                    }
+                    .labelsHidden()
+                    .frame(width: 90)
+                    .disabled(!settings.enableHistoryAutoPrune)
                 }
                 Divider().opacity(0.2)
-                SettingsRow("Max text length", help: "Longer items get truncated") {
+                SettingsRow("Max size of a single text item",
+                            help: "Texts longer than this are truncated when captured — prevents UI freeze on huge pastes") {
                     Picker("", selection: $settings.maxTextStorageLength) {
-                        Text("50K").tag(50_000)
-                        Text("100K").tag(100_000)
-                        Text("500K").tag(500_000)
-                        Text("1M").tag(1_000_000)
+                        Text("50K chars").tag(50_000)
+                        Text("100K chars").tag(100_000)
+                        Text("500K chars").tag(500_000)
+                        Text("1M chars").tag(1_000_000)
                         Text("Unlimited").tag(Int.max)
                     }
                     .labelsHidden()
-                    .frame(width: 120)
+                    .frame(width: 140)
+                }
+                Divider().opacity(0.2)
+                StorageStatsRow()
+            }
+        }
+    }
+}
+
+// MARK: - Storage Stats Row
+//
+// Shows a live "X items, Y MB images" summary plus a Clean Now
+// button that fires a manual prune. Stats refresh on appear and
+// after every manual clean, so the user sees the change immediately.
+private struct StorageStatsRow: View {
+    @State private var stats: HistoryStats?
+    @State private var isWorking = false
+    @State private var lastResult: String?
+
+    var body: some View {
+        SettingsRow("Current usage", help: summary) {
+            Button {
+                cleanNow()
+            } label: {
+                if isWorking {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Text("Clean now")
                 }
             }
+            .disabled(isWorking)
+        }
+        .task { await refreshStats() }
+    }
+
+    private var summary: String {
+        if let last = lastResult { return last }
+        guard let s = stats else { return "Calculating…" }
+        return "\(s.historyItems) history · \(s.totalItems) total · \(s.imagesFormatted) images"
+    }
+
+    private func refreshStats() async {
+        let newStats = await HistoryPruner.shared.currentStats()
+        await MainActor.run { self.stats = newStats }
+    }
+
+    private func cleanNow() {
+        Task {
+            isWorking = true
+            let result = await HistoryPruner.shared.pruneNow()
+            switch result {
+            case .pruned(let count, let bytes, _):
+                let bytesStr = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+                lastResult = "Removed \(count) items, freed \(bytesStr)"
+            case .noWorkNeeded:
+                lastResult = "Already under the limit — nothing to clean"
+            case .skippedDisabled:
+                lastResult = "Auto-prune is disabled"
+            case .failed:
+                lastResult = "Clean failed — check Console for details"
+            }
+            await refreshStats()
+            isWorking = false
         }
     }
 }

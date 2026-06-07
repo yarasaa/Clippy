@@ -24,15 +24,12 @@ class SettingsManager: ObservableObject {
     @Published var showFavoritesTab: Bool {
         didSet { UserDefaults.standard.set(showFavoritesTab, forKey: "showFavoritesTab") }
     }
-    @Published var historyLimit: Int {
-        didSet { UserDefaults.standard.set(historyLimit, forKey: "historyLimit") }
-    }
-    @Published var favoritesLimit: Int {
-        didSet { UserDefaults.standard.set(favoritesLimit, forKey: "favoritesLimit") }
-    }
-    @Published var imagesLimit: Int {
-        didSet { UserDefaults.standard.set(imagesLimit, forKey: "imagesLimit") }
-    }
+    // historyLimit / favoritesLimit / imagesLimit — REMOVED.
+    // These powered the old per-type `applyLimits()` system in
+    // ClipboardMonitor (also removed) which had a pin-loss bug —
+    // see the comment in ClipboardMonitor.saveContext for details.
+    // Replaced by a single `maxHistoryItems` setting consumed by
+    // HistoryPruner with proper protected-category support.
     @Published var popoverWidth: Int {
         didSet { UserDefaults.standard.set(popoverWidth, forKey: "popoverWidth") }
     }
@@ -168,6 +165,32 @@ class SettingsManager: ObservableObject {
         didSet { UserDefaults.standard.set(dockPreviewKeyboardHintMode, forKey: "dockPreviewKeyboardHintMode") }
     }
 
+    // MARK: - Storage / History Pruning
+
+    /// When true, history items beyond `maxHistoryItems` are
+    /// automatically deleted (along with any image files they
+    /// reference). Pinned, starred, snippet and encrypted items
+    /// are never pruned.
+    @Published var enableHistoryAutoPrune: Bool {
+        didSet { UserDefaults.standard.set(enableHistoryAutoPrune, forKey: "enableHistoryAutoPrune") }
+    }
+
+    /// Max text history items kept on disk (and shown in popover).
+    /// Anything older beyond this is hard-deleted. Protected items
+    /// (pinned, starred, snippet, encrypted) don't count toward the
+    /// cap and are never deleted by the pruner.
+    @Published var historyTextLimit: Int {
+        didSet { UserDefaults.standard.set(historyTextLimit, forKey: "historyTextLimit") }
+    }
+
+    /// Max IMAGE history items kept on disk — separate from text
+    /// because each image is 100×–1000× larger on disk than a text
+    /// item. When an image row is pruned, its file under
+    /// `Application Support/Clippy/Images/` is removed too.
+    @Published var historyImageLimit: Int {
+        didSet { UserDefaults.standard.set(historyImageLimit, forKey: "historyImageLimit") }
+    }
+
     // MARK: - Memory Management Settings
 
     @Published var maxCacheSizeMB: Int {
@@ -260,9 +283,8 @@ class SettingsManager: ObservableObject {
         self.showImagesTab = UserDefaults.standard.object(forKey: "showImagesTab") as? Bool ?? true
         self.showSnippetsTab = UserDefaults.standard.object(forKey: "showSnippetsTab") as? Bool ?? true
         self.showFavoritesTab = UserDefaults.standard.object(forKey: "showFavoritesTab") as? Bool ?? true
-        self.historyLimit = UserDefaults.standard.object(forKey: "historyLimit") as? Int ?? 20
-        self.favoritesLimit = UserDefaults.standard.object(forKey: "favoritesLimit") as? Int ?? 50
-        self.imagesLimit = UserDefaults.standard.object(forKey: "imagesLimit") as? Int ?? 5
+        // Removed: historyLimit / favoritesLimit / imagesLimit
+        // (see note next to their @Published declarations)
         self.popoverWidth = UserDefaults.standard.object(forKey: "popoverWidth") as? Int ?? 380
         self.popoverHeight = UserDefaults.standard.object(forKey: "popoverHeight") as? Int ?? 450
         self.appTheme = UserDefaults.standard.string(forKey: "appTheme") ?? "system"
@@ -304,6 +326,31 @@ class SettingsManager: ObservableObject {
         self.dockPreviewMaterial = UserDefaults.standard.string(forKey: "dockPreviewMaterial") ?? "auto"
         self.dockPreviewKeyboardHintMode = UserDefaults.standard.string(forKey: "dockPreviewKeyboardHintMode") ?? "always"
 
+        // Storage / history pruning. Default ON so the store doesn't
+        // grow unbounded over months of use — a real performance
+        // problem reported by long-running installs.
+        self.enableHistoryAutoPrune = UserDefaults.standard.object(forKey: "enableHistoryAutoPrune") as? Bool ?? true
+        // Migrate from old per-type settings (`historyLimit` /
+        // `imagesLimit`) if present, so upgrading users keep the
+        // values they had chosen instead of getting reset to defaults.
+        let oldHistoryLimit = UserDefaults.standard.object(forKey: "historyLimit") as? Int
+        let oldImagesLimit = UserDefaults.standard.object(forKey: "imagesLimit") as? Int
+
+        if let oldText = oldHistoryLimit,
+           UserDefaults.standard.object(forKey: "historyTextLimit") == nil {
+            UserDefaults.standard.set(oldText, forKey: "historyTextLimit")
+        }
+        if let oldImage = oldImagesLimit,
+           UserDefaults.standard.object(forKey: "historyImageLimit") == nil {
+            UserDefaults.standard.set(oldImage, forKey: "historyImageLimit")
+        }
+
+        // Defaults match the old system's "comfortable" baseline.
+        // Range is constrained in the picker — 10-100 for text,
+        // 5-20 for images — to keep disk usage predictable.
+        self.historyTextLimit = UserDefaults.standard.object(forKey: "historyTextLimit") as? Int ?? 100
+        self.historyImageLimit = UserDefaults.standard.object(forKey: "historyImageLimit") as? Int ?? 20
+
         // Memory Management Settings
         self.maxCacheSizeMB = UserDefaults.standard.object(forKey: "maxCacheSizeMB") as? Int ?? 100
         self.enableMemoryPressureHandling = UserDefaults.standard.object(forKey: "enableMemoryPressureHandling") as? Bool ?? true
@@ -324,7 +371,12 @@ class SettingsManager: ObservableObject {
         self.maxTextStorageLength = UserDefaults.standard.object(forKey: "maxTextStorageLength") as? Int ?? 500000
 
         // Quick Preview Overlay
-        self.enableQuickPreview = UserDefaults.standard.object(forKey: "enableQuickPreview") as? Bool ?? false
+        // Default ON for new users — Quick Preview is one of Clippy's
+        // most loved features and discoverability is poor when the
+        // hotkey overlay starts disabled. Existing users keep whatever
+        // they explicitly chose (UserDefaults.object returns nil only
+        // for never-set keys, so this can't override a user's "off").
+        self.enableQuickPreview = UserDefaults.standard.object(forKey: "enableQuickPreview") as? Bool ?? true
         self.quickPreviewHotkeyKey = UserDefaults.standard.string(forKey: "quickPreviewHotkeyKey") ?? "v"
         self.quickPreviewHotkeyModifiers = UserDefaults.standard.object(forKey: "quickPreviewHotkeyModifiers") as? UInt ?? 1572864 // Cmd+Option
         self.quickPreviewItemCount = UserDefaults.standard.object(forKey: "quickPreviewItemCount") as? Int ?? 10

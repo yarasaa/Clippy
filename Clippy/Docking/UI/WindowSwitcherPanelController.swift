@@ -101,9 +101,28 @@ class WindowSwitcherPanelController: ObservableObject {
     var panel: KeyInterceptingPanel?
     var onWindowSelect: ((CGWindowID) -> Void)?
     var onCycleSelection: (() -> Void)?
+    /// Fires when the user releases the Option modifier — the gesture
+    /// equivalent of "commit my selection" on a macOS Cmd+Tab switcher.
+    /// Coordinator hooks this up to raise the selected window and close
+    /// the panel.
+    var onConfirmSelection: (() -> Void)?
+    /// Shift+Tab — cycle backward through items.
+    var onCyclePrevious: (() -> Void)?
     private var ignoreNextTab: Bool = false
     private var hostingController: NSHostingController<WindowSwitcherPanelView>?
-    private var flagsChangedEventMonitor: Any?
+
+    // Both global AND local monitors. NSEvent's global monitor doesn't
+    // fire while OUR app is frontmost, which is exactly what happens
+    // when the switcher panel becomes key — so option-release events
+    // delivered to our process get silently dropped. The local monitor
+    // catches those. Together they cover every focus state.
+    private var flagsChangedGlobalMonitor: Any?
+    private var flagsChangedLocalMonitor: Any?
+
+    // Safety poll: if for any reason a flagsChanged event is dropped
+    // (system load, focus weirdness, etc.) we still close the panel
+    // within ~150ms by checking the modifier state directly.
+    private var optionCheckTimer: Timer?
 
     @Published var selectedItemID: CGWindowID?
 
@@ -126,12 +145,28 @@ class WindowSwitcherPanelController: ObservableObject {
 
             panel?.onKeyDown = { [weak self] event in
                 guard let self = self else { return }
-                if event.keyCode == 48 {
+
+                switch event.keyCode {
+                case 48:  // Tab — cycle forward (shift+tab → cycle backward)
                     if self.ignoreNextTab {
                         self.ignoreNextTab = false
                         return
                     }
+                    if event.modifierFlags.contains(.shift) {
+                        self.onCyclePrevious?()
+                    } else {
+                        self.onCycleSelection?()
+                    }
+                case 123, 126:  // Left arrow, Up arrow — previous
+                    self.onCyclePrevious?()
+                case 124, 125:  // Right arrow, Down arrow — next
                     self.onCycleSelection?()
+                case 36, 76:  // Return / Enter — confirm selection
+                    self.onConfirmSelection?()
+                case 53:  // Escape — dismiss without raising
+                    self.hide()
+                default:
+                    break
                 }
             }
 
@@ -234,23 +269,71 @@ class WindowSwitcherPanelController: ObservableObject {
         stopOptionKeyMonitor()
     }
 
-    // MARK: - Option Key Monitoring (Event-Driven)
+    // MARK: - Option Key Monitoring (Event-Driven + Safety Poll)
 
+    /// "Release Option to commit" is the gesture this switcher mimics
+    /// (like Cmd+Tab on stock macOS). Two layers of detection ensure
+    /// it actually fires every time:
+    ///   1) Global + local NSEvent monitors for `.flagsChanged` — the
+    ///      fast path, ~0ms latency. Local catches events delivered to
+    ///      our own app (switcher panel is key), global catches the
+    ///      ones delivered elsewhere. Either alone misses cases.
+    ///   2) A 150ms safety poll that reads
+    ///      `NSEvent.modifierFlags.contains(.option)` directly — used
+    ///      whenever a flagsChanged event is dropped (system load,
+    ///      focus weirdness, fast key release timing on race).
+    /// When option is detected as released we call `confirmSelection`
+    /// — raise the highlighted window — rather than just dismissing.
     private func startOptionKeyMonitor() {
-        guard flagsChangedEventMonitor == nil else { return }
-        flagsChangedEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            DispatchQueue.main.async {
-                if !event.modifierFlags.contains(.option) {
-                    self?.hide()
-                }
+        stopOptionKeyMonitor()  // defensive: never double-install
+
+        let onRelease: (NSEvent.ModifierFlags) -> Void = { [weak self] flags in
+            guard let self = self else { return }
+            if !flags.contains(.option) {
+                self.handleOptionReleased()
+            }
+        }
+
+        flagsChangedGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { event in
+            DispatchQueue.main.async { onRelease(event.modifierFlags) }
+        }
+        flagsChangedLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+            DispatchQueue.main.async { onRelease(event.modifierFlags) }
+            return event
+        }
+
+        // Belt-and-braces poll. 150ms is fast enough to feel
+        // instant, slow enough to be CPU-invisible.
+        optionCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            if !NSEvent.modifierFlags.contains(.option) {
+                self.handleOptionReleased()
             }
         }
     }
 
     private func stopOptionKeyMonitor() {
-        if let monitor = flagsChangedEventMonitor {
+        if let monitor = flagsChangedGlobalMonitor {
             NSEvent.removeMonitor(monitor)
-            flagsChangedEventMonitor = nil
+            flagsChangedGlobalMonitor = nil
+        }
+        if let monitor = flagsChangedLocalMonitor {
+            NSEvent.removeMonitor(monitor)
+            flagsChangedLocalMonitor = nil
+        }
+        optionCheckTimer?.invalidate()
+        optionCheckTimer = nil
+    }
+
+    private func handleOptionReleased() {
+        // Stop monitors immediately so we don't fire multiple times
+        // when global + local + poll race each other on the same event.
+        stopOptionKeyMonitor()
+        if let onConfirmSelection = onConfirmSelection {
+            onConfirmSelection()
+        } else {
+            // No handler wired — fall back to plain dismissal.
+            hide()
         }
     }
 }

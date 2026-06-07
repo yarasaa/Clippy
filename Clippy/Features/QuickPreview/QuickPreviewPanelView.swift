@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 
 struct QuickPreviewPanelView: View {
     let items: [ClipboardItemEntity]
+    @ObservedObject var state: QuickPreviewState
     let onPaste: (ClipboardItemEntity) -> Void
     let onDismiss: () -> Void
     var onDragStarted: (() -> Void)? = nil
@@ -26,32 +27,52 @@ struct QuickPreviewPanelView: View {
             if items.isEmpty {
                 emptyView
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 3) {
-                        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                            QuickPreviewItemRow(
-                                item: item,
-                                index: index,
-                                isHovered: hoveredIndex == index,
-                                onPaste: { onPaste(item) }
-                            )
-                            .onHover { isHovered in
-                                hoveredIndex = isHovered ? index : nil
-                            }
-                            .onDrag {
-                                onDragStarted?()
-                                if item.contentType == "text", let text = item.content {
-                                    return NSItemProvider(object: text as NSString)
-                                } else if item.contentType == "image", let path = item.content,
-                                          let url = imageURL(from: path) {
-                                    return NSItemProvider(object: url as NSURL)
+                // ScrollViewReader gives us scrollTo(index:) so the
+                // keyboard-driven selection stays visible — arrowing
+                // past the bottom of the visible area would otherwise
+                // hide the highlighted row.
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 3) {
+                            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                                QuickPreviewItemRow(
+                                    item: item,
+                                    index: index,
+                                    isHovered: hoveredIndex == index,
+                                    isSelected: state.selectedIndex == index,
+                                    onPaste: { onPaste(item) }
+                                )
+                                .id(index)
+                                .onHover { isHovered in
+                                    hoveredIndex = isHovered ? index : nil
+                                    // Sync keyboard selection with mouse so
+                                    // that pressing Enter after hovering a
+                                    // row pastes that row (matches user
+                                    // intuition — "the one I'm pointing at").
+                                    if isHovered {
+                                        state.selectedIndex = index
+                                    }
                                 }
-                                return NSItemProvider()
+                                .onDrag {
+                                    onDragStarted?()
+                                    if item.contentType == "text", let text = item.content {
+                                        return NSItemProvider(object: text as NSString)
+                                    } else if item.contentType == "image", let path = item.content,
+                                              let url = imageURL(from: path) {
+                                        return NSItemProvider(object: url as NSURL)
+                                    }
+                                    return NSItemProvider()
+                                }
                             }
                         }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 8)
                     }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 8)
+                    .onChange(of: state.selectedIndex) { newIndex in
+                        withAnimation(.easeOut(duration: 0.18)) {
+                            proxy.scrollTo(newIndex, anchor: .center)
+                        }
+                    }
                 }
             }
 
@@ -154,8 +175,9 @@ struct QuickPreviewPanelView: View {
 
     private var footerHints: some View {
         HStack(spacing: Ember.Space.md) {
-            hintPair(keys: "1-9", label: "paste")
             hintPair(keys: "↑↓", label: "navigate")
+            hintPair(keys: "⏎", label: "paste")
+            hintPair(keys: "1-9", label: "jump")
             hintPair(keys: "esc", label: "close")
             Spacer()
         }
@@ -196,10 +218,19 @@ struct QuickPreviewItemRow: View {
     let item: ClipboardItemEntity
     let index: Int
     let isHovered: Bool
+    /// True when this row is the keyboard-selected one (driven by
+    /// `QuickPreviewState.selectedIndex` from the controller).
+    let isSelected: Bool
     let onPaste: () -> Void
 
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) private var scheme
+
+    /// Highlight if EITHER the mouse is hovering this row OR the
+    /// keyboard cursor is on it. The view doesn't need to distinguish
+    /// between the two — both indicate "this is the one that will
+    /// paste if the user commits".
+    private var isHighlighted: Bool { isHovered || isSelected }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -242,12 +273,12 @@ struct QuickPreviewItemRow: View {
     private var numberBadge: some View {
         Text("\(index + 1)")
             .font(.system(size: 10, weight: .bold, design: .rounded))
-            .foregroundColor(isHovered ? .white : Ember.secondaryText(scheme))
+            .foregroundColor(isHighlighted ? .white : Ember.secondaryText(scheme))
             .frame(width: 18, height: 18)
             .background(
                 Circle()
                     .fill(
-                        isHovered
+                        isHighlighted
                         ? AnyShapeStyle(
                             LinearGradient(
                                 colors: [Ember.Palette.amber, Ember.Palette.amberDark],
@@ -258,7 +289,7 @@ struct QuickPreviewItemRow: View {
                         : AnyShapeStyle(Ember.Palette.smoke.opacity(0.2))
                     )
             )
-            .animation(Ember.Motion.snap, value: isHovered)
+            .animation(Ember.Motion.snap, value: isHighlighted)
     }
 
     private var iconBackground: some ShapeStyle {
@@ -269,7 +300,7 @@ struct QuickPreviewItemRow: View {
 
     private var rowBackground: some View {
         Group {
-            if isHovered {
+            if isHighlighted {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(
                         LinearGradient(

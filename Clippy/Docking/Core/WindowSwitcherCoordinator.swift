@@ -35,6 +35,17 @@ final class WindowSwitcherCoordinator {
         panelController.onCycleSelection = { [weak self] in
             self?.cycleSelection()
         }
+        panelController.onCyclePrevious = { [weak self] in
+            self?.cycleSelection(reverse: true)
+        }
+        // Releasing Option commits the selection — mirrors how stock
+        // macOS Cmd+Tab raises the chosen app when Cmd is released.
+        // Without this, the option-up monitor was just hiding the
+        // panel with no follow-through, so users would see the
+        // switcher and then... nothing happened.
+        panelController.onConfirmSelection = { [weak self] in
+            self?.confirmSelectionAndHide()
+        }
     }
 
     func handleTab() {
@@ -111,11 +122,18 @@ final class WindowSwitcherCoordinator {
         return switcherItems
     }
 
-    private func cycleSelection() {
+    /// Cycle selection forward (or backward with `reverse: true`).
+    /// Used by Tab / Shift+Tab and arrow keys.
+    private func cycleSelection(reverse: Bool = false) {
         guard !items.isEmpty else { return }
         var nextIndex = 0
-        if let currentId = panelController.selectedItemID, let currentIndex = items.firstIndex(where: { $0.id == currentId }) {
-            nextIndex = (currentIndex + 1) % items.count
+        if let currentId = panelController.selectedItemID,
+           let currentIndex = items.firstIndex(where: { $0.id == currentId }) {
+            if reverse {
+                nextIndex = (currentIndex - 1 + items.count) % items.count
+            } else {
+                nextIndex = (currentIndex + 1) % items.count
+            }
         }
         panelController.selectedItemID = items[nextIndex].id
     }

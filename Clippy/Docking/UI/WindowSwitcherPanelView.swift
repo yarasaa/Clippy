@@ -10,16 +10,29 @@ struct WindowSwitcherPanelView: View {
     ]
 
     var body: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 24) {
-                ForEach(items) { item in
-                    WindowSwitcherItemView(item: item, isSelected: item.id == panelController.selectedItemID)
-                        .onTapGesture {
-                            onItemSelect(item.windowID)
-                        }
+        // ScrollViewReader so we can scroll the keyboard-selected item
+        // into view when cycling past the last visible card on screen
+        // (the original layout had the second row clipped because tab
+        // never scrolled the grid).
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 24) {
+                    ForEach(items) { item in
+                        WindowSwitcherItemView(item: item, isSelected: item.id == panelController.selectedItemID)
+                            .id(item.id)
+                            .onTapGesture {
+                                onItemSelect(item.windowID)
+                            }
+                    }
+                }
+                .padding()
+            }
+            .onChange(of: panelController.selectedItemID) { newID in
+                guard let newID else { return }
+                withAnimation(.easeOut(duration: 0.18)) {
+                    proxy.scrollTo(newID, anchor: .center)
                 }
             }
-            .padding()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -47,26 +60,38 @@ struct WindowSwitcherItemView: View {
                 Spacer()
             }
 
-            Image(nsImage: item.previewImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Ember.Palette.amber, Ember.Palette.amberDark],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            ),
-                            lineWidth: isSelected ? 3 : 0
-                        )
-                )
-                .shadow(
-                    color: isSelected ? Ember.Palette.amber.opacity(0.5) : .black.opacity(isHovering ? 0.45 : 0.3),
-                    radius: isSelected ? 14 : (isHovering ? 8 : 5),
-                    y: isSelected ? 6 : 2
-                )
-                .scaleEffect(isSelected ? 1.04 : (isHovering ? 1.02 : 1.0))
+            // Uniform 16:10 card container so portrait windows
+            // (Simulator, Books, etc.) don't stretch the row height.
+            // The image fits inside, letterboxed against a soft
+            // backdrop, keeping every card the same size regardless
+            // of the source window's aspect ratio.
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.black.opacity(0.18))
+
+                Image(nsImage: item.previewImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .padding(4)
+            }
+            .aspectRatio(16.0 / 10.0, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Ember.Palette.amber, Ember.Palette.amberDark],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: isSelected ? 3 : 0
+                    )
+            )
+            .shadow(
+                color: isSelected ? Ember.Palette.amber.opacity(0.5) : .black.opacity(isHovering ? 0.45 : 0.3),
+                radius: isSelected ? 14 : (isHovering ? 8 : 5),
+                y: isSelected ? 6 : 2
+            )
+            .scaleEffect(isSelected ? 1.04 : (isHovering ? 1.02 : 1.0))
 
             if let title = item.windowTitle, !title.isEmpty {
                 Text(title)

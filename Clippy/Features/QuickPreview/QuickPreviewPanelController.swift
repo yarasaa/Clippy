@@ -5,7 +5,18 @@
 
 import AppKit
 import SwiftUI
+import Combine
 import CoreData
+
+/// Shared selection state between the AppKit-side keyboard handler and
+/// the SwiftUI panel view. The controller drives `selectedIndex` from
+/// arrow-key events; the SwiftUI view observes it to highlight the
+/// active row and scroll it into view. Using an ObservableObject (vs.
+/// recreating the view on every change) keeps the panel render cheap.
+@MainActor
+final class QuickPreviewState: ObservableObject {
+    @Published var selectedIndex: Int = 0
+}
 
 class QuickPreviewPanelController {
     static let shared = QuickPreviewPanelController()
@@ -13,6 +24,7 @@ class QuickPreviewPanelController {
     // Bug 1 fix: KeyInterceptingPanel (canBecomeKey = true, onKeyDown callback)
     private var panel: KeyInterceptingPanel?
     private var items: [ClipboardItemEntity] = []
+    private let state = QuickPreviewState()
 
     // Bug 3 fix: Hedef uygulamayı panel açılmadan önce kaydet
     private var previousApp: NSRunningApplication?
@@ -61,6 +73,11 @@ class QuickPreviewPanelController {
             return
         }
 
+        // Always start a new panel session with the first row selected
+        // so the user can press Enter immediately to paste the latest
+        // clipboard entry — the most common Quick Preview action.
+        state.selectedIndex = 0
+
         if panel == nil {
             // Bug 1 fix: KeyInterceptingPanel kullan (NSPanel yerine)
             let newPanel = KeyInterceptingPanel(
@@ -94,6 +111,7 @@ class QuickPreviewPanelController {
 
         let view = QuickPreviewPanelView(
             items: items,
+            state: state,
             onPaste: { [weak self] item in
                 self?.pasteAndClose(item: item)
             },
@@ -267,6 +285,32 @@ class QuickPreviewPanelController {
         // ESC to dismiss
         if event.keyCode == 53 {
             hide()
+            return
+        }
+
+        // Arrow Down (125) — move selection forward, wrap to top at end.
+        if event.keyCode == 125 {
+            guard !items.isEmpty else { return }
+            state.selectedIndex = (state.selectedIndex + 1) % items.count
+            return
+        }
+
+        // Arrow Up (126) — move selection backward, wrap to bottom at start.
+        if event.keyCode == 126 {
+            guard !items.isEmpty else { return }
+            state.selectedIndex = (state.selectedIndex - 1 + items.count) % items.count
+            return
+        }
+
+        // Return (36) or Enter on numpad (76) — paste the currently selected item.
+        // The footer hint "↑↓ navigate" implies this is the keyboard-paste path;
+        // without it the navigation would be visual-only, which is what issue #6
+        // reported (footer advertised a feature that wasn't wired up).
+        if event.keyCode == 36 || event.keyCode == 76 {
+            guard !items.isEmpty,
+                  state.selectedIndex >= 0,
+                  state.selectedIndex < items.count else { return }
+            pasteAndClose(item: items[state.selectedIndex])
             return
         }
 
