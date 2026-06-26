@@ -476,7 +476,7 @@ struct FeaturesSettingsPane: View {
                 if settings.enableQuickPreview {
                     Divider().opacity(0.2)
                     SettingsRow("Number of items", help: "\(settings.quickPreviewItemCount) items shown") {
-                        Stepper("", value: $settings.quickPreviewItemCount, in: 3...15).labelsHidden()
+                        Stepper("", value: $settings.quickPreviewItemCount, in: 3...50).labelsHidden()
                     }
                     Divider().opacity(0.2)
                     SettingsRow("Auto-close after paste") {

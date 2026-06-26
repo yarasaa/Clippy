@@ -49,7 +49,17 @@ struct QuickPreviewPanelView: View {
                                     // that pressing Enter after hovering a
                                     // row pastes that row (matches user
                                     // intuition — "the one I'm pointing at").
+                                    //
+                                    // Tagging the source as `.hover` prevents
+                                    // the scroll-snap loop reported in #8:
+                                    // wheel scroll → hover changes → selection
+                                    // updates → onChange fires → scrollTo
+                                    // jumps the wheel. We update selection
+                                    // (so Enter still works on the hovered
+                                    // row) but skip the auto-scroll for
+                                    // hover-sourced changes.
                                     if isHovered {
+                                        state.lastSelectionSource = .hover
                                         state.selectedIndex = index
                                     }
                                 }
@@ -69,6 +79,11 @@ struct QuickPreviewPanelView: View {
                         .padding(.horizontal, 8)
                     }
                     .onChange(of: state.selectedIndex) { newIndex in
+                        // Only auto-scroll when the user is driving via
+                        // keyboard. Hover-sourced changes would otherwise
+                        // hijack the scroll wheel and snap the panel
+                        // through rows in groups of 4-5 (issue #8).
+                        guard state.lastSelectionSource == .keyboard else { return }
                         withAnimation(.easeOut(duration: 0.18)) {
                             proxy.scrollTo(newIndex, anchor: .center)
                         }

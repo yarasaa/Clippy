@@ -11,11 +11,20 @@ import CoreData
 /// Shared selection state between the AppKit-side keyboard handler and
 /// the SwiftUI panel view. The controller drives `selectedIndex` from
 /// arrow-key events; the SwiftUI view observes it to highlight the
-/// active row and scroll it into view. Using an ObservableObject (vs.
-/// recreating the view on every change) keeps the panel render cheap.
+/// active row and (sometimes) scroll it into view. Using an
+/// ObservableObject keeps the panel render cheap.
 @MainActor
 final class QuickPreviewState: ObservableObject {
     @Published var selectedIndex: Int = 0
+
+    /// Where the most recent `selectedIndex` change came from.
+    /// Used by the view to decide whether to auto-scroll: keyboard
+    /// nav SHOULD scroll the row into view, but hover-sync MUST NOT,
+    /// otherwise scrolling the wheel triggers a hover → selection
+    /// change → scrollTo loop that snaps the wheel through middle
+    /// items 5-at-a-time (reported in issue #8).
+    enum SelectionSource { case keyboard, hover }
+    @Published var lastSelectionSource: SelectionSource = .keyboard
 }
 
 class QuickPreviewPanelController {
@@ -291,6 +300,7 @@ class QuickPreviewPanelController {
         // Arrow Down (125) — move selection forward, wrap to top at end.
         if event.keyCode == 125 {
             guard !items.isEmpty else { return }
+            state.lastSelectionSource = .keyboard
             state.selectedIndex = (state.selectedIndex + 1) % items.count
             return
         }
@@ -298,6 +308,7 @@ class QuickPreviewPanelController {
         // Arrow Up (126) — move selection backward, wrap to bottom at start.
         if event.keyCode == 126 {
             guard !items.isEmpty else { return }
+            state.lastSelectionSource = .keyboard
             state.selectedIndex = (state.selectedIndex - 1 + items.count) % items.count
             return
         }

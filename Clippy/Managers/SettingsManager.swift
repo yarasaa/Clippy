@@ -12,6 +12,16 @@ import Combine
 class SettingsManager: ObservableObject {
     static let shared = SettingsManager()
 
+    /// Returns whichever value in `options` is closest to `value`.
+    /// Used by the storage-limit init to coerce legacy UserDefaults
+    /// values (e.g. an old `historyLimit = 20`) onto the picker's
+    /// discrete tag list — otherwise SwiftUI logs "selection is
+    /// invalid" and renders the picker blank.
+    static func nearest(_ value: Int, in options: [Int]) -> Int {
+        guard !options.isEmpty else { return value }
+        return options.min(by: { abs($0 - value) < abs($1 - value) }) ?? value
+    }
+
     @Published var showCodeTab: Bool {
         didSet { UserDefaults.standard.set(showCodeTab, forKey: "showCodeTab") }
     }
@@ -345,11 +355,35 @@ class SettingsManager: ObservableObject {
             UserDefaults.standard.set(oldImage, forKey: "historyImageLimit")
         }
 
-        // Defaults match the old system's "comfortable" baseline.
-        // Range is constrained in the picker — 10-100 for text,
-        // 5-20 for images — to keep disk usage predictable.
-        self.historyTextLimit = UserDefaults.standard.object(forKey: "historyTextLimit") as? Int ?? 100
-        self.historyImageLimit = UserDefaults.standard.object(forKey: "historyImageLimit") as? Int ?? 20
+        // Snap to the nearest picker option. The old system allowed
+        // arbitrary values in steps of 5 (e.g. 15, 20, 55) but the
+        // new picker only has discrete tags (10, 25, 50, 75, 100).
+        // Without snapping, an upgrading user with `historyLimit = 20`
+        // sees a blank picker and the console logs
+        // "selection 20 is invalid and does not have an associated tag".
+        // Snap once on load — picker always renders a valid choice.
+        let textOptions = [10, 25, 50, 75, 100]
+        let imageOptions = [5, 10, 15, 20]
+
+        let rawText = UserDefaults.standard.object(forKey: "historyTextLimit") as? Int ?? 100
+        let rawImage = UserDefaults.standard.object(forKey: "historyImageLimit") as? Int ?? 20
+
+        let snappedText = SettingsManager.nearest(rawText, in: textOptions)
+        let snappedImage = SettingsManager.nearest(rawImage, in: imageOptions)
+
+        // Write the snapped values back so subsequent loads are
+        // already valid and we don't keep silently coercing every
+        // launch (also stops the picker from oscillating if the
+        // user closes Settings without making a choice).
+        if snappedText != rawText {
+            UserDefaults.standard.set(snappedText, forKey: "historyTextLimit")
+        }
+        if snappedImage != rawImage {
+            UserDefaults.standard.set(snappedImage, forKey: "historyImageLimit")
+        }
+
+        self.historyTextLimit = snappedText
+        self.historyImageLimit = snappedImage
 
         // Memory Management Settings
         self.maxCacheSizeMB = UserDefaults.standard.object(forKey: "maxCacheSizeMB") as? Int ?? 100
