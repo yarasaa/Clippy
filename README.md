@@ -39,6 +39,10 @@ All **on your Mac**. No accounts. No cloud. No telemetry.
 
 | | |
 |---|---|
+| 🔍 **Searchable screenshots** — auto-OCR reads every image on-device, so you can search text you only ever *saw* in a picture | <img src="docs/screenshots/27-searchable-ocr.png" width="280"> |
+| 🎯 **Smart detection** — phones, emails, dates, addresses, and sensitive data (cards, IBANs, API keys) become one-tap actions | <img src="docs/screenshots/28-ocr-badges.png" width="280"> |
+| 🔤 **Live Text** — select text right on any screenshot, just like Photos | <img src="docs/screenshots/29-live-text.png" width="280"> |
+| 🌍 **Language badges** — screenshots are tagged with their detected language | <img src="docs/screenshots/31-language-badge.png" width="280"> |
 | 📋 **Smart clipboard history** with content-aware previews for URLs, colors, JSON, code, images | <img src="docs/screenshots/01-main-popover.png" width="280"> |
 | 🎯 **Hover actions** — Paste, Star, Pin, AI transform appear the moment you need them | <img src="docs/screenshots/02-card-hover.png" width="280"> |
 | ⚡ **Quick Preview** — hit the hotkey, paste from the last N items in a floating overlay | <img src="docs/screenshots/13-quick-preview.png" width="280"> |
@@ -53,6 +57,39 @@ All **on your Mac**. No accounts. No cloud. No telemetry.
 ---
 
 ## Highlights
+
+### 🔍 Searchable screenshots (Auto-OCR)
+
+Copy any image and Clippy reads the text inside it in the background — on-device, private, and free. Search for a word you only ever *saw* in a screenshot and it comes right up. Powered by Apple Vision, it recognizes **30+ languages** automatically with no setup.
+
+<p align="center">
+  <img src="docs/screenshots/27-searchable-ocr.png" alt="Searching screenshots by their OCR text" width="420">
+</p>
+
+### 🎯 Smart content detection
+
+Clippy spots actionable content — in both **text and screenshots** — and turns it into one-tap actions:
+
+- **📞 Phone / ✉️ Email / 🔗 URL** — tap to call, mail, or open
+- **📅 Dates** — add straight to Calendar
+- **📍 Addresses** — open in Maps
+- **🔒 Sensitive data** — credit cards, IBANs, API keys, and TC kimlik are detected (with checksum validation) and Clippy offers to encrypt them
+
+<p align="center">
+  <img src="docs/screenshots/28-ocr-badges.png" alt="Actionable badges on a screenshot, with the encrypt suggestion" width="420">
+</p>
+
+### 🔤 Live Text
+
+Open any screenshot in the detail window and select the text **right on the image** — just like Photos. Copy it, tap links, done. Language flags tell you what Clippy detected at a glance.
+
+<p align="center">
+  <img src="docs/screenshots/29-live-text.png" alt="Selecting text directly on a screenshot with Live Text" width="640">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/31-language-badge.png" alt="Screenshots tagged with detected-language flags" width="420">
+</p>
 
 ### Smart clipboard history
 
@@ -198,13 +235,20 @@ format, star, pin, encrypt, combine images, delete.
 ### AI text transformations
 
 Run Summarize, Expand, Fix Grammar, Translate (30+ languages), Bullet
-Points, Draft Email, and code-specific actions (Explain, Add Comments,
-Find Bugs, Optimize) on any clipboard item.
+Points, Draft Email, "Explain this" on a confusing error screenshot,
+and code-specific actions (Explain, Add Comments, Find Bugs, Optimize)
+on any clipboard item — text **or** screenshot.
 
 Choose your provider:
 
+- **Apple Intelligence** — on macOS 26+, the default. Runs entirely
+  on-device, no API key, no signup, nothing leaves your Mac
 - **Ollama** — fully local, free, private
 - **OpenAI**, **Anthropic**, **Google Gemini** — bring-your-own-key
+
+<p align="center">
+  <img src="docs/screenshots/30-apple-intelligence.png" alt="AI settings with Apple Intelligence selected — on-device model ready" width="520">
+</p>
 
 There are text utilities built-in too: Base64 encode/decode, case
 conversion, JSON format/minify, duplicate-line removal, line joining.

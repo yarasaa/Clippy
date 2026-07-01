@@ -32,6 +32,23 @@ struct LiveTextImageView: NSViewRepresentable {
     func updateNSView(_ nsView: LiveTextContainerView, context: Context) {
         nsView.update(with: image)
     }
+
+    /// Accept whatever size SwiftUI proposes instead of imposing the
+    /// image's native pixel size. NSImageView's `intrinsicContentSize`
+    /// is the image's native dimensions, which was making large
+    /// screenshots overflow the detail view (the user had to enlarge
+    /// the window to see the whole image). Returning the proposal lets
+    /// the outer `.aspectRatio(.fit)` + `.frame` fully control sizing,
+    /// while `imageScaling = .scaleProportionallyDown` fits the pixels.
+    func sizeThatFits(_ proposal: ProposedViewSize,
+                      nsView: LiveTextContainerView,
+                      context: Context) -> CGSize? {
+        guard let width = proposal.width, let height = proposal.height,
+              width.isFinite, height.isFinite else {
+            return nil
+        }
+        return CGSize(width: width, height: height)
+    }
 }
 
 /// AppKit container that pairs an NSImageView with an
@@ -65,6 +82,12 @@ final class LiveTextContainerView: NSView {
     private weak var currentImage: NSImage?
     private var analysisTask: Task<Void, Never>?
 
+    /// Never impose a size on the SwiftUI layout — the container
+    /// takes whatever frame it's given and scales the image to fit.
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setupViews()
@@ -76,6 +99,13 @@ final class LiveTextContainerView: NSView {
     }
 
     private func setupViews() {
+        // Let the image view shrink/stretch to the container instead of
+        // pushing the container out to the image's native size.
+        imageView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        imageView.setContentHuggingPriority(.defaultLow, for: .vertical)
+        imageView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        imageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+
         addSubview(imageView)
         addSubview(overlay)
         NSLayoutConstraint.activate([

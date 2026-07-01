@@ -45,6 +45,10 @@
 
 | | |
 |---|---|
+| 🔍 **検索できるスクリーンショット** — 自動OCRがすべての画像をデバイス上で読み取り、画像で*見ただけ*のテキストも検索できる | <img src="docs/screenshots/27-searchable-ocr.png" width="280"> |
+| 🎯 **スマート検出** — 電話番号、メール、日付、住所、機密データ（カード、IBAN、APIキー）がワンタップの操作に | <img src="docs/screenshots/28-ocr-badges.png" width="280"> |
+| 🔤 **Live Text** — 写真アプリのように、スクリーンショット上で直接テキストを選択 | <img src="docs/screenshots/29-live-text.png" width="280"> |
+| 🌍 **言語バッジ** — スクリーンショットに検出された言語のフラグが付く | <img src="docs/screenshots/31-language-badge.png" width="280"> |
 | 📋 **スマートなクリップボード履歴** — URL、カラー、JSON、コード、画像のコンテンツ認識プレビュー | <img src="docs/screenshots/01-main-popover.png" width="280"> |
 | 🎯 **ホバーアクション** — Paste、Star、Pin、AI変換が必要な瞬間に現れる | <img src="docs/screenshots/02-card-hover.png" width="280"> |
 | ⚡ **Quick Preview** — ホットキーでフローティングオーバーレイから最近のアイテムを貼り付け | <img src="docs/screenshots/13-quick-preview.png" width="280"> |
@@ -59,6 +63,39 @@
 ---
 
 ## 主要機能
+
+### 🔍 検索できるスクリーンショット（自動OCR）
+
+どんな画像でもコピーすれば、Clippyがバックグラウンドで中のテキストを読み取ります — デバイス上で、プライベートに、無料で。スクリーンショットで*見ただけ*の単語を検索すれば、すぐに出てきます。Apple Visionを使用し、**30以上の言語**を設定不要で自動認識します。
+
+<p align="center">
+  <img src="docs/screenshots/27-searchable-ocr.png" alt="OCRテキストでスクリーンショットを検索" width="420">
+</p>
+
+### 🎯 スマートなコンテンツ検出
+
+Clippyは**テキストとスクリーンショットの両方**から操作可能なコンテンツを見つけ、ワンタップの操作に変えます:
+
+- **📞 電話 / ✉️ メール / 🔗 URL** — タップして発信、メール、または開く
+- **📅 日付** — そのままカレンダーに追加
+- **📍 住所** — マップで開く
+- **🔒 機密データ** — クレジットカード、IBAN、APIキー、TC kimlik を検出（チェックサム検証付き）し、暗号化を提案
+
+<p align="center">
+  <img src="docs/screenshots/28-ocr-badges.png" alt="スクリーンショット上の操作バッジと暗号化の提案" width="420">
+</p>
+
+### 🔤 Live Text
+
+どんなスクリーンショットも詳細ウィンドウで開き、**画像上で直接**テキストを選択 — 写真アプリと同じように。コピーしたり、リンクをタップしたり。言語フラグでClippyが検出した言語が一目でわかります。
+
+<p align="center">
+  <img src="docs/screenshots/29-live-text.png" alt="Live Textでスクリーンショット上のテキストを選択" width="640">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/31-language-badge.png" alt="検出された言語フラグでタグ付けされたスクリーンショット" width="420">
+</p>
 
 ### スマートなクリップボード履歴
 
@@ -214,8 +251,14 @@ inspectorからよく使うスニペットを一目で確認できます。
 
 プロバイダーを選択:
 
+- **Apple Intelligence** — macOS 26以降のデフォルト。完全にデバイス上で
+  動作し、APIキー不要、サインアップ不要、Macから何も出ていきません
 - **Ollama** — 完全ローカル、無料、プライベート
 - **OpenAI**、**Anthropic**、**Google Gemini** — 自分のAPIキー
+
+<p align="center">
+  <img src="docs/screenshots/30-apple-intelligence.png" alt="Apple Intelligenceを選択したAI設定 — オンデバイスモデル準備完了" width="520">
+</p>
 
 内蔵テキストユーティリティも: Base64エンコード/デコード、大文字小文字変換、
 JSONフォーマット/ミニファイ、重複行削除、行結合。

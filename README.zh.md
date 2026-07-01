@@ -42,6 +42,10 @@
 
 | | |
 |---|---|
+| 🔍 **可搜索的截图** — 自动 OCR 在设备上读取每张图片，让你能搜索只在图片里*见过*的文字 | <img src="docs/screenshots/27-searchable-ocr.png" width="280"> |
+| 🎯 **智能识别** — 电话、邮箱、日期、地址和敏感数据（卡号、IBAN、API 密钥）一键成为操作 | <img src="docs/screenshots/28-ocr-badges.png" width="280"> |
+| 🔤 **实况文本** — 像"照片"应用一样，直接在任意截图上选中文字 | <img src="docs/screenshots/29-live-text.png" width="280"> |
+| 🌍 **语言标记** — 截图会被标注检测到的语言 | <img src="docs/screenshots/31-language-badge.png" width="280"> |
 | 📋 **智能剪贴板历史** — 针对 URL、颜色、JSON、代码、图片的内容感知预览 | <img src="docs/screenshots/01-main-popover.png" width="280"> |
 | 🎯 **悬停操作** — Paste、Star、Pin、AI 转换按需出现 | <img src="docs/screenshots/02-card-hover.png" width="280"> |
 | ⚡ **Quick Preview** — 按下热键,从浮动面板中直接粘贴最近复制的条目 | <img src="docs/screenshots/13-quick-preview.png" width="280"> |
@@ -56,6 +60,39 @@
 ---
 
 ## 亮点
+
+### 🔍 可搜索的截图（自动 OCR）
+
+复制任意图片，Clippy 会在后台读取其中的文字 — 在设备上、私密且免费。搜索一个你只在截图里*见过*的词，它立刻就会出现。由 Apple Vision 驱动，无需设置即可自动识别 **30 多种语言**。
+
+<p align="center">
+  <img src="docs/screenshots/27-searchable-ocr.png" alt="按 OCR 文字搜索截图" width="420">
+</p>
+
+### 🎯 智能内容识别
+
+Clippy 会在**文本和截图**中发现可操作的内容，并将其变成一键操作:
+
+- **📞 电话 / ✉️ 邮箱 / 🔗 网址** — 轻点即可拨号、发邮件或打开
+- **📅 日期** — 直接加入日历
+- **📍 地址** — 在地图中打开
+- **🔒 敏感数据** — 检测信用卡、IBAN、API 密钥和 TC kimlik（带校验和验证），并建议加密
+
+<p align="center">
+  <img src="docs/screenshots/28-ocr-badges.png" alt="截图上的可操作标记与加密建议" width="420">
+</p>
+
+### 🔤 实况文本
+
+在详情窗口中打开任意截图，**直接在图片上**选中文字 — 就像"照片"应用一样。复制、点击链接，一气呵成。语言标记让你一眼看清 Clippy 识别出的语言。
+
+<p align="center">
+  <img src="docs/screenshots/29-live-text.png" alt="用实况文本在截图上选中文字" width="640">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/31-language-badge.png" alt="带检测语言标记的截图" width="420">
+</p>
 
 ### 智能剪贴板历史
 
@@ -202,8 +239,14 @@ Clippy 会检测触发字符、删除它,并粘贴展开后的内容。TextExpan
 
 选择你的提供商:
 
+- **Apple Intelligence** — 在 macOS 26+ 上为默认。完全在设备上运行，
+  无需 API 密钥、无需注册，任何数据都不会离开你的 Mac
 - **Ollama** — 完全本地、免费、私密
 - **OpenAI**、**Anthropic**、**Google Gemini** — 自带 API 密钥
+
+<p align="center">
+  <img src="docs/screenshots/30-apple-intelligence.png" alt="选择 Apple Intelligence 的 AI 设置 — 设备端模型已就绪" width="520">
+</p>
 
 还内置了文本实用工具:Base64 编码/解码、大小写转换、JSON 格式化/压缩、
 去除重复行、合并行。

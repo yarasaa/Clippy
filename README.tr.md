@@ -41,6 +41,10 @@ Her şey **Mac'inde**. Hesap yok. Cloud yok. Telemetri yok.
 
 | | |
 |---|---|
+| 🔍 **Aranabilir ekran görüntüleri** — otomatik OCR her görseli cihazda okur, sadece bir resimde *gördüğün* metni bile arayabilirsin | <img src="docs/screenshots/27-searchable-ocr.png" width="280"> |
+| 🎯 **Akıllı algılama** — telefon, e-posta, tarih, adres ve hassas veriler (kart, IBAN, API key) tek dokunuşluk eyleme dönüşür | <img src="docs/screenshots/28-ocr-badges.png" width="280"> |
+| 🔤 **Live Text** — herhangi bir ekran görüntüsünde metni doğrudan görselin üzerinde seç, tıpkı Fotoğraflar gibi | <img src="docs/screenshots/29-live-text.png" width="280"> |
+| 🌍 **Dil rozetleri** — ekran görüntüleri algılanan diliyle etiketlenir | <img src="docs/screenshots/31-language-badge.png" width="280"> |
 | 📋 **Akıllı pano geçmişi** — URL, renk, JSON, kod, görsel için özel önizleme | <img src="docs/screenshots/01-main-popover.png" width="280"> |
 | 🎯 **Hover eylemler** — Paste, Yıldız, Pin, AI dönüşüm tam ihtiyaç anında belirir | <img src="docs/screenshots/02-card-hover.png" width="280"> |
 | ⚡ **Quick Preview** — hotkey bas, son N öğeden birini floating panelden yapıştır | <img src="docs/screenshots/13-quick-preview.png" width="280"> |
@@ -55,6 +59,39 @@ Her şey **Mac'inde**. Hesap yok. Cloud yok. Telemetri yok.
 ---
 
 ## Öne çıkanlar
+
+### 🔍 Aranabilir ekran görüntüleri (Otomatik OCR)
+
+Herhangi bir görseli kopyala, Clippy içindeki metni arka planda okusun — cihazda, gizli ve ücretsiz. Sadece bir ekran görüntüsünde *gördüğün* bir kelimeyi ara, anında karşına gelsin. Apple Vision ile çalışır, **30+ dili** otomatik tanır, hiçbir ayar gerektirmez.
+
+<p align="center">
+  <img src="docs/screenshots/27-searchable-ocr.png" alt="Ekran görüntülerini OCR metnine göre arama" width="420">
+</p>
+
+### 🎯 Akıllı içerik algılama
+
+Clippy panondaki eyleme geçirilebilir içeriği — hem **metinde hem ekran görüntülerinde** — yakalar ve tek dokunuşluk eyleme çevirir:
+
+- **📞 Telefon / ✉️ E-posta / 🔗 URL** — dokun, ara, mail at veya aç
+- **📅 Tarihler** — doğrudan Takvim'e ekle
+- **📍 Adresler** — Harita'da aç
+- **🔒 Hassas veriler** — kredi kartı, IBAN, API key ve TC kimlik algılanır (checksum doğrulamalı) ve Clippy şifrelemeni önerir
+
+<p align="center">
+  <img src="docs/screenshots/28-ocr-badges.png" alt="Ekran görüntüsündeki eyleme geçirilebilir rozetler ve şifreleme önerisi" width="420">
+</p>
+
+### 🔤 Live Text
+
+Herhangi bir ekran görüntüsünü detay penceresinde aç ve metni **doğrudan görselin üzerinde** seç — tıpkı Fotoğraflar gibi. Kopyala, linklere dokun, tamam. Dil bayrakları neyi algıladığını bir bakışta gösterir.
+
+<p align="center">
+  <img src="docs/screenshots/29-live-text.png" alt="Ekran görüntüsünde Live Text ile metin seçimi" width="640">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/31-language-badge.png" alt="Algılanan dil bayraklarıyla etiketlenmiş ekran görüntüleri" width="420">
+</p>
 
 ### Akıllı pano geçmişi
 
@@ -210,8 +247,14 @@ Add Comments, Find Bugs, Optimize.
 
 Sağlayıcını seç:
 
+- **Apple Intelligence** — macOS 26+'da varsayılan. Tamamen cihazda
+  çalışır, API anahtarı yok, kayıt yok, hiçbir şey Mac'inden çıkmaz
 - **Ollama** — tamamen lokal, ücretsiz, özel
 - **OpenAI**, **Anthropic**, **Google Gemini** — kendi API anahtarın
+
+<p align="center">
+  <img src="docs/screenshots/30-apple-intelligence.png" alt="Apple Intelligence seçili AI ayarları — cihaz modeli hazır" width="520">
+</p>
 
 Yerleşik metin araçları da var: Base64 encode/decode, case dönüşümü,
 JSON format/minify, tekrar eden satırları temizle, satır birleştir.
