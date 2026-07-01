@@ -15,6 +15,19 @@ struct ClippyHeader: View {
     let onGenerateUUID: () -> Void
     let onGenerateLorem: () -> Void
 
+    /// Context-aware label for the single clear action. Reflects the
+    /// tab you're looking at so it's obvious what will be cleared.
+    /// (Pinned / starred / snippet / encrypted items are always kept.)
+    private var clearLabel: String {
+        switch selectedTab {
+        case .history:   return "Clear History"
+        case .code:      return "Clear Code"
+        case .images:    return "Clear Images"
+        case .snippets:  return "Clear Snippets"
+        case .favorites: return "Clear Starred"
+        }
+    }
+
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) var scheme
     @FocusState private var searchFocused: Bool
@@ -82,10 +95,13 @@ struct ClippyHeader: View {
 
             Divider()
 
+            // Single context-aware clear: label reflects the active
+            // tab, and it always preserves deliberately-saved items
+            // (pinned, starred, snippets, encrypted) — see issue #9.
             Button(role: .destructive) {
                 onClear()
             } label: {
-                Label("Clear Current Tab", systemImage: "trash")
+                Label(clearLabel, systemImage: "trash")
             }
             .disabled(isEmpty)
         } label: {

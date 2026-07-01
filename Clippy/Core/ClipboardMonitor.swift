@@ -11,9 +11,16 @@ import Combine
 import SwiftUI
 import CoreData
 import Vision
+import NaturalLanguage
 
 extension Notification.Name {
     static let keywordsDidChange = Notification.Name("com.yarasa.Clippy.keywordsDidChange")
+
+    /// Right-click → "Show only items from this app" / "Show all".
+    /// userInfo: ["bundleID": String, "appName": String] — or empty
+    /// dict to clear the filter. ContentView listens and updates its
+    /// fetch predicate.
+    static let clippyFilterBySourceApp = Notification.Name("com.yarasa.Clippy.filterBySourceApp")
 }
 
 enum ImageOrientation {
@@ -49,10 +56,6 @@ class ClipboardMonitor: ObservableObject {
         cache.totalCostLimit = 15 * 1024 * 1024 // 15MB — app icons are small but accumulate
         return cache
     }()
-
-    // Cached arrays for code detection (performance optimization)
-    private static let codeKeywords = ["func", "class", "struct", "let", "var", "const", "import", "return", "if", "else", "for", "while", "public", "private", "static", "async", "await", "try", "catch", "extension", "protocol"]
-    private static let codeSymbols = ["{", "}", ";", "=>", "->", "==", "===", "!=", "()", "[]", "&&", "||"]
 
     private var changeCount: Int
     private var monitoringTask: Task<Void, Error>?
@@ -275,6 +278,11 @@ class ClipboardMonitor: ObservableObject {
         case .image(let imagePath):
             newItemEntity.contentType = "image"
             newItemEntity.content = imagePath
+            // Kick off OCR in the background so the screenshot
+            // becomes searchable by its visible text. Never blocks
+            // the capture path; result is written back via a
+            // background context once Vision finishes.
+            runAutoOCRInBackground(itemID: item.id, imagePath: imagePath)
         }
 
         // Note: the per-type `applyLimits()` (kept below as dead code
@@ -284,6 +292,215 @@ class ClipboardMonitor: ObservableObject {
         // the old per-type sweep didn't. notifyInsert() is fired by
         // saveContext() once the row is actually committed.
         scheduleSave()
+    }
+
+    /// Runs Apple Vision OCR on a freshly-captured image in the
+    /// background and writes the result into the item's
+    /// `extractedText` field.
+    ///
+    /// Design notes:
+    ///   - Detached `.utility` task: never blocks the main thread or
+    ///     the capture hot path. OCR can take 100–500ms depending on
+    ///     image size; the user sees the new item appear instantly
+    ///     and the searchable text shows up shortly after.
+    ///   - Uses a background CoreData context. `viewContext` has
+    ///     `automaticallyMergesChangesFromParent = true`, so the
+    ///     update propagates to the UI without us touching it.
+    ///   - Silent on failure. OCR is bonus value — if Vision can't
+    ///     read the image (low contrast, no text), the item is still
+    ///     saved fine, just without searchable text.
+    ///   - Gated by `enableAutoOCR`. Users on Intel Macs or those who
+    ///     prefer manual control can opt out; the manual OCR button
+    ///     in the detail view still works either way.
+    private func runAutoOCRInBackground(itemID: UUID, imagePath: String) {
+        guard SettingsManager.shared.enableAutoOCR else { return }
+
+        // Snapshot UI-actor state on the main thread before hopping off.
+        let appLanguage = SettingsManager.shared.appLanguage
+        let imagesDir = getImagesDirectory()
+
+        Task.detached(priority: .utility) {
+            guard let imagesDir = imagesDir else { return }
+            let imageURL = imagesDir.appendingPathComponent(imagePath)
+            guard FileManager.default.fileExists(atPath: imageURL.path),
+                  let imageSource = CGImageSourceCreateWithURL(imageURL as CFURL, nil),
+                  let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
+                return
+            }
+
+            let languages = Self.curatedOCRLanguageList(primaryHint: appLanguage)
+            let extractedText = Self.runVisionOCR(on: cgImage, languages: languages)
+            guard !extractedText.isEmpty else { return }
+
+            // Promote to "code" when the OCR text looks like source
+            // (curly braces, keywords, operators). Lets the Code tab
+            // surface Stack Overflow screenshots alongside textually
+            // copied snippets.
+            let promoteToCode = await MainActor.run { self.isLikelyCode(extractedText) }
+
+            // Detect dominant language for the flag badge. Skip on
+            // code (keywords like `func`/`return` fool the model
+            // into picking Spanish/Italian) and on very short text
+            // (under ~20 chars NLLanguageRecognizer is unreliable).
+            let detectedLanguage: String? = promoteToCode
+                ? nil
+                : Self.detectDominantLanguage(in: extractedText)
+
+            await Self.persistExtractedText(extractedText,
+                                            promoteToCode: promoteToCode,
+                                            language: detectedLanguage,
+                                            forItemID: itemID)
+        }
+    }
+
+    /// Returns the short BCP-47-ish code NLLanguageRecognizer is
+    /// most confident in ("tr", "en", "ja"). Returns nil only for
+    /// very short input (< 10 chars; below that recognizer guesses
+    /// are noise) or when confidence is genuinely poor.
+    ///
+    /// CJK / Arabic / Cyrillic scripts pass with any positive
+    /// confidence because they're already script-unambiguous — the
+    /// 0.5 bar is there for Latin-script disambiguation (Italian
+    /// vs Spanish, etc.) and would unfairly drop short CJK samples.
+    nonisolated private static func detectDominantLanguage(in text: String) -> String? {
+        guard text.count >= 10 else { return nil }
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(text)
+        guard let language = recognizer.dominantLanguage else { return nil }
+
+        let scriptDistinct: Set<String> = ["ja", "ko", "zh", "ar", "ru", "uk", "th"]
+        if scriptDistinct.contains(language.rawValue) {
+            return language.rawValue
+        }
+        let hypotheses = recognizer.languageHypotheses(withMaximum: 1)
+        if let conf = hypotheses[language], conf < 0.5 { return nil }
+        return language.rawValue
+    }
+
+    /// Single Vision text-recognition pass with a given language list.
+    /// Returns the joined extracted text, or an empty string on any
+    /// failure (no observations, Vision error). Caller decides what
+    /// to do with an empty result.
+    nonisolated private static func runVisionOCR(on cgImage: CGImage, languages: [String]) -> String {
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.recognitionLanguages = languages
+        do {
+            try VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
+        } catch {
+            return ""
+        }
+        guard let observations = request.results, !observations.isEmpty else { return "" }
+        return observations
+            .compactMap { $0.topCandidates(1).first?.string }
+            .joined(separator: "\n")
+    }
+
+    /// Returns every Vision-supported language on this Mac, ordered
+    /// for accurate recognition. Vision biases toward languages
+    /// earlier in the list — feeding it `Set`-derived random order
+    /// caused 0 observations for CJK screenshots even when the right
+    /// language was somewhere in the list.
+    ///
+    /// Order:
+    ///   1. Script-distinct (CJK, Arabic, Cyrillic, Thai) — these
+    ///      can't be confused with Latin scripts, so leading with
+    ///      them costs nothing for Latin captures but gives non-Latin
+    ///      ones a real chance to match.
+    ///   2. The user's primary language + English fallback.
+    ///   3. Major Western Latin languages by speaker count.
+    ///   4. Everything else Vision lists, alphabetically.
+    nonisolated private static func curatedOCRLanguageList(primaryHint: String) -> [String] {
+        let supported: Set<String> = {
+            let req = VNRecognizeTextRequest()
+            req.recognitionLevel = .accurate
+            return Set((try? req.supportedRecognitionLanguages()) ?? ["en-US"])
+        }()
+
+        let scriptDistinctOrder = [
+            "ja-JP", "ko-KR", "zh-Hans", "zh-Hant",
+            "ar-SA", "ru-RU", "uk-UA", "th-TH"
+        ]
+        // Map a primary-language hint ("tr") to a BCP-47 code Vision
+        // understands. Falls back to en-US when no match.
+        let primaryBCP47: String? = {
+            switch primaryHint.lowercased() {
+            case "tr": return "tr-TR"
+            case "de": return "de-DE"
+            case "fr": return "fr-FR"
+            case "es": return "es-ES"
+            case "it": return "it-IT"
+            case "pt": return "pt-BR"
+            case "nl": return "nl-NL"
+            case "pl": return "pl-PL"
+            case "ja": return "ja-JP"
+            case "ko": return "ko-KR"
+            case "zh": return "zh-Hans"
+            case "ar": return "ar-SA"
+            case "ru": return "ru-RU"
+            default:   return nil
+            }
+        }()
+        let primaryOrder = [primaryBCP47, "en-US"].compactMap { $0 }
+        let latinPriorityOrder = [
+            "fr-FR", "de-DE", "es-ES", "it-IT", "pt-BR", "nl-NL", "pl-PL"
+        ]
+
+        var result: [String] = []
+        var seen = Set<String>()
+        for lang in scriptDistinctOrder + primaryOrder + latinPriorityOrder {
+            guard supported.contains(lang), seen.insert(lang).inserted else { continue }
+            result.append(lang)
+        }
+        // Append remaining Vision-supported languages (Czech,
+        // Norwegian variants, Indonesian, Vietnamese, etc.) so we
+        // cover everything but in a deterministic order.
+        let remaining = supported.subtracting(seen).sorted()
+        result.append(contentsOf: remaining)
+        return result.isEmpty ? ["en-US"] : result
+    }
+
+    /// Retries a background fetch up to a few times so we don't lose
+    /// OCR results when the main context's debounced save lags
+    /// behind Vision's ~300ms finish. By the 2nd or 3rd attempt the
+    /// row is on disk and the background context can find it.
+    nonisolated private static func persistExtractedText(_ text: String,
+                                                         promoteToCode: Bool = false,
+                                                         language: String? = nil,
+                                                         forItemID itemID: UUID) async {
+        let backoffsMs: [UInt64] = [0, 100, 250, 500, 1000]
+
+        for delayMs in backoffsMs {
+            if delayMs > 0 {
+                try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
+            }
+
+            let bgContext = await PersistenceController.shared.newBackgroundContext()
+            let saved: Bool = await withCheckedContinuation { continuation in
+                bgContext.perform {
+                    let fetch = NSFetchRequest<ClipboardItemEntity>(entityName: "ClipboardItemEntity")
+                    fetch.predicate = NSPredicate(format: "id == %@", itemID as CVarArg)
+                    fetch.fetchLimit = 1
+                    guard let entity = (try? bgContext.fetch(fetch))?.first else {
+                        continuation.resume(returning: false)
+                        return
+                    }
+                    entity.extractedText = text
+                    // Promotion only — never demote, since the user
+                    // may have explicitly classified this item.
+                    if promoteToCode { entity.isCode = true }
+                    if let language { entity.detectedLanguage = language }
+                    do {
+                        try bgContext.save()
+                        continuation.resume(returning: true)
+                    } catch {
+                        continuation.resume(returning: false)
+                    }
+                }
+            }
+
+            if saved { return }
+        }
     }
 
     private func isDuplicateText(_ text: String) -> Bool {
@@ -538,6 +755,9 @@ class ClipboardMonitor: ObservableObject {
         case .history:
             predicates.append(NSPredicate(format: "(keyword == nil OR keyword == '')"))
             predicates.append(NSPredicate(format: "isFavorite == NO"))
+            // Keep pinned items — a "clear" shouldn't wipe things the
+            // user explicitly pinned to the top (issue #9).
+            predicates.append(NSPredicate(format: "isPinned == NO"))
             predicates.append(NSPredicate(format: "contentType == 'text'"))
             if SettingsManager.shared.showCodeTab {
                 predicates.append(NSPredicate(format: "isCode == NO"))
@@ -545,10 +765,12 @@ class ClipboardMonitor: ObservableObject {
         case .code:
             predicates.append(NSPredicate(format: "(keyword == nil OR keyword == '')"))
             predicates.append(NSPredicate(format: "isFavorite == NO"))
+            predicates.append(NSPredicate(format: "isPinned == NO"))
             predicates.append(NSPredicate(format: "isCode == YES"))
         case .images:
             predicates.append(NSPredicate(format: "(keyword == nil OR keyword == '')"))
             predicates.append(NSPredicate(format: "isFavorite == NO"))
+            predicates.append(NSPredicate(format: "isPinned == NO"))
             predicates.append(NSPredicate(format: "contentType == 'image'"))
             let imagesFetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
             imagesFetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
@@ -953,72 +1175,126 @@ class ClipboardMonitor: ObservableObject {
         }
     }
 
+    /// Heuristic "is this source code?" classifier.
+    ///
+    /// Design priority is PRECISION over recall: it's much worse to
+    /// flag a normal paragraph as code (and shove it into the Code
+    /// tab) than to miss the occasional one-liner snippet. The big
+    /// failure of the previous version was scoring bare keywords —
+    /// `if`, `for`, `return`, `class`, `import`, `try` are all common
+    /// English words, so a sentence like "If you want to import this
+    /// for example, try again" scored as code. We fix that by only
+    /// counting keywords in real *syntactic context* (e.g. `func name(`,
+    /// `if (`, `let x =`) and by subtracting points for prose.
     func isLikelyCode(_ text: String) -> Bool {
-        // For very long texts, only analyze the first portion to prevent freezes
-        let maxAnalysisLength = 10_000
-        let content: String
-        if text.count > maxAnalysisLength {
-            content = String(text.prefix(maxAnalysisLength)).trimmingCharacters(in: .whitespacesAndNewlines)
-        } else {
-            content = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
+        // 4K is plenty to classify code vs prose, and keeps the dozen
+        // regex passes cheap. This runs synchronously on the main
+        // actor for every copy, so a 10K window on a big paste was a
+        // noticeable hitch.
+        let maxAnalysisLength = 4_000
+        let content = (text.count > maxAnalysisLength
+                       ? String(text.prefix(maxAnalysisLength))
+                       : text).trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if let url = URL(string: content),
-           let scheme = url.scheme,
-           ["http", "https"].contains(scheme) {
+        guard content.count >= 12 else { return false }
+
+        // URLs / emails aren't code.
+        if let url = URL(string: content), let scheme = url.scheme,
+           ["http", "https", "mailto"].contains(scheme) {
             return false
         }
 
-        if content.count < 10 { return false }
+        let lines = content.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+        guard !lines.isEmpty else { return false }
 
-        if !content.contains("\n") && (content.hasSuffix(".") || content.hasSuffix("?") || content.hasSuffix("!")) {
-            return false
+        func regex(_ pattern: String) -> Bool {
+            content.range(of: pattern, options: .regularExpression) != nil
+        }
+        func regexCount(_ pattern: String) -> Int {
+            guard content.count <= 5_000,
+                  let re = try? NSRegularExpression(pattern: pattern) else { return 0 }
+            return re.numberOfMatches(in: content, range: NSRange(content.startIndex..., in: content))
         }
 
-        var score = 0
+        var score = 0.0
 
-        // Use cached static arrays instead of creating new ones
-        for keyword in Self.codeKeywords {
-            if content.contains("\(keyword) ") || content.starts(with: keyword) {
-                score += 2
-            }
-        }
+        // ---- High-precision structural signals ----
 
-        for symbol in Self.codeSymbols {
-            if content.contains(symbol) {
-                score += 1
-            }
-        }
-        if content.filter({ $0 == ":" }).count > 1 { score += 1 }
-        if content.contains("//") || content.contains("") || content.contains("# ") {
+        // Function definition: `func name(`, `def name(`, `function name(`
+        if regex("(?m)\\b(func|def|function|fn|sub)\\s+\\w+\\s*\\(") { score += 3 }
+
+        // Type definition: `class Name`, `struct Name`, `enum Name`, …
+        if regex("(?m)\\b(class|struct|enum|interface|trait|impl|protocol)\\s+[A-Za-z_]\\w*") { score += 3 }
+
+        // Control flow WITH parentheses — `if (`, `for (`, `while (`.
+        // The paren is what separates `if (x > 0)` from "if you want".
+        if regex("(?m)\\b(if|for|while|switch|catch|foreach)\\s*\\(") { score += 2 }
+
+        // Declaration + binding at line start: `let x =`, `const y:`, `var z =`
+        if regex("(?m)^\\s*(let|var|const|val|final)\\s+\\w+\\s*[:=]") { score += 2 }
+
+        // Import / include statements at line start.
+        if regex("(?m)^\\s*(import|from|#include|require|using|package|export)\\b") { score += 2 }
+
+        // Operators that essentially never appear in prose.
+        if regex("(=>|->|::|===|!==|&&|\\|\\||\\+=|-=|\\*=)") { score += 2 }
+
+        // HTML / XML markup — an opening tag plus a closing `</` or
+        // self-close `/>` is unambiguous, so it's strong on its own.
+        if regex("<[a-zA-Z][^>]*>") && (content.contains("</") || content.contains("/>")) { score += 5 }
+
+        // Shebang — a script file, near-certain code.
+        if content.hasPrefix("#!") { score += 3 }
+
+        // Comment lines.
+        if lines.contains(where: {
+            let t = $0.trimmingCharacters(in: .whitespaces)
+            return t.hasPrefix("//") || t.hasPrefix("/*") || t.hasPrefix(" *")
+        }) { score += 1.5 }
+
+        // Method / property call on an object: `.reduce(`, `.map(`,
+        // `.toString(`. Prose essentially never writes `.word(`.
+        if regex("\\.[A-Za-z_]\\w*\\(") { score += 1.5 }
+
+        // SQL statements. Case-sensitive uppercase keyword pairs —
+        // "select … from" in lowercase prose ("please select from the
+        // menu") shouldn't trip it, but real copied SQL almost always
+        // uppercases its keywords.
+        if regex("\\bSELECT\\b.{1,200}\\bFROM\\b")
+            || regex("\\b(INSERT\\s+INTO|DELETE\\s+FROM|CREATE\\s+TABLE|ALTER\\s+TABLE|UPDATE\\b.{1,100}\\bSET)\\b") {
             score += 3
         }
 
-        if (content.starts(with: "{") && content.hasSuffix("}")) || (content.starts(with: "[") && content.hasSuffix("]")) {
-            score += 4
+        // Lines ending in code punctuation (; { }) — strong block signal.
+        let codeEnders = lines.filter {
+            let t = $0.trimmingCharacters(in: .whitespaces)
+            return t.hasSuffix(";") || t.hasSuffix("{") || t.hasSuffix("}")
         }
-        if content.contains("</") && content.contains("/>") {
-            score += 4
+        let enderRatio = Double(codeEnders.count) / Double(lines.count)
+        if enderRatio >= 0.3 { score += 3 }
+        else if enderRatio >= 0.15 { score += 1.5 }
+
+        // Balanced braces spanning multiple lines.
+        if content.contains("{") && content.contains("}") && lines.count >= 2 { score += 1.5 }
+
+        // Function-call pattern `name(args)` appearing repeatedly.
+        let calls = regexCount("[A-Za-z_]\\w*\\([^)]*\\)")
+        if calls >= 2 { score += 2 } else if calls == 1 { score += 1 }
+
+        // ---- Prose disqualifier ----
+        // If the text reads like sentences (most lines end with . ? !
+        // and carry many words), it's natural language — pull the
+        // score down hard so a stray keyword can't tip it over.
+        let sentenceEnders = lines.filter {
+            let t = $0.trimmingCharacters(in: .whitespaces)
+            return t.hasSuffix(".") || t.hasSuffix("?") || t.hasSuffix("!")
         }
+        let proseRatio = Double(sentenceEnders.count) / Double(lines.count)
+        let wordCount = content.split { $0 == " " || $0 == "\n" }.count
+        let avgWordsPerLine = Double(wordCount) / Double(lines.count)
+        if proseRatio >= 0.5 && avgWordsPerLine > 6 { score -= 4 }
 
-        // Only run regex on manageable text sizes
-        if content.count <= 5_000 {
-            let uuidPattern = "[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}"
-            if content.range(of: uuidPattern, options: .regularExpression) != nil {
-                score += 5
-            }
-            let camelCaseOrSnakeCase = "[a-z]+[A-Z][a-zA-Z]*|[a-z]+_[a-z]+"
-            if content.range(of: camelCaseOrSnakeCase, options: .regularExpression) != nil {
-                score += 2
-            }
-        }
-
-        let lines = content.split(separator: "\n")
-        let hasIndentation = lines.contains { $0.starts(with: "    ") || $0.starts(with: "\t") }
-        if hasIndentation { score += 2 }
-        if lines.count > 2 { score += 1 }
-
-        return score >= 4
+        return score >= 4.5
     }
      func getImagesDirectory() -> URL? {
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {

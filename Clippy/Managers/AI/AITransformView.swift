@@ -218,6 +218,7 @@ struct AITransformView: View {
         case .findBugs:     return "ladybug"
         case .optimizeCode: return "wand.and.stars"
         case .freePrompt:   return "text.cursor"
+        case .explain:      return "questionmark.bubble"
         }
     }
 
@@ -237,6 +238,7 @@ struct AITransformView: View {
         case .findBugs:     return "Find Bugs"
         case .optimizeCode: return "Optimize Code"
         case .freePrompt:   return "AI"
+        case .explain:      return "Explain this"
         }
     }
 

@@ -233,6 +233,14 @@ class SettingsManager: ObservableObject {
     @Published var enableOCR: Bool {
         didSet { UserDefaults.standard.set(enableOCR, forKey: "enableOCR") }
     }
+    /// When true, every captured image is OCR'd in the background and
+    /// the extracted text is stored so it shows up in clipboard search.
+    /// Independent of `enableOCR` (which gates the manual OCR button
+    /// in the detail view) — a user could keep manual OCR but turn
+    /// off auto-OCR if they're worried about battery on Intel Macs.
+    @Published var enableAutoOCR: Bool {
+        didSet { UserDefaults.standard.set(enableAutoOCR, forKey: "enableAutoOCR") }
+    }
     @Published var enableDuplicateDetection: Bool {
         didSet { UserDefaults.standard.set(enableDuplicateDetection, forKey: "enableDuplicateDetection") }
     }
@@ -398,6 +406,11 @@ class SettingsManager: ObservableObject {
         self.enableSequentialPaste = UserDefaults.standard.object(forKey: "enableSequentialPaste") as? Bool ?? true
         self.enableScreenshot = UserDefaults.standard.object(forKey: "enableScreenshot") as? Bool ?? true
         self.enableOCR = UserDefaults.standard.object(forKey: "enableOCR") as? Bool ?? true
+        // Default ON — Apple Vision is on-device, fast, free. Making
+        // every screenshot searchable is the single biggest "wow"
+        // moment of the app. Intel-Mac users who notice battery drain
+        // can turn it off in Settings → Features.
+        self.enableAutoOCR = UserDefaults.standard.object(forKey: "enableAutoOCR") as? Bool ?? true
         self.enableDuplicateDetection = UserDefaults.standard.object(forKey: "enableDuplicateDetection") as? Bool ?? true
         self.enableSourceAppTracking = UserDefaults.standard.object(forKey: "enableSourceAppTracking") as? Bool ?? true
         self.enableFileConverter = UserDefaults.standard.object(forKey: "enableFileConverter") as? Bool ?? true
@@ -418,7 +431,11 @@ class SettingsManager: ObservableObject {
 
         // AI Settings
         self.enableAI = UserDefaults.standard.object(forKey: "enableAI") as? Bool ?? false
-        self.aiProvider = UserDefaults.standard.string(forKey: "aiProvider") ?? "ollama"
+        // Prefer Apple Foundation Models on macOS 26+ — zero config,
+        // free, private. Falls back to Ollama (also free) on older
+        // macOS where Apple Intelligence is unavailable.
+        let storedProvider = UserDefaults.standard.string(forKey: "aiProvider")
+        self.aiProvider = storedProvider ?? (AppleFoundationModelsClient.isReady ? "apple" : "ollama")
         self.aiAPIKey = UserDefaults.standard.string(forKey: "aiAPIKey") ?? ""
         self.aiModel = UserDefaults.standard.string(forKey: "aiModel") ?? ""
         self.ollamaURL = UserDefaults.standard.string(forKey: "ollamaURL") ?? "http://localhost:11434"

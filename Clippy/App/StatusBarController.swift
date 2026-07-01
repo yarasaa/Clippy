@@ -22,6 +22,11 @@ class StatusBarController: NSObject, NSPopoverDelegate {
     private var cancellables = Set<AnyCancellable>()
     private var eventMonitor: Any?
     private var isRecording = false
+    /// True when Sparkle found a background update — draws a badge dot
+    /// on the menu-bar icon as a persistent, non-intrusive cue.
+    private var hasPendingUpdate = false
+    /// Layer-backed amber dot overlaid on the status item button.
+    private var updateBadgeView: NSView?
 
     init(clipboardMonitor: ClipboardMonitor) {
         self.clipboardMonitor = clipboardMonitor
@@ -62,6 +67,18 @@ class StatusBarController: NSObject, NSPopoverDelegate {
             self,
             selector: #selector(handleClosePopoverNotification),
             name: .closeClippyPopover,
+            object: nil)
+
+        // Menu-bar badge for gentle update reminders.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleUpdateAvailable),
+            name: .clippyUpdateAvailable,
+            object: nil)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleUpdateCleared),
+            name: .clippyUpdateCleared,
             object: nil)
 
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
@@ -156,6 +173,51 @@ class StatusBarController: NSObject, NSPopoverDelegate {
 
     @objc private func handleClosePopoverNotification() {
         self.closePopover(sender: nil)
+    }
+
+    // MARK: - Update badge (gentle reminder)
+
+    @objc private func handleUpdateAvailable() {
+        hasPendingUpdate = true
+        refreshStatusItemIcon()
+    }
+
+    @objc private func handleUpdateCleared() {
+        hasPendingUpdate = false
+        refreshStatusItemIcon()
+    }
+
+    /// Overlays a small amber dot on the menu-bar icon when an update is
+    /// pending. Implemented as a layer-backed subview rather than
+    /// compositing into the image, so the base glyph stays a template
+    /// image and keeps tinting correctly with light/dark menu bars.
+    private func refreshStatusItemIcon() {
+        guard let button = statusItem.button else { return }
+
+        if hasPendingUpdate {
+            if updateBadgeView == nil {
+                let diameter: CGFloat = 6
+                let dot = NSView()
+                dot.wantsLayer = true
+                dot.layer?.backgroundColor = NSColor(
+                    calibratedRed: 232/255, green: 131/255, blue: 58/255, alpha: 1 // Ember amber
+                ).cgColor
+                dot.layer?.cornerRadius = diameter / 2
+                dot.frame = NSRect(
+                    x: button.bounds.width - diameter - 1,
+                    y: button.bounds.height - diameter - 2,
+                    width: diameter,
+                    height: diameter
+                )
+                // Pin to the top-right as the button resizes.
+                dot.autoresizingMask = [.minXMargin, .minYMargin]
+                button.addSubview(dot)
+                updateBadgeView = dot
+            }
+            updateBadgeView?.isHidden = false
+        } else {
+            updateBadgeView?.isHidden = true
+        }
     }
 
     func popoverDidClose(_ notification: Notification) {

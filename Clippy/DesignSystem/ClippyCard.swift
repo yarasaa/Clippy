@@ -20,6 +20,12 @@ struct ClippyCard: View {
     @State private var isHovered: Bool = false
     @State private var didPasteFlash: Bool = false
     @State private var aiTransformState: AITransformState? = nil
+    /// Actionable-content detection results (phone/email/URL/address/
+    /// date/sensitive). Computed OFF the render path via `.task` so
+    /// NSDataDetector + the sensitive-data regexes don't run on every
+    /// card on every re-render — that synchronous work on long text
+    /// was hitching the whole app on copy.
+    @State private var detectedLinks: OCRLinks = OCRLinks()
 
     private let commonLanguages = [
         "English", "Turkish", "Spanish", "French", "German",
@@ -183,11 +189,13 @@ struct ClippyCard: View {
 
     private var hoverActions: some View {
         HStack(spacing: Ember.Space.xs) {
-            // URL quick open
+            // URL quick open. Accepts both scheme-prefixed URLs and
+            // "naked" domains (github.com, wangchujiang.com, claude.ai)
+            // via NSDataDetector — the same engine macOS Mail uses for
+            // auto-linking. Any TLD Mail would turn blue, we recognise.
             if item.contentType == "text",
-               let content = item.content, content.count <= 2048,
-               let url = URL(string: content), let s = url.scheme,
-               ["http", "https"].contains(s) {
+               let content = item.content,
+               let url = quickURL(from: content) {
                 iconButton(systemName: "safari", help: "Open URL") {
                     NSWorkspace.shared.open(url)
                 }
@@ -200,8 +208,11 @@ struct ClippyCard: View {
                 }
             }
 
-            // Transform menu
-            if item.contentType == "text" {
+            // Transform menu — text items always; image items only
+            // when OCR has produced searchable text (so the AI
+            // section has something useful to act on).
+            if item.contentType == "text"
+                || (item.contentType == "image" && (item.extractedText?.isEmpty == false)) {
                 transformationMenu
             }
 
@@ -311,27 +322,42 @@ struct ClippyCard: View {
                     }
                 }
 
-                if settings.enableAI, AIService.shared.isConfigured, let content = item.content, !content.isEmpty {
+                // Unified AI section. Picks the right text source per
+                // item type: `content` for text items, `extractedText`
+                // for image items — so OCR results drive the AI
+                // instead of the meaningless image filename.
+                if settings.enableAI, AIService.shared.isConfigured,
+                   let aiText = aiSourceText() {
                     Divider()
                     Section("AI") {
-                        Button("Summarize") { runAIAction(.summarize, text: content) }
-                        Button("Expand") { runAIAction(.expand, text: content) }
-                        Button("Fix Grammar") { runAIAction(.fixGrammar, text: content) }
-                        Button("Convert to Bullet Points") { runAIAction(.bulletPoints, text: content) }
-                        Button("Draft Email") { runAIAction(.draftEmail, text: content) }
+                        Button("Summarize") { runAIAction(.summarize, text: aiText) }
+                        Button("Expand") { runAIAction(.expand, text: aiText) }
+                        Button("Fix Grammar") { runAIAction(.fixGrammar, text: aiText) }
+                        Button("Convert to Bullet Points") { runAIAction(.bulletPoints, text: aiText) }
+                        Button("Draft Email") { runAIAction(.draftEmail, text: aiText) }
 
                         Menu("Translate to…") {
                             ForEach(commonLanguages, id: \.self) { lang in
-                                Button(lang) { runAIAction(.translate, text: content, targetLanguage: lang) }
+                                Button(lang) { runAIAction(.translate, text: aiText, targetLanguage: lang) }
                             }
                         }
 
                         if item.isCode {
                             Divider()
-                            Button("Explain Code") { runAIAction(.explainCode, text: content) }
-                            Button("Add Comments") { runAIAction(.addComments, text: content) }
-                            Button("Find Bugs") { runAIAction(.findBugs, text: content) }
-                            Button("Optimize Code") { runAIAction(.optimizeCode, text: content) }
+                            Button("Explain Code") { runAIAction(.explainCode, text: aiText) }
+                            Button("Add Comments") { runAIAction(.addComments, text: aiText) }
+                            Button("Find Bugs") { runAIAction(.findBugs, text: aiText) }
+                            Button("Optimize Code") { runAIAction(.optimizeCode, text: aiText) }
+                        }
+
+                        // Image-only: Explain the OCR text. For text
+                        // items there's already `.summarize` which
+                        // covers the same need; "Explain this" is
+                        // tuned for screenshot fragments (error
+                        // messages, chart labels, UI bits).
+                        if item.contentType == "image" {
+                            Divider()
+                            Button("Explain this") { runAIAction(.explain, text: aiText) }
                         }
                     }
                 }
@@ -352,12 +378,32 @@ struct ClippyCard: View {
 
     @ViewBuilder
     private var contentBody: some View {
-        if item.isEncrypted {
-            encryptedView
-        } else if item.contentType == "image" {
-            imageContent
-        } else if let content = item.content {
-            textContent(content)
+        VStack(alignment: .leading, spacing: Ember.Space.sm) {
+            if item.isEncrypted {
+                encryptedView
+            } else if item.contentType == "image" {
+                imageContent
+            } else if let content = item.content {
+                textContent(content)
+            }
+
+            // Actionable-content badges (phone / email / URL / address /
+            // calendar / sensitive-data) for BOTH text and image items.
+            // Detection runs off the render path (see `.task` below).
+            // Hidden for encrypted items (content is masked).
+            if !item.isEncrypted {
+                ocrLinkBadges
+            }
+        }
+        // Recompute detection only when the source text actually
+        // changes (new item, or an image's OCR text arriving), not on
+        // every hover/scroll re-render.
+        .task(id: detectionSourceKey) {
+            if item.isEncrypted {
+                detectedLinks = OCRLinks()
+            } else {
+                await recomputeDetectedLinks()
+            }
         }
     }
 
@@ -371,18 +417,23 @@ struct ClippyCard: View {
 
     @ViewBuilder
     private func textContent(_ content: String) -> some View {
-        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        let preview = String(trimmed.prefix(500))
+        // Work on a bounded prefix, not the full string. The card only
+        // ever shows a 3-line preview, and the color/URL/JSON detectors
+        // all classify short content — trimming/scanning a 50K blob on
+        // every re-render (hover, scroll, selection) was needless main-
+        // thread work that piled up when copying long text.
+        let head = String(content.prefix(2_000)).trimmingCharacters(in: .whitespacesAndNewlines)
+        let preview = String(head.prefix(500))
 
         VStack(alignment: .leading, spacing: Ember.Space.sm) {
-            if let color = detectColor(in: trimmed) {
-                colorPreview(trimmed, color: color)
-            } else if let url = detectURL(in: trimmed) {
+            if let color = detectColor(in: head) {
+                colorPreview(head, color: color)
+            } else if let url = detectURL(in: head) {
                 urlPreview(url)
             } else if item.isCode {
                 codePreview(preview)
-            } else if trimmed.count <= 50_000, item.toClipboardItem().isJSON {
-                jsonPreview(trimmed)
+            } else if content.count <= 20_000, looksLikeJSON(head), item.toClipboardItem().isJSON {
+                jsonPreview(head)
             } else {
                 Text(preview)
                     .font(Ember.Font.body)
@@ -391,6 +442,13 @@ struct ClippyCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    /// O(1) pre-check so we only attempt the (relatively expensive)
+    /// full JSON parse when the content actually starts like JSON.
+    private func looksLikeJSON(_ s: String) -> Bool {
+        guard let first = s.first else { return false }
+        return first == "{" || first == "["
     }
 
     private func codePreview(_ code: String) -> some View {
@@ -481,16 +539,289 @@ struct ClippyCard: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(maxWidth: .infinity, maxHeight: 160)
                     .clipShape(RoundedRectangle(cornerRadius: Ember.Radius.md))
+                    // Hover-revealed shortcut: pull OCR text out of a
+                    // screenshot without opening the detail view.
+                    .overlay(alignment: .topTrailing) {
+                        copyAsTextOverlay
+                    }
 
                 HStack(spacing: Ember.Space.xs) {
                     Text("\(Int(image.size.width)) × \(Int(image.size.height))")
                     Text("·")
                     Text("PNG")
+                    if let lang = item.detectedLanguage,
+                       let flag = SupportedOCRLanguage.flag(forCode: lang) {
+                        Text("·")
+                        Text("\(flag) \(lang.uppercased())")
+                            .help(SupportedOCRLanguage.displayName(forCode: lang) ?? lang)
+                    }
                 }
                 .font(Ember.Font.caption)
                 .foregroundColor(Ember.tertiaryText(scheme))
             }
         }
+    }
+
+    /// Translucent "Copy as text" button shown only on hover when
+    /// OCR has produced text. Lives in an `.overlay` so it doesn't
+    /// shift other content when it appears.
+    @ViewBuilder
+    private var copyAsTextOverlay: some View {
+        if isHovered,
+           let text = item.extractedText,
+           !text.isEmpty {
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("Copy as text")
+                        .font(.system(size: 10, weight: .medium))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(.black.opacity(0.7)))
+            }
+            .buttonStyle(.plain)
+            .padding(8)
+            .help("Copy the OCR-extracted text from this screenshot")
+        }
+    }
+
+    /// Computed lazily from `item.extractedText`. NSDataDetector is
+    /// fast (sub-ms) so caching isn't worth it; SwiftUI will only
+    /// recompute when the item's published state changes.
+    /// Cheap key that changes only when the detection-relevant text
+    /// changes, so the `.task` recomputes when (e.g.) an image's OCR
+    /// text arrives, but NOT on every hover/scroll re-render.
+    private var detectionSourceKey: String {
+        let src = item.contentType == "image" ? item.extractedText : item.content
+        return "\(item.id?.uuidString ?? "")-\(src?.count ?? 0)"
+    }
+
+    /// Reads the source string on the main actor, then runs the
+    /// (potentially heavy) NSDataDetector + sensitive-data regexes on
+    /// a background task. Result is published back into `detectedLinks`.
+    private func recomputeDetectedLinks() async {
+        let source: String? = item.contentType == "image" ? item.extractedText : item.content
+        guard let text = source, !text.isEmpty else {
+            detectedLinks = OCRLinks()
+            return
+        }
+        // Cap input — the first 2K reliably catches a card / IBAN /
+        // phone / URL near the top and keeps the pass fast.
+        let capped = text.count > 2000 ? String(text.prefix(2000)) : text
+        let result = await Task.detached(priority: .utility) {
+            OCRLinkDetector.detect(in: capped)
+        }.value
+        detectedLinks = result
+    }
+
+    @ViewBuilder
+    private var ocrLinkBadges: some View {
+        let links = detectedLinks
+        if !links.isEmpty {
+            HStack(spacing: 6) {
+                if !links.phoneNumbers.isEmpty {
+                    ocrBadge(icon: "phone.fill", count: links.phoneNumbers.count, tint: .green) {
+                        phoneMenu(for: links.phoneNumbers)
+                    }
+                }
+                if !links.emails.isEmpty {
+                    ocrBadge(icon: "envelope.fill", count: links.emails.count, tint: .blue) {
+                        emailMenu(for: links.emails)
+                    }
+                }
+                if !links.urls.isEmpty {
+                    ocrBadge(icon: "link", count: links.urls.count, tint: Ember.Palette.amber) {
+                        urlMenu(for: links.urls)
+                    }
+                }
+                if !links.addresses.isEmpty {
+                    ocrBadge(icon: "mappin.and.ellipse", count: links.addresses.count, tint: .red) {
+                        addressMenu(for: links.addresses)
+                    }
+                }
+                if !links.dates.isEmpty {
+                    ocrBadge(icon: "calendar", count: links.dates.count, tint: .purple) {
+                        calendarMenu(for: links.dates)
+                    }
+                }
+                // Sensitive-data warning. Suppressed once the user
+                // has already encrypted the item — the action is no
+                // longer relevant.
+                if !links.sensitiveHits.isEmpty && !item.isEncrypted {
+                    ocrBadge(icon: "lock.shield.fill",
+                             count: links.sensitiveHits.count,
+                             tint: .orange) {
+                        sensitiveMenu(for: links.sensitiveHits)
+                    }
+                }
+            }
+        }
+    }
+
+    /// One capsule pill: icon + count, opens a Menu of matches on click.
+    /// Styled to fit the Ember palette (tinted capsule, thin border).
+    @ViewBuilder
+    private func ocrBadge<MenuContent: View>(
+        icon: String,
+        count: Int,
+        tint: Color,
+        @ViewBuilder content: @escaping () -> MenuContent
+    ) -> some View {
+        Menu {
+            content()
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 9, weight: .semibold))
+                Text("\(count)")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+            }
+            .foregroundColor(tint)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                Capsule().fill(tint.opacity(scheme == .dark ? 0.15 : 0.08))
+            )
+            .overlay(
+                Capsule().strokeBorder(tint.opacity(0.25), lineWidth: 0.5)
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private func phoneMenu(for phones: [String]) -> some View {
+        ForEach(phones, id: \.self) { phone in
+            Button {
+                let digits = phone.filter { $0.isNumber || $0 == "+" }
+                if let url = URL(string: "tel:\(digits)") {
+                    NSWorkspace.shared.open(url)
+                }
+            } label: {
+                Label(phone, systemImage: "phone")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func emailMenu(for emails: [String]) -> some View {
+        ForEach(emails, id: \.self) { email in
+            Button {
+                if let url = URL(string: "mailto:\(email)") {
+                    NSWorkspace.shared.open(url)
+                }
+            } label: {
+                Label(email, systemImage: "envelope")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func urlMenu(for urls: [URL]) -> some View {
+        ForEach(urls, id: \.self) { url in
+            Button {
+                NSWorkspace.shared.open(url)
+            } label: {
+                Label(url.host ?? url.absoluteString, systemImage: "safari")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func addressMenu(for addresses: [String]) -> some View {
+        ForEach(addresses, id: \.self) { address in
+            Button {
+                let encoded = address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                if let url = URL(string: "https://maps.apple.com/?q=\(encoded)") {
+                    NSWorkspace.shared.open(url)
+                }
+            } label: {
+                Label(address, systemImage: "map")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func calendarMenu(for dates: [DateMatch]) -> some View {
+        ForEach(dates, id: \.self) { entry in
+            Button {
+                openInCalendar(title: item.title ?? "Event from screenshot",
+                               startDate: entry.date,
+                               duration: entry.duration,
+                               snippet: entry.snippet)
+            } label: {
+                Label(entry.snippet, systemImage: "calendar.badge.plus")
+            }
+        }
+    }
+
+    /// Opens Calendar.app's new-event sheet with the detected date
+    /// pre-filled. We deliberately don't write the event via
+    /// EventKit — that needs a calendar-access permission prompt,
+    /// which is too heavy for a clipboard manager. Writing a temp
+    /// .ics and opening it lets Calendar handle confirmation itself.
+    private func openInCalendar(title: String, startDate: Date, duration: TimeInterval, snippet: String) {
+        let end = startDate.addingTimeInterval(duration)
+        let ics = """
+        BEGIN:VCALENDAR
+        VERSION:2.0
+        PRODID:-//Clippy//Clippy//EN
+        BEGIN:VEVENT
+        UID:\(UUID().uuidString)
+        SUMMARY:\(title)
+        DTSTAMP:\(icsDate(Date()))
+        DTSTART:\(icsDate(startDate))
+        DTEND:\(icsDate(end))
+        DESCRIPTION:\(snippet.replacingOccurrences(of: "\n", with: "\\n"))
+        END:VEVENT
+        END:VCALENDAR
+        """
+        let tmpURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("clippy-event-\(UUID().uuidString.prefix(8)).ics")
+        try? ics.write(to: tmpURL, atomically: true, encoding: .utf8)
+        NSWorkspace.shared.open(tmpURL)
+    }
+
+    private func icsDate(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        return f.string(from: date)
+    }
+
+    @ViewBuilder
+    private func sensitiveMenu(for hits: [SensitiveHit]) -> some View {
+        ForEach(hits, id: \.self) { hit in
+            Label(hit.kind.displayLabel + " · " + maskedSnippet(hit.snippet),
+                  systemImage: hit.kind.iconName)
+                .foregroundColor(.secondary)
+                .disabled(true)
+        }
+        Divider()
+        Button {
+            if let id = item.id {
+                monitor.toggleEncryption(for: id)
+            }
+        } label: {
+            Label("Encrypt this item…", systemImage: "lock.fill")
+        }
+    }
+
+    /// Shows only the last 4 alphanumerics of a card / IBAN / TC etc.
+    /// so the user can confirm what was matched without staring at
+    /// the full secret in a UI they didn't open on purpose.
+    private func maskedSnippet(_ snippet: String) -> String {
+        let cleaned = snippet.filter { $0.isLetter || $0.isNumber }
+        guard cleaned.count > 4 else { return snippet }
+        return "•••• \(String(cleaned.suffix(4)))"
     }
 
     // MARK: Drag preview
@@ -580,6 +911,57 @@ struct ClippyCard: View {
 
         Button { shareClipboardItem() } label: {
             Label("Share…", systemImage: "square.and.arrow.up")
+        }
+
+        // Web search (P3.31). Text items only — running a search on
+        // a screenshot's filename is meaningless and OCR'd text has
+        // less consistent value for direct web search.
+        if item.contentType == "text",
+           let content = item.content,
+           let query = trimmedSearchQuery(from: content) {
+            Menu {
+                Button {
+                    openSearch(template: "https://www.google.com/search?q=%@", query: query)
+                } label: { Label("Google", systemImage: "magnifyingglass") }
+                Button {
+                    openSearch(template: "https://duckduckgo.com/?q=%@", query: query)
+                } label: { Label("DuckDuckGo", systemImage: "magnifyingglass") }
+                Button {
+                    openSearch(template: "https://en.wikipedia.org/wiki/Special:Search?search=%@", query: query)
+                } label: { Label("Wikipedia", systemImage: "book") }
+                Button {
+                    openSearch(template: "https://stackoverflow.com/search?q=%@", query: query)
+                } label: { Label("Stack Overflow", systemImage: "chevron.left.forwardslash.chevron.right") }
+            } label: {
+                Label("Search on the web…", systemImage: "globe")
+            }
+        }
+
+        // Source-app filter (P1.25). Only useful when the item
+        // actually has a source app tracked.
+        if let bundleID = item.sourceAppBundleIdentifier, !bundleID.isEmpty {
+            Divider()
+            Button {
+                NotificationCenter.default.post(
+                    name: .clippyFilterBySourceApp,
+                    object: nil,
+                    userInfo: [
+                        "bundleID": bundleID,
+                        "appName": item.sourceAppName ?? bundleID
+                    ]
+                )
+            } label: {
+                Label("Show only items from \(item.sourceAppName ?? "this app")",
+                      systemImage: "app.badge.checkmark")
+            }
+            Button {
+                NotificationCenter.default.post(
+                    name: .clippyFilterBySourceApp, object: nil, userInfo: [:]
+                )
+            } label: {
+                Label("Show items from all apps", systemImage: "square.grid.3x3")
+            }
+            Divider()
         }
 
         // Color converter
@@ -709,11 +1091,73 @@ struct ClippyCard: View {
         aiTransformState = AITransformState(text: text, action: action, targetLanguage: targetLanguage, customPrompt: customPrompt)
     }
 
+    /// Sanitizes a clipboard text into a usable web-search query.
+    /// Trims whitespace, collapses newlines, caps length to keep
+    /// URLs under reasonable browser limits. Returns nil if the
+    /// result would be empty.
+    private func trimmedSearchQuery(from text: String) -> String? {
+        let collapsed = text
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !collapsed.isEmpty else { return nil }
+        return String(collapsed.prefix(300))
+    }
+
+    private func openSearch(template: String, query: String) {
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: String(format: template, encoded)) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    /// Returns the text AI actions should operate on for this item:
+    ///   - text item → its content
+    ///   - image item → its OCR-extracted text
+    /// Returns nil when neither is meaningfully populated, so the
+    /// AI menu hides instead of running on garbage (filename, etc).
+    private func aiSourceText() -> String? {
+        if item.contentType == "text", let c = item.content, !c.isEmpty {
+            return c
+        }
+        if item.contentType == "image", let t = item.extractedText, !t.isEmpty {
+            return t
+        }
+        return nil
+    }
+
     private func detectURL(in text: String) -> URL? {
-        guard text.count <= 2048 else { return nil }
-        guard let url = URL(string: text),
-              let scheme = url.scheme,
-              ["http", "https"].contains(scheme) else { return nil }
+        return quickURL(from: text)
+    }
+
+    /// Resolves a URL from raw text whether or not the user copied the
+    /// scheme. Two-step:
+    ///   1. Fast path: `URL(string:)` succeeds and has http/https.
+    ///   2. Fallback: NSDataDetector matches the *entire* trimmed
+    ///      string as a link — covers bare domains ("github.com",
+    ///      "wangchujiang.com"), exotic TLDs (.ai, .dev, .app), and
+    ///      paths ("github.com/yarasaa/Clippy"). The whole-string
+    ///      requirement keeps prose containing a domain from
+    ///      accidentally triggering the Safari button.
+    private func quickURL(from text: String) -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= 2048 else { return nil }
+        // Single line only — multi-line content is rarely "a URL".
+        guard !trimmed.contains("\n") else { return nil }
+
+        if let url = URL(string: trimmed),
+           let scheme = url.scheme,
+           ["http", "https"].contains(scheme) {
+            return url
+        }
+
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+            return nil
+        }
+        let range = NSRange(trimmed.startIndex..., in: trimmed)
+        guard let match = detector.firstMatch(in: trimmed, options: [], range: range),
+              match.range == range,           // entire string is the URL
+              let url = match.url,
+              url.scheme != "mailto"          // email handled separately
+        else { return nil }
         return url
     }
 

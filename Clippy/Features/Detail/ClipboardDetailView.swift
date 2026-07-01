@@ -385,34 +385,31 @@ struct ClipboardDetailView: View {
     }
 
     private func imageContentArea(image: NSImage) -> some View {
-        ScrollView([.horizontal, .vertical]) {
-            Image(nsImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .cornerRadius(Ember.Radius.md)
-                .overlay(
-                    RoundedRectangle(cornerRadius: Ember.Radius.md)
-                        .strokeBorder(Color.white.opacity(scheme == .dark ? 0.08 : 0.4), lineWidth: 0.5)
-                )
-                .padding(Ember.Space.xl)
-                .frame(minWidth: 0, minHeight: 0)
-        }
-        .background(
-            ZStack {
-                // Subtle checker pattern for transparency awareness
-                Ember.surface(scheme)
+        // Live Text overlay — selectable text directly on the image.
+        // SwiftUI handles all sizing (LiveTextImageView declines to
+        // publish intrinsic size on purpose, so it won't blow up the
+        // detail layout the way earlier attempts did).
+        let aspect = max(image.size.width, 1) / max(image.size.height, 1)
+        return LiveTextImageView(image: image)
+            .aspectRatio(aspect, contentMode: .fit)
+            .cornerRadius(Ember.Radius.md)
+            .overlay(
+                RoundedRectangle(cornerRadius: Ember.Radius.md)
+                    .strokeBorder(Color.white.opacity(scheme == .dark ? 0.08 : 0.4), lineWidth: 0.5)
+            )
+            .padding(Ember.Space.xl)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Ember.surface(scheme))
+            .safeAreaInset(edge: .bottom) {
+                HStack(spacing: Ember.Space.md) {
+                    StatItem(label: "Width",  value: Int(image.size.width))
+                    StatItem(label: "Height", value: Int(image.size.height))
+                    StatItem(label: "Ratio",  value: Int(image.size.width * 100 / max(image.size.height, 1)))
+                }
+                .padding(.horizontal, Ember.Space.lg)
+                .padding(.vertical, Ember.Space.sm)
+                .background(.ultraThinMaterial)
             }
-        )
-        .safeAreaInset(edge: .bottom) {
-            HStack(spacing: Ember.Space.md) {
-                StatItem(label: "Width",  value: Int(image.size.width))
-                StatItem(label: "Height", value: Int(image.size.height))
-                StatItem(label: "Ratio",  value: Int(image.size.width * 100 / max(image.size.height, 1)))
-            }
-            .padding(.horizontal, Ember.Space.lg)
-            .padding(.vertical, Ember.Space.sm)
-            .background(.ultraThinMaterial)
-        }
     }
 
     // MARK: Bottom Action Bar

@@ -387,7 +387,10 @@ private struct StorageStatsRow: View {
             }
             .disabled(isWorking)
         }
-        .task { await refreshStats() }
+        // Utility priority: stats read hits a background CoreData
+        // context, and `.task`'s default .userInitiated QoS would sit
+        // waiting on that lower-QoS work — a priority inversion.
+        .task(priority: .utility) { await refreshStats() }
     }
 
     private var summary: String {
@@ -402,7 +405,11 @@ private struct StorageStatsRow: View {
     }
 
     private func cleanNow() {
-        Task {
+        // Utility priority so this user-triggered maintenance doesn't
+        // sit at user-interactive QoS waiting on the background
+        // CoreData prune — that mismatch is the "Hang Risk / priority
+        // inversion" Xcode flags at the count(for:) calls.
+        Task(priority: .utility) {
             isWorking = true
             let result = await HistoryPruner.shared.pruneNow()
             switch result {
@@ -458,6 +465,13 @@ struct FeaturesSettingsPane: View {
                 Divider().opacity(0.2)
                 SettingsRow("OCR text recognition", help: "Extract text from copied images") {
                     Toggle("", isOn: $settings.enableOCR).labelsHidden()
+                }
+                if settings.enableOCR {
+                    Divider().opacity(0.2)
+                    SettingsRow("Auto-OCR on capture",
+                                help: "Read text in every copied image in the background — makes screenshots searchable") {
+                        Toggle("", isOn: $settings.enableAutoOCR).labelsHidden()
+                    }
                 }
                 Divider().opacity(0.2)
                 SettingsRow("File converter", help: "Images, docs, audio, video, data formats") {
@@ -551,21 +565,25 @@ struct AISettingsPane: View {
             }
 
             if settings.enableAI {
-                SettingsGroup("Provider", footer: "Use Ollama for free local AI, or a cloud provider for best quality.") {
+                SettingsGroup("Provider", footer: "Apple Intelligence runs entirely on-device — no setup, no API key. Cloud providers are more capable on complex tasks but require a key.") {
                     SettingsRow("Provider") {
+                        // Apple Intelligence is always listed so users
+                        // discover it; the Status row below explains
+                        // when it isn't usable on this Mac.
                         Picker("", selection: $settings.aiProvider) {
+                            Text("Apple Intelligence (on-device)").tag("apple")
                             Text("Ollama (local)").tag("ollama")
                             Text("OpenAI").tag("openai")
                             Text("Anthropic").tag("anthropic")
                             Text("Google Gemini").tag("google")
                         }
                         .labelsHidden()
-                        .frame(width: 180)
+                        .frame(width: 220)
                         .onChange(of: settings.aiProvider) { _ in
                             aiValidationState = .idle
                             aiValidationMessage = ""
                             aiUseCustomModel = false
-                            if settings.aiProvider != "ollama" {
+                            if settings.aiProvider != "ollama" && settings.aiProvider != "apple" {
                                 let models = modelsForProvider
                                 if !models.isEmpty { settings.aiModel = models[0].name }
                             }
@@ -574,7 +592,23 @@ struct AISettingsPane: View {
 
                     Divider().opacity(0.2)
 
-                    if settings.aiProvider == "ollama" {
+                    if settings.aiProvider == "apple" {
+                        // Apple Intelligence: nothing to configure.
+                        // Just a status indicator so users know if
+                        // the on-device model is ready.
+                        SettingsRow("Status") {
+                            HStack(spacing: 6) {
+                                Image(systemName: AppleFoundationModelsClient.isReady
+                                      ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                                    .foregroundColor(AppleFoundationModelsClient.isReady ? .green : .orange)
+                                Text(AppleFoundationModelsClient.isReady
+                                     ? "On-device model ready"
+                                     : (AppleFoundationModelsClient.availabilityMessage() ?? "Unavailable"))
+                                    .font(.caption)
+                                    .multilineTextAlignment(.trailing)
+                            }
+                        }
+                    } else if settings.aiProvider == "ollama" {
                         SettingsRow("Ollama URL") {
                             TextField("http://localhost:11434", text: $settings.ollamaURL)
                                 .textFieldStyle(.roundedBorder)

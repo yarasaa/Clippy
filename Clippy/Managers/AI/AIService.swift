@@ -37,6 +37,10 @@ enum AIAction: String, CaseIterable {
     case findBugs = "findBugs"
     case optimizeCode = "optimizeCode"
     case freePrompt = "freePrompt"
+    /// Phase 3: explain OCR-extracted text from screenshots.
+    /// Tuned for error messages, chart labels, UI fragments — not
+    /// long-form prose (use `.summarize` for that).
+    case explain = "explain"
 
     var systemPrompt: String {
         switch self {
@@ -62,6 +66,8 @@ enum AIAction: String, CaseIterable {
             return "You are a senior software developer. Optimize the given code for better performance and readability. Return only the optimized code."
         case .freePrompt:
             return "You are a helpful assistant. Follow the user's instructions precisely."
+        case .explain:
+            return "You are a helpful explainer. The given text was extracted from a screenshot — it could be an error message, an article fragment, a chart label, or a UI element. Explain in 2-4 sentences what it is and what it likely means. If it looks like an error, suggest the most likely cause. Plain, friendly tone. Reply in the same language as the input."
         }
     }
 
@@ -96,6 +102,10 @@ class AIService {
         guard settings.enableAI else { return false }
 
         switch settings.aiProvider {
+        case "apple":
+            // Apple Foundation Models: no key, no URL — just check
+            // the on-device model is actually available right now.
+            return AppleFoundationModelsClient.isReady
         case "ollama":
             return !settings.ollamaURL.isEmpty && !settings.ollamaModel.isEmpty
         case "openai", "anthropic", "google":
@@ -112,6 +122,8 @@ class AIService {
 
         do {
             switch settings.aiProvider {
+            case "apple":
+                return AppleFoundationModelsClient.availabilityMessage()
             case "ollama":
                 return await validateOllama()
             case "openai":
@@ -170,6 +182,8 @@ class AIService {
         let userMessage = action.buildUserMessage(text: text, targetLanguage: targetLanguage, customPrompt: customPrompt)
 
         switch settings.aiProvider {
+        case "apple":
+            return try await AppleFoundationModelsClient.generate(system: systemPrompt, user: userMessage)
         case "ollama":
             return try await callOllama(system: systemPrompt, user: userMessage)
         case "openai":

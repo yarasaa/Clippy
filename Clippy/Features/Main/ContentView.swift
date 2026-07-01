@@ -9,6 +9,11 @@ struct ContentView: View {
     @State private var selectedTab: Tab = .history
     @State private var searchText: String = ""
     @State private var selectedCategory: String? = nil
+    /// When set, the list shows only items captured from this app
+    /// (bundle identifier). Activated via right-click → "Show only
+    /// from this app" on any card; cleared via the chip in the header.
+    @State private var sourceAppFilter: String? = nil
+    @State private var sourceAppFilterName: String? = nil
 
     @State private var comparisonData: ComparisonData?
 
@@ -49,6 +54,11 @@ struct ContentView: View {
                 onGenerateLorem: { monitor.generateLoremIpsum() }
             )
 
+            // Visible only when a per-app filter is active. Sits
+            // between the header and list so it doesn't intrude on
+            // the default empty-filter state.
+            sourceAppFilterChip
+
             ClipboardListView(
                 items: items,
                 monitor: monitor,
@@ -65,7 +75,47 @@ struct ContentView: View {
         .onChange(of: selectedTab, perform: updatePredicate)
         .onChange(of: searchText, perform: updatePredicate)
         .onChange(of: selectedCategory, perform: updatePredicate)
+        .onChange(of: sourceAppFilter, perform: updatePredicate)
         .onAppear { updatePredicate(searchText) }
+        .onReceive(NotificationCenter.default.publisher(for: .clippyFilterBySourceApp)) { note in
+            // Empty userInfo or missing bundleID → clear filter.
+            let bundle = note.userInfo?["bundleID"] as? String
+            let name = note.userInfo?["appName"] as? String
+            sourceAppFilter = (bundle?.isEmpty == false) ? bundle : nil
+            sourceAppFilterName = (name?.isEmpty == false) ? name : nil
+        }
+    }
+
+    /// Small dismissible chip shown when a source-app filter is active.
+    /// Uses Ember.Palette.amber to match the rest of the brand. The
+    /// whole view collapses when no filter is set.
+    @ViewBuilder
+    private var sourceAppFilterChip: some View {
+        if let bundle = sourceAppFilter, !bundle.isEmpty {
+            HStack(spacing: 6) {
+                Image(systemName: "app.badge.checkmark")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("Only from")
+                    .font(.system(size: 11, weight: .medium))
+                Text(sourceAppFilterName ?? bundle)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                Spacer(minLength: 4)
+                Button {
+                    sourceAppFilter = nil
+                    sourceAppFilterName = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(Ember.Palette.amber.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+                .help("Clear filter")
+            }
+            .foregroundColor(Ember.Palette.amber)
+            .padding(.horizontal, Ember.Space.md)
+            .padding(.vertical, 6)
+            .background(Ember.Palette.amber.opacity(0.08))
+        }
     }
 
     private func updatePredicate(_: Any) {
@@ -99,7 +149,18 @@ struct ContentView: View {
         }
 
         if !searchText.isEmpty {
-            predicates.append(NSPredicate(format: "content CONTAINS[c] %@", searchText))
+            // Match the literal text content OR the OCR-extracted text
+            // from images, so screenshots become searchable by their
+            // visible text once auto-OCR has populated `extractedText`.
+            predicates.append(NSPredicate(
+                format: "content CONTAINS[c] %@ OR extractedText CONTAINS[c] %@",
+                searchText, searchText
+            ))
+        }
+
+        // Source-app filter (set via right-click → "Show only from this app").
+        if let bundle = sourceAppFilter, !bundle.isEmpty {
+            predicates.append(NSPredicate(format: "sourceAppBundleIdentifier == %@", bundle))
         }
 
         items.nsPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)

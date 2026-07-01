@@ -7,6 +7,8 @@
         <attribute name="contentType" optional="YES" attributeType="String"/>
         <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="detectedDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="extractedText" optional="YES" attributeType="String"/>
+        <attribute name="detectedLanguage" optional="YES" attributeType="String"/>
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="isCode" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="isEncrypted" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
