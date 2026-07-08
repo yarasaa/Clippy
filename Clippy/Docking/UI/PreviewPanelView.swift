@@ -682,7 +682,15 @@ struct PreviewItemView: View {
 
     @ViewBuilder
     private var previewBody: some View {
-        if SettingsManager.shared.enableAutoRefresh, let cgImage = initialCGImage {
+        // Only the window the cursor is actually over streams live; every
+        // other thumbnail stays a static capture. This turns the live-
+        // preview cost from O(N) SCStreams (one per window — 6 windows = 6
+        // concurrent ScreenCaptureKit pipelines) into O(1): at most one
+        // stream at a time, for the thumbnail the user is looking at.
+        // The rest of the grid still shows the crisp static capture taken
+        // when the panel opened. When hover ends, `LivePreviewView`'s
+        // `.onDisappear` tears its stream down, so we never accumulate.
+        if SettingsManager.shared.enableAutoRefresh, isHovering, let cgImage = initialCGImage {
             LivePreviewView(
                 windowID: windowID,
                 initialImage: cgImage,

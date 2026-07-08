@@ -51,6 +51,56 @@ final class UpdaterManager: NSObject, ObservableObject {
     @Published private(set) var canCheckForUpdates = false
     @Published private(set) var lastCheckDate: Date?
 
+    // MARK: - Check frequency (issue #10)
+    //
+    // The user can choose how often Sparkle checks in the background —
+    // or turn scheduled checks off entirely. We drive Sparkle's own
+    // persisted properties (`automaticallyChecksForUpdates` and
+    // `updateCheckInterval` both write to UserDefaults themselves), so
+    // there is no separate SettingsManager key to keep in sync.
+    // "Off" never blocks the manual "Check Now" button.
+    enum CheckFrequency: String, CaseIterable, Identifiable {
+        case daily, every3Days, weekly, monthly, off
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .daily:      return "Daily"
+            case .every3Days: return "Every 3 days"
+            case .weekly:     return "Weekly"
+            case .monthly:    return "Monthly"
+            case .off:        return "Never"
+            }
+        }
+
+        var interval: TimeInterval {
+            switch self {
+            case .daily:      return 86_400
+            case .every3Days: return 259_200
+            case .weekly:     return 604_800
+            case .monthly:    return 2_592_000
+            case .off:        return 0 // unused; checks are disabled
+            }
+        }
+
+        /// Reverse-maps a stored Sparkle interval back to a menu case,
+        /// snapping unknown values to the closest named option.
+        static func from(interval: TimeInterval) -> CheckFrequency {
+            let candidates: [CheckFrequency] = [.daily, .every3Days, .weekly, .monthly]
+            return candidates.min(by: {
+                abs($0.interval - interval) < abs($1.interval - interval)
+            }) ?? .daily
+        }
+    }
+
+    @Published var checkFrequency: CheckFrequency = .daily {
+        didSet {
+            guard checkFrequency != oldValue else { return }
+            applyCheckFrequency()
+        }
+    }
+
     override init() {
         super.init()
 
@@ -75,6 +125,25 @@ final class UpdaterManager: NSObject, ObservableObject {
         // Seed once; Sparkle doesn't publish lastUpdateCheckDate changes,
         // so we poll whenever the user triggers a check.
         self.lastCheckDate = controller.updater.lastUpdateCheckDate
+
+        // Seed the frequency picker from Sparkle's persisted state
+        // (it stores both flags in UserDefaults across launches).
+        let updater = controller.updater
+        if !updater.automaticallyChecksForUpdates {
+            self.checkFrequency = .off
+        } else {
+            self.checkFrequency = CheckFrequency.from(interval: updater.updateCheckInterval)
+        }
+    }
+
+    private func applyCheckFrequency() {
+        let updater = controller.updater
+        if checkFrequency == .off {
+            updater.automaticallyChecksForUpdates = false
+        } else {
+            updater.automaticallyChecksForUpdates = true
+            updater.updateCheckInterval = checkFrequency.interval
+        }
     }
 
     /// Manually triggered from the Settings UI. Shows Sparkle's native

@@ -14,6 +14,16 @@ class PreviewPanelController {
         panel?.frame ?? .zero
     }
 
+    /// Authoritative "is the preview on screen" flag for the dismiss
+    /// watchdog. Uses real AppKit visibility, not a frame heuristic.
+    var isVisible: Bool {
+        panel?.isVisible ?? false
+    }
+
+    /// Guards against a dismiss being requested repeatedly while the
+    /// hide animation is already in flight (which would restart it).
+    private var isHiding = false
+
     private var currentAppIdentifier: String?
 
     var onWindowCloseAction: ((CGWindowID) -> Void)?
@@ -31,6 +41,9 @@ class PreviewPanelController {
     func show(appName: String, appIcon: NSImage?, items: [PreviewItem], at position: NSPoint, dockIconFrame: CGRect = .zero, forceUpdate: Bool = false) {
         currentItems = items
         selectedIndex = 0
+        // A new show cancels any in-flight hide (e.g. the user moved
+        // from one dock icon straight to the panel).
+        isHiding = false
 
         if panel?.isVisible == true, currentAppIdentifier == appName, !forceUpdate {
             return
@@ -132,7 +145,13 @@ class PreviewPanelController {
     }
 
     func hide() {
-        guard let panel = panel, panel.isVisible, panel.alphaValue > 0 else { return }
+        // NOTE: intentionally does NOT gate on `alphaValue > 0`. The old
+        // guard silently dropped a dismiss requested *during* the reveal
+        // animation (alpha still ~0), which then tore down the exit
+        // watchers and left the panel stuck open forever. We only skip if
+        // the panel is already hidden or a hide is already animating.
+        guard let panel = panel, panel.isVisible, !isHiding else { return }
+        isHiding = true
 
         currentAppIdentifier = nil
 
@@ -157,9 +176,10 @@ class PreviewPanelController {
             context.allowsImplicitAnimation = true
             panel.animator().alphaValue = 0.0
             panel.animator().setFrame(finalFrame, display: true)
-        }, completionHandler: {
+        }, completionHandler: { [weak self] in
             panel.orderOut(nil)
             panel.setFrame(currentFrame, display: false)
+            self?.isHiding = false
         })
     }
 

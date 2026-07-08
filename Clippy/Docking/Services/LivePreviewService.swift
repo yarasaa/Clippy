@@ -16,6 +16,17 @@ final class LivePreviewService: NSObject {
     // Publishers for live frames
     private var frameSubjects: [CGWindowID: PassthroughSubject<CGImage, Never>] = [:]
 
+    // Dedicated background queue for SCStream sample delivery. The
+    // per-frame CVPixelBuffer → CGImage conversion (Core Image) is the
+    // single most expensive step; running it here keeps it OFF the main
+    // thread. Previously the sample handler ran on `.main`, so at 5 FPS ×
+    // N windows the UI paid for every conversion — the real cause of the
+    // hitch when a multi-window preview opened.
+    private static let sampleQueue = DispatchQueue(
+        label: "com.yarasa.Clippy.livePreview.samples",
+        qos: .userInitiated
+    )
+
     private override init() {
         super.init()
         Task {
@@ -79,7 +90,7 @@ final class LivePreviewService: NSObject {
 
             Task {
                 do {
-                    try stream.addStreamOutput(output, type: .screen, sampleHandlerQueue: .main)
+                    try stream.addStreamOutput(output, type: .screen, sampleHandlerQueue: Self.sampleQueue)
                     try await stream.startCapture()
 
                     activeStreams[windowID] = stream

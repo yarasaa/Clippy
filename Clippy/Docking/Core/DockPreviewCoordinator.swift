@@ -16,32 +16,34 @@ final class DockPreviewCoordinator {
     private let panelController: PreviewPanelController
 
     private var mainTask: Task<Void, Never>?
-    private var mouseExitTask: Task<Void, Never>?
     private var cmdTabTask: Task<Void, Never>?
     private var isRunning = false
     private var lastHoveredItem: DockItem?
     private var lastCapturedWindows: [CapturedWindow] = []
     private var currentHoverTask: Task<Void, Never>?
 
-    // Event-driven mouse move monitor — fires on every cursor movement.
-    // We use it instead of timer polling so hide is truly instant and we
-    // don't burn CPU while the cursor is stationary.
+    // MARK: - Dismiss detection
+    //
+    // The preview hides when the cursor leaves the "safe zone" — the union
+    // of the panel and its dock icon (plus a small bridge margin so moving
+    // between them doesn't dismiss). This used to be three racing
+    // mechanisms (dock AX stream, a global mouse monitor, and a 200ms
+    // poll) that cancelled each other and left the panel stuck open. It's
+    // now a single self-healing watchdog:
+    //
+    //   • `dismissWatchdog` is the source of truth. It runs the entire
+    //     time the panel is visible, polling at 80ms. Each tick it
+    //     recomputes the safe zone from the panel's LIVE frame (so a
+    //     resize/move never leaves a stale zone) and checks `isVisible`
+    //     (real AppKit state) to know when to stop.
+    //   • `mouseMoveMonitor` stays purely as a zero-latency optimization:
+    //     it triggers an immediate hide the instant the cursor leaves,
+    //     but it does NOT own lifecycle — the watchdog cleans up.
+    private var dismissWatchdog: Task<Void, Never>?
     private var mouseMoveMonitor: Any?
-    private var currentSafeZone: CGRect = .zero
-
-    // Low-frequency safety poll. The event-driven monitor above handles
-    // the normal case at zero latency, but:
-    //   1) NSEvent.addGlobalMonitorForEvents isn't 100% guaranteed — macOS
-    //      may batch/drop mouseMoved events over the Dock's own process,
-    //      so the event-driven hide sometimes never fires.
-    //   2) There's an 80ms "grace period" after `startMouseExitMonitor`
-    //      during which no monitor is installed yet. If a new DockItem
-    //      stream event arrives in that window and cancels our install
-    //      task, the panel can end up with NO exit watcher at all.
-    // This poll is a belt-and-braces safety net: it runs only while the
-    // panel is visible, checks once every 200ms, and guarantees the panel
-    // dismisses within at most 200ms of the cursor leaving the safe zone.
-    private var exitPollTask: Task<Void, Never>?
+    /// Dock icon rect in Cocoa (bottom-left) coords, cached per-show so
+    /// the watchdog can rebuild the safe zone without re-converting.
+    private var currentDockIconCocoa: CGRect = .zero
 
     private init?() {
         guard let imageProcessingService = ImageProcessingService() else {
@@ -92,10 +94,9 @@ final class DockPreviewCoordinator {
 
     deinit {
         mainTask?.cancel()
-        mouseExitTask?.cancel()
         cmdTabTask?.cancel()
         currentHoverTask?.cancel()
-        exitPollTask?.cancel()
+        dismissWatchdog?.cancel()
     }
 
     func start() {
@@ -107,7 +108,6 @@ final class DockPreviewCoordinator {
         mainTask = Task {
             for await dockItem in dockMonitor.dockItemStream {
                 self.currentHoverTask?.cancel()
-                self.mouseExitTask?.cancel()
 
                 if let dockItem = dockItem {
                     self.lastHoveredItem = dockItem
@@ -120,8 +120,7 @@ final class DockPreviewCoordinator {
                     self.lastHoveredItem = nil
                     self.currentHoverTask = nil
                     panelController.hide()
-                    self.stopMouseMoveMonitor()
-                    self.stopExitPollTask()
+                    self.teardownDismissWatchers()
                 }
             }
         }
@@ -129,7 +128,6 @@ final class DockPreviewCoordinator {
         cmdTabTask = Task {
             for await dockItem in cmdTabMonitor.appStream {
                 self.currentHoverTask?.cancel()
-                self.mouseExitTask?.cancel()
 
                 if let dockItem = dockItem {
                     self.lastHoveredItem = dockItem
@@ -141,6 +139,7 @@ final class DockPreviewCoordinator {
                     self.lastHoveredItem = nil
                     self.currentHoverTask = nil
                     panelController.hide()
+                    self.teardownDismissWatchers()
                 }
             }
         }
@@ -150,12 +149,10 @@ final class DockPreviewCoordinator {
         guard isRunning else { return }
         isRunning = false
         mainTask?.cancel()
-        mouseExitTask?.cancel()
         cmdTabTask?.cancel()
         currentHoverTask?.cancel()
         Task { @MainActor in
-            self.stopMouseMoveMonitor()
-            self.stopExitPollTask()
+            self.teardownDismissWatchers()
         }
         dockMonitor.stop()
         cmdTabMonitor.stop()
@@ -293,7 +290,7 @@ final class DockPreviewCoordinator {
                 dockIconFrame: dockItem.frame
             )
 
-            startMouseExitMonitor(dockIconFrame: dockItem.frame)
+            startDismissWatchdog(dockIconFrame: dockItem.frame)
 
             // Live preview is now handled by LivePreviewService in PreviewPanelView
             // No manual refresh needed - ScreenCaptureKit streams updates automatically
@@ -354,20 +351,16 @@ final class DockPreviewCoordinator {
         }
     }
 
-    /// Event-driven exit watcher. Registers a global mouse-move monitor that
-    /// fires on every cursor movement and hides the panel the moment the mouse
-    /// leaves the safe zone (panel ∪ dock icon + small bridge margin).
-    /// No polling, no CPU cost while the cursor is stationary.
-    private func startMouseExitMonitor(dockIconFrame: CGRect) {
-        mouseExitTask?.cancel()
-        stopMouseMoveMonitor()
-        stopExitPollTask()
+    /// Starts the single authoritative dismiss watchdog for a freshly
+    /// shown panel, plus the zero-latency mouse-move optimization.
+    @MainActor
+    private func startDismissWatchdog(dockIconFrame: CGRect) {
+        teardownDismissWatchers()
 
-        // Convert dockIconFrame from AX (top-left origin) to Cocoa (bottom-left origin)
-        // so we can union it with the panel frame (which is already Cocoa) and compare
-        // directly against NSEvent.mouseLocation (also Cocoa).
-        let panelFrame = self.panelController.frame
-        let dockInCocoa: CGRect = {
+        // Cache the dock icon rect in Cocoa (bottom-left) coords once —
+        // the safe zone is rebuilt from this + the panel's live frame on
+        // every check.
+        currentDockIconCocoa = {
             guard let primary = NSScreen.screens.first else { return dockIconFrame }
             return CGRect(
                 x: dockIconFrame.origin.x,
@@ -376,69 +369,60 @@ final class DockPreviewCoordinator {
                 height: dockIconFrame.height
             )
         }()
-        let safeZone = panelFrame.union(dockInCocoa).insetBy(dx: -6, dy: -6)
-        self.currentSafeZone = safeZone
 
-        // Short grace period so the first "show" mouse event doesn't trigger
-        // an immediate hide if the cursor briefly leaves during the panel's
-        // open animation.
-        mouseExitTask = Task {
-            try? await Task.sleep(for: .milliseconds(80))
-            guard !Task.isCancelled else { return }
-            await MainActor.run { self.installMouseMoveMonitor() }
-        }
+        // Optimization only: hide the instant the cursor leaves. Does not
+        // own lifecycle — if this monitor drops events (macOS batches them
+        // over the Dock process), the watchdog below still catches it.
+        installMouseMoveMonitor()
 
-        // Start the safety poll immediately (no grace delay) — it runs at
-        // 200ms intervals and compares mouse position to the safe zone.
-        // This guarantees a hide happens even if the event-driven monitor
-        // never installs or silently misses a mouseMoved event.
-        startExitPollTask()
-    }
-
-    @MainActor
-    private func startExitPollTask() {
-        exitPollTask?.cancel()
-        exitPollTask = Task { [weak self] in
-            // 300ms grace before first check, so we don't race with the
-            // panel's appear animation or the 80ms event-monitor install.
-            try? await Task.sleep(for: .milliseconds(300))
+        dismissWatchdog = Task { [weak self] in
+            // Grace period covering the reveal animation and the bridge
+            // gap between the dock icon and the panel, so an early cursor
+            // wobble during open doesn't dismiss immediately.
+            try? await Task.sleep(for: .milliseconds(250))
             while !Task.isCancelled {
                 guard let self = self else { return }
-                // If the panel isn't showing anymore we're done — a new
-                // start() call will recreate us when needed.
-                if self.panelController.frame == .zero {
+                // Real AppKit visibility is the source of truth — once the
+                // panel is off screen (hidden by any path) we're done.
+                guard self.panelController.isVisible else {
+                    self.stopMouseMoveMonitor()
                     return
                 }
-                let mouse = NSEvent.mouseLocation
-                if !self.currentSafeZone.contains(mouse) {
+                if !self.currentSafeZone().contains(NSEvent.mouseLocation) {
                     self.panelController.hide()
                     self.stopMouseMoveMonitor()
                     return
                 }
-                try? await Task.sleep(for: .milliseconds(200))
+                // 150ms is plenty for a *backstop*: the mouse monitor
+                // above handles the instant, common case at zero latency,
+                // so this poll only needs to catch the rare dropped-event
+                // path. ~6.7 ticks/sec of microsecond-cheap work, and only
+                // while a preview is on screen.
+                try? await Task.sleep(for: .milliseconds(150))
             }
         }
     }
 
+    /// Rebuilds the safe zone from the panel's LIVE frame each call, so a
+    /// panel resize/reposition (e.g. hovering a different-sized app) never
+    /// leaves us comparing against a stale rectangle.
     @MainActor
-    private func stopExitPollTask() {
-        exitPollTask?.cancel()
-        exitPollTask = nil
+    private func currentSafeZone() -> CGRect {
+        panelController.frame
+            .union(currentDockIconCocoa)
+            .insetBy(dx: -6, dy: -6)
     }
 
     @MainActor
     private func installMouseMoveMonitor() {
         guard mouseMoveMonitor == nil else { return }
         mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
-            guard let self = self else { return }
-            // NSEvent.mouseLocation already matches NSScreen's Cocoa bottom-left
-            // space. Our safe zone (derived from panel.frame which is also Cocoa)
-            // can be compared directly — no coord conversions to get wrong.
-            let mouse = NSEvent.mouseLocation
-            if !self.currentSafeZone.contains(mouse) {
+            guard let self = self, self.panelController.isVisible else { return }
+            if !self.currentSafeZone().contains(NSEvent.mouseLocation) {
                 self.panelController.hide()
                 self.stopMouseMoveMonitor()
-                self.stopExitPollTask()
+                // Leave the watchdog running; it will notice `isVisible`
+                // flip to false on its next tick and clean itself up.
             }
         }
     }
@@ -449,6 +433,14 @@ final class DockPreviewCoordinator {
             NSEvent.removeMonitor(monitor)
             mouseMoveMonitor = nil
         }
+    }
+
+    /// Tears down both dismiss watchers. Safe to call multiple times.
+    @MainActor
+    private func teardownDismissWatchers() {
+        dismissWatchdog?.cancel()
+        dismissWatchdog = nil
+        stopMouseMoveMonitor()
     }
 
     private func refreshPreview(for dockItem: DockItem) async {

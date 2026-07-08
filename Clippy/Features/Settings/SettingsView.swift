@@ -224,6 +224,23 @@ struct GeneralSettingsPane: View {
     @StateObject private var updater = UpdaterManager.shared
     @Environment(\.colorScheme) private var scheme
 
+    /// Footer copy tracks the chosen check frequency so the group
+    /// always describes what the app is actually doing.
+    private var updatesFooter: String {
+        switch updater.checkFrequency {
+        case .off:
+            return "Background update checks are off. Use Check Now whenever you want to look for a new version."
+        case .daily:
+            return "Clippy checks for new versions once a day. Your Mac tells you when one is ready."
+        case .every3Days:
+            return "Clippy checks for new versions every 3 days. Your Mac tells you when one is ready."
+        case .weekly:
+            return "Clippy checks for new versions weekly. Your Mac tells you when one is ready."
+        case .monthly:
+            return "Clippy checks for new versions monthly. Your Mac tells you when one is ready."
+        }
+    }
+
     var body: some View {
         SettingsPane(title: "General", subtitle: "How Clippy starts, looks, and what you see.") {
             SettingsGroup("Startup") {
@@ -232,7 +249,7 @@ struct GeneralSettingsPane: View {
                 }
             }
 
-            SettingsGroup("Updates", footer: "Clippy checks for new versions once a day. Your Mac tells you when one is ready.") {
+            SettingsGroup("Updates", footer: updatesFooter) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 6) {
@@ -268,6 +285,22 @@ struct GeneralSettingsPane: View {
                     .disabled(!updater.canCheckForUpdates)
                 }
                 .padding(.vertical, 4)
+
+                Divider().opacity(0.2)
+
+                // Issue #10 — configurable background check frequency,
+                // including turning scheduled checks off entirely.
+                // Manual "Check Now" always works regardless.
+                SettingsRow("Check for updates",
+                            help: "How often Clippy looks for new versions in the background") {
+                    Picker("", selection: $updater.checkFrequency) {
+                        ForEach(UpdaterManager.CheckFrequency.allCases) { freq in
+                            Text(freq.displayName).tag(freq)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 140)
+                }
             }
 
             SettingsGroup("Appearance") {
