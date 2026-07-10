@@ -1,4 +1,4 @@
-# Clippy
+# Clippy: Open Source AI Clipboard Manager for macOS
 
 > A warm, powerful clipboard manager for macOS. Card-based history, smart
 > content detection, a built-in screenshot editor, dock preview, AI-powered
