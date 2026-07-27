@@ -17,11 +17,46 @@ struct ScreenshotEditorView: View {
     @StateObject private var viewModel = ScreenshotEditorViewModel()
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTool: DrawingTool = .select
-    @State private var selectedColor: Color = Ember.Palette.amber
-    @State private var selectedLineWidth: CGFloat = 4
+
+    // Tool settings are remembered between screenshots. Picking a size or
+    // colour once should hold for the next annotation *and* the next
+    // session — re-choosing it every time was busywork.
+    //
+    // Sizes are stored per concept rather than in one shared value: a
+    // stroke width of 4 is a good line for a rectangle but means 16pt
+    // type, so a single number can't serve both.
+    @AppStorage("editorColorHex") private var storedColorHex: String = Ember.Palette.amber.hexString
+    @AppStorage("editorShapeLineWidth") private var storedShapeLineWidth: Double = 4
+    @AppStorage("editorTextPointSize") private var storedTextPointSize: Double = 0   // 0 = derive from image
+    @AppStorage("editorPinSize") private var storedPinSize: Double = 40
+    @AppStorage("editorEmojiSize") private var storedEmojiSize: Double = 48
+    @AppStorage("editorTextBold") private var storedTextBold: Bool = false
+    @AppStorage("editorTextItalic") private var storedTextItalic: Bool = false
+
+    private var selectedColor: Binding<Color> {
+        Binding(
+            get: { Color(hex: storedColorHex) },
+            set: { storedColorHex = $0.hexString }
+        )
+    }
+    private var selectedLineWidth: Binding<CGFloat> {
+        Binding(get: { CGFloat(storedShapeLineWidth) },
+                set: { storedShapeLineWidth = Double($0) })
+    }
+    private var textPointSize: Binding<CGFloat> {
+        Binding(get: { CGFloat(storedTextPointSize) },
+                set: { storedTextPointSize = Double($0) })
+    }
 
     @State private var isEditingText: Bool = false
     @FocusState private var isTextFieldFocused: Bool
+    /// Text as it stood when editing began, so the whole edit collapses
+    /// into one undo step. Paired with the id rather than the index
+    /// because deleting an annotation mid-session would shift indices.
+    @State private var textBeforeEditing: String?
+    @State private var editingAnnotationID: UUID?
+    /// Style yanked with ⌥⌘C, ready to paste onto another annotation.
+    @State private var copiedStyle: TextStylePreset?
     @State private var editingTextIndex: Int?
 
     @State private var movingAnnotationID: UUID?
@@ -39,13 +74,17 @@ struct ScreenshotEditorView: View {
     @State private var showToolControls = false
     @State private var selectedAnnotationID: UUID?
 
-    @State private var numberSize: CGFloat = 40
+    private var numberSize: Binding<CGFloat> {
+        Binding(get: { CGFloat(storedPinSize) }, set: { storedPinSize = Double($0) })
+    }
     @State private var numberShape: NumberShape = .circle
     @State private var shapeCornerRadius: CGFloat = 0
     @State private var shapeFillMode: FillMode = .stroke
     @State private var spotlightShape: SpotlightShape = .ellipse
     @State private var selectedEmoji: String = "✅"
-    @State private var emojiSize: CGFloat = 48
+    private var emojiSize: Binding<CGFloat> {
+        Binding(get: { CGFloat(storedEmojiSize) }, set: { storedEmojiSize = Double($0) })
+    }
     @State private var selectedBrushStyle: BrushStyle = .solid
 
     @State private var zoomScale: CGFloat = 1.0
@@ -92,8 +131,12 @@ struct ScreenshotEditorView: View {
     // Phase 5 state
     @State private var annotationOpacity: CGFloat = 1.0
     @State private var dashedStroke: Bool = false
-    @State private var textIsBold: Bool = false
-    @State private var textIsItalic: Bool = false
+    private var textIsBold: Binding<Bool> {
+        Binding(get: { storedTextBold }, set: { storedTextBold = $0 })
+    }
+    private var textIsItalic: Binding<Bool> {
+        Binding(get: { storedTextItalic }, set: { storedTextItalic = $0 })
+    }
     @State private var textAlignment: TextAlignment = .left
     @State private var calloutTailDirection: CalloutTailDirection = .bottomLeft
     @State private var recentColors: [Color] = []
@@ -116,16 +159,16 @@ struct ScreenshotEditorView: View {
             EditorContextBar(
                 viewModel: viewModel,
                 selectedTool: $selectedTool,
-                selectedColor: $selectedColor,
-                selectedLineWidth: $selectedLineWidth,
+                selectedColor: selectedColor,
+                selectedLineWidth: selectedLineWidth,
                 selectedAnnotationID: $selectedAnnotationID,
-                numberSize: $numberSize,
+                numberSize: numberSize,
                 numberShape: $numberShape,
                 shapeCornerRadius: $shapeCornerRadius,
                 shapeFillMode: $shapeFillMode,
                 spotlightShape: $spotlightShape,
                 selectedEmoji: $selectedEmoji,
-                emojiSize: $emojiSize,
+                emojiSize: emojiSize,
                 selectedBrushStyle: $selectedBrushStyle,
                 showEffectsPanel: $showEffectsPanel,
                 showColorCopied: $showColorCopied,
@@ -140,8 +183,8 @@ struct ScreenshotEditorView: View {
                 blurRadius: $blurRadius,
                 annotationOpacity: $annotationOpacity,
                 dashedStroke: $dashedStroke,
-                textIsBold: $textIsBold,
-                textIsItalic: $textIsItalic,
+                textIsBold: textIsBold,
+                textIsItalic: textIsItalic,
                 textAlignment: $textAlignment,
                 calloutTailDirection: $calloutTailDirection,
                 recentColors: $recentColors,
@@ -209,14 +252,14 @@ struct ScreenshotEditorView: View {
                 // MARK: Right Inspector Panel
                 EditorInspectorPanel(
                     selectedTool: $selectedTool,
-                    selectedColor: $selectedColor,
-                    selectedLineWidth: $selectedLineWidth,
+                    selectedColor: selectedColor,
+                    selectedLineWidth: selectedLineWidth,
                     annotationOpacity: $annotationOpacity,
                     selectedBrushStyle: $selectedBrushStyle,
                     shapeFillMode: $shapeFillMode,
                     dashedStroke: $dashedStroke,
-                    textIsBold: $textIsBold,
-                    textIsItalic: $textIsItalic,
+                    textIsBold: textIsBold,
+                    textIsItalic: textIsItalic,
                     textAlignment: $textAlignment,
                     recentColors: $recentColors,
                     backdropPadding: $backdropPadding,
@@ -225,7 +268,10 @@ struct ScreenshotEditorView: View {
                     backdropCornerRadius: $backdropCornerRadius,
                     borderConfig: $borderConfig,
                     selectedAnnotationID: $selectedAnnotationID,
-                    viewModel: viewModel
+                    textPointSize: textPointSize,
+                    pinSize: numberSize,
+                    viewModel: viewModel,
+                    sourceImage: image
                 )
             }
 
@@ -256,8 +302,8 @@ struct ScreenshotEditorView: View {
             }
         }
         .frame(minWidth: 900, minHeight: 500)
-        .onChange(of: selectedColor) { _ in
-            addToRecentColors(selectedColor)
+        .onChange(of: storedColorHex) { _ in
+            addToRecentColors(selectedColor.wrappedValue)
         }
         .onChange(of: selectedTool) { newTool in
             if newTool == .eyedropper {
@@ -324,6 +370,27 @@ struct ScreenshotEditorView: View {
                     }
                 }
                 .keyboardShortcut("1", modifiers: .command)
+
+                // ⌥⌘C / ⌥⌘V — copy the *look* of an annotation onto another.
+                // Presets are for styles you keep; this is for "make that
+                // one look like this one" without leaving the canvas.
+                Button("") {
+                    guard let id = selectedAnnotationID,
+                          let annotation = viewModel.annotations.first(where: { $0.id == id }) else { return }
+                    copiedStyle = TextStylePreset(name: "clipboard", from: annotation)
+                }
+                .keyboardShortcut("c", modifiers: [.command, .option])
+
+                Button("") {
+                    guard let style = copiedStyle,
+                          let id = selectedAnnotationID,
+                          let idx = viewModel.annotations.firstIndex(where: { $0.id == id }) else { return }
+                    viewModel.objectWillChange.send()
+                    var annotation = viewModel.annotations[idx]
+                    style.apply(to: &annotation)
+                    viewModel.annotations[idx] = annotation
+                }
+                .keyboardShortcut("v", modifiers: [.command, .option])
 
                 // Delete → remove selected annotation
                 Button("") {
@@ -419,15 +486,16 @@ struct ScreenshotEditorView: View {
                                             image: image,
                                             viewModel: viewModel,
                                             selectedTool: $selectedTool,
-                                            selectedColor: $selectedColor,
-                                            selectedLineWidth: $selectedLineWidth,
-                                            numberSize: $numberSize,
+                                            selectedColor: selectedColor,
+                                            selectedLineWidth: selectedLineWidth,
+                                            numberSize: numberSize,
+                                            textPointSize: textPointSize,
                                             numberShape: $numberShape,
                                             shapeCornerRadius: $shapeCornerRadius,
                                             shapeFillMode: $shapeFillMode,
                                             spotlightShape: $spotlightShape,
                                             selectedEmoji: $selectedEmoji,
-                                            emojiSize: $emojiSize,
+                                            emojiSize: emojiSize,
                                             selectedBrushStyle: $selectedBrushStyle,
                                             movingAnnotationID: $movingAnnotationID,
                                             dragOffset: $dragOffset,
@@ -443,8 +511,8 @@ struct ScreenshotEditorView: View {
                                             cropAspectRatio: cropAspectRatio,
                                             annotationOpacity: annotationOpacity,
                                             dashedStroke: dashedStroke,
-                                            textIsBold: textIsBold,
-                                            textIsItalic: textIsItalic,
+                                            textIsBold: textIsBold.wrappedValue,
+                                            textIsItalic: textIsItalic.wrappedValue,
                                             textAlignment: textAlignment,
                                             calloutTailDirection: calloutTailDirection,
                                             onTextAnnotationCreated: { [weak viewModel] id in
@@ -498,24 +566,20 @@ struct ScreenshotEditorView: View {
                                                 )
 
                                                 if isEditing {
-                                                    let maxTextWidth = annotation.rect.width * scale
+                                                    // Wrap at the limit, not at the current box width —
+                                                    // otherwise a box that had tightened around short text
+                                                    // would keep wrapping there when you typed more.
+                                                    let wrapLimit = annotation.textWrapWidth
+                                                        ?? Annotation.defaultWrapWidth(for: image.size)
+                                                    let maxTextWidth = wrapLimit * scale
                                                     let annotationID = annotation.id
 
                                                     // Build a font that honors bold / italic from the annotation itself,
                                                     // so Inspector changes are visible even while editing.
-                                                    let editorFont: NSFont = {
-                                                        let size = annotation.lineWidth * 4 * scale
-                                                        var base: NSFont = annotation.isBold
-                                                            ? NSFont.boldSystemFont(ofSize: size)
-                                                            : NSFont.systemFont(ofSize: size)
-                                                        if annotation.isItalic {
-                                                            let desc = base.fontDescriptor.withSymbolicTraits(
-                                                                base.fontDescriptor.symbolicTraits.union(.italic)
-                                                            )
-                                                            base = NSFont(descriptor: desc, size: size) ?? base
-                                                        }
-                                                        return base
-                                                    }()
+                                                    // Resolved from the same place the canvas uses, so the
+                                                    // font you type in matches the font you end up with —
+                                                    // including the family the Inspector picker sets.
+                                                    let editorFont = AnnotationFont.nsFont(for: annotation, scale: scale)
 
                                                     CustomTextEditor(
                                                         text: Binding(
@@ -524,10 +588,14 @@ struct ScreenshotEditorView: View {
                                                             },
                                                             set: { newText in
                                                                 guard let idx = viewModel.annotations.firstIndex(where: { $0.id == annotationID }) else { return }
-                                                                let oldText = viewModel.annotations[idx].text
-                                                                if newText != oldText {
-                                                                    viewModel.updateAnnotationText(at: idx, newText: newText, oldText: oldText, undoManager: undoManager)
-                                                                }
+                                                                guard newText != viewModel.annotations[idx].text else { return }
+                                                                // Deliberately NOT registering undo per keystroke:
+                                                                // that made ⌘Z walk back one character at a time,
+                                                                // so "Merhaba" took seven presses. One undo entry
+                                                                // is registered for the whole edit in
+                                                                // stopEditingText() instead.
+                                                                viewModel.annotations[idx].text = newText
+                                                                viewModel.objectWillChange.send()
                                                             }
                                                         ),
                                                         font: editorFont,
@@ -537,26 +605,55 @@ struct ScreenshotEditorView: View {
                                                         onHeightChange: { newHeight in
                                                             guard let idx = viewModel.annotations.firstIndex(where: { $0.id == annotationID }) else { return }
                                                             let imageHeight = newHeight / scale
-                                                            // Only GROW the box — don't shrink so the user's manual
-                                                            // size (from Inspector BOX sliders) is preserved.
-                                                            if imageHeight > viewModel.annotations[idx].rect.size.height + 1 {
+                                                            // Track the content in both directions. Growing only
+                                                            // meant deleting a few lines left a tall empty box
+                                                            // behind, with a background or selection outline
+                                                            // stretching well past the text. The 1pt deadband
+                                                            // keeps it from twitching on every keystroke.
+                                                            if abs(imageHeight - viewModel.annotations[idx].rect.size.height) > 1 {
                                                                 viewModel.annotations[idx].rect.size.height = imageHeight
                                                             }
                                                         },
                                                         onSizeChange: { newSize in
                                                             guard let idx = viewModel.annotations.firstIndex(where: { $0.id == annotationID }) else { return }
-                                                            let imageHeight = newSize.height / scale
-                                                            if imageHeight > viewModel.annotations[idx].rect.size.height + 1 {
-                                                                viewModel.annotations[idx].rect.size.height = imageHeight
+                                                            // Only GROW while typing. Tightening happens once,
+                                                            // on commit (see stopEditingText) — shrinking on
+                                                            // every keystroke made the box you just drew
+                                                            // collapse under you as you typed into it.
+                                                            let natural = newSize.width / scale
+                                                            let toEdge = image.size.width - viewModel.annotations[idx].rect.minX - 8
+                                                            let clamped = max(40, min(natural, wrapLimit, max(toEdge, 40)))
+                                                            if clamped > viewModel.annotations[idx].rect.size.width + 1 {
+                                                                viewModel.annotations[idx].rect.size.width = clamped
                                                             }
+                                                        },
+                                                        onCommit: { stopEditingText() },
+                                                        typingAttributes: AnnotationTextStyle.attributes(for: annotation, scale: scale),
+                                                        verticalAlignment: annotation.textVerticalAlignment,
+                                                        onAdjustSize: { delta in
+                                                            guard let idx = viewModel.annotations.firstIndex(where: { $0.id == annotationID }) else { return }
+                                                            let current = AnnotationFont.pointSize(fromLineWidth: viewModel.annotations[idx].lineWidth)
+                                                            let next = min(max(current + delta, 8), 160)
+                                                            viewModel.annotations[idx].lineWidth = AnnotationFont.lineWidth(fromPointSize: next)
+                                                            viewModel.objectWillChange.send()
+                                                        },
+                                                        onToggleBold: {
+                                                            guard let idx = viewModel.annotations.firstIndex(where: { $0.id == annotationID }) else { return }
+                                                            viewModel.annotations[idx].isBold.toggle()
+                                                            viewModel.objectWillChange.send()
+                                                        },
+                                                        onToggleItalic: {
+                                                            guard let idx = viewModel.annotations.firstIndex(where: { $0.id == annotationID }) else { return }
+                                                            viewModel.annotations[idx].isItalic.toggle()
+                                                            viewModel.objectWillChange.send()
                                                         }
                                                     )
-                                                    .focused($isTextFieldFocused)
                                                     .opacity(Double(annotation.opacity))
                                                     .frame(width: canvasRect.width, height: max(canvasRect.height, 24))
                                                     .position(x: canvasRect.midX, y: canvasRect.midY)
-                                                    .onSubmit { stopEditingText() }
-                                                    .onExitCommand { stopEditingText() }
+                                                    // No .focused/.onSubmit/.onExitCommand here: none of them
+                                                    // reach an NSViewRepresentable. Focus and the Esc / ⌘Return
+                                                    // commit are handled inside CustomTextEditor instead.
                                                 }
                                             }
                                         }
@@ -939,8 +1036,7 @@ struct ScreenshotEditorView: View {
 
             context.drawLayer { layerCtx in
                 layerCtx.clip(to: Path(ellipseIn: rect))
-                if let tiffData = image.tiffRepresentation,
-                   let bitmap = NSBitmapImageRep(data: tiffData),
+                if let bitmap = image.storageBitmapRep,
                    let cgFull = bitmap.cgImage {
                     // Convert from image point coords to pixel coords (Retina 2x etc.)
                     let pxScaleX = image.size.width > 0 ? CGFloat(cgFull.width) / image.size.width : 1
@@ -1296,8 +1392,7 @@ struct ScreenshotEditorView: View {
 
         let imageSize = image.size
 
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData) else {
+        guard let bitmap = image.storageBitmapRep else {
             return
         }
 
@@ -1810,8 +1905,7 @@ struct ScreenshotEditorView: View {
                 height: sourceH
             )
 
-            if let tiffData = image.tiffRepresentation,
-               let bitmap = NSBitmapImageRep(data: tiffData),
+            if let bitmap = image.storageBitmapRep,
                let cgFull = bitmap.cgImage {
                 // Convert from image point coords to pixel coords (Retina 2x etc.)
                 let pxScaleX = image.size.width > 0 ? CGFloat(cgFull.width) / image.size.width : 1
@@ -1969,8 +2063,7 @@ struct ScreenshotEditorView: View {
             savePanel.begin { response in
                 if response == .OK, let url = savePanel.url {
                     autoreleasepool {
-                        guard let tiffData = finalImage.tiffRepresentation,
-                              let bitmap = NSBitmapImageRep(data: tiffData) else { return }
+                        guard let bitmap = finalImage.storageBitmapRep else { return }
 
                         let imageData: Data?
                         switch self.exportFormat {
@@ -2001,8 +2094,7 @@ struct ScreenshotEditorView: View {
         // Write to temp file so AirDrop appears in share picker
         let tempURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("clippy-share-\(Int(Date().timeIntervalSince1970)).png")
-        guard let tiffData = finalImage.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
+        guard let bitmap = finalImage.storageBitmapRep,
               let pngData = bitmap.representation(using: .png, properties: [:]) else { return }
         try? pngData.write(to: tempURL)
 
@@ -2080,14 +2172,70 @@ struct ScreenshotEditorView: View {
         guard index < viewModel.annotations.count else { return }
         editingTextIndex = index
         isEditingText = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            self.isTextFieldFocused = true
-        }
+        // Snapshot for a single undo entry covering the whole edit.
+        textBeforeEditing = viewModel.annotations[index].text
+        editingAnnotationID = viewModel.annotations[index].id
+        // Focus is claimed by the text view itself (see CustomTextEditor);
+        // `isTextFieldFocused` never reached an NSViewRepresentable.
     }
 
     private func stopEditingText() {
-        isEditingText = false
-        editingTextIndex = nil
+        defer {
+            isEditingText = false
+            editingTextIndex = nil
+            textBeforeEditing = nil
+            editingAnnotationID = nil
+        }
+
+        guard let id = editingAnnotationID,
+              let idx = viewModel.annotations.firstIndex(where: { $0.id == id }) else { return }
+
+        let finalText = viewModel.annotations[idx].text
+
+        // An annotation with no text draws nothing but stays selectable
+        // and exportable — an invisible artefact left behind by a stray
+        // click with the text tool. Discard it instead.
+        if finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            viewModel.removeAnnotation(with: id, undoManager: undoManager)
+            if selectedAnnotationID == id { selectedAnnotationID = nil }
+            return
+        }
+
+        // Tighten to the text now that the user is done. The box the user
+        // drew stays put for the whole edit — it's the frame they're
+        // working inside — and only settles onto the content at the end.
+        tightenTextBox(at: idx)
+
+        // One undo step for the entire editing session. Typing used to
+        // register an entry per keystroke.
+        if let original = textBeforeEditing, original != finalText {
+            viewModel.updateAnnotationText(at: idx, newText: finalText,
+                                           oldText: original, undoManager: undoManager)
+        }
+    }
+
+    /// Shrinks a text annotation's box to what its text actually needs,
+    /// never wider than its wrap limit.
+    private func tightenTextBox(at index: Int) {
+        guard index < viewModel.annotations.count else { return }
+        let annotation = viewModel.annotations[index]
+        guard annotation.tool == .text, !annotation.text.isEmpty else { return }
+
+        let limit = annotation.textWrapWidth ?? Annotation.defaultWrapWidth(for: image.size)
+        let inset = CustomTextEditor.contentInset
+        let attributed = AnnotationTextStyle.attributedString(for: annotation)
+
+        let measured = attributed.boundingRect(
+            with: NSSize(width: limit - inset.width * 2, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        )
+
+        let width = min(ceil(measured.width) + inset.width * 2 + 2, limit)
+        let height = ceil(measured.height) + inset.height * 2
+
+        viewModel.objectWillChange.send()
+        viewModel.annotations[index].rect.size.width = max(40, width)
+        viewModel.annotations[index].rect.size.height = max(20, height)
     }
 
     private func addToRecentColors(_ color: Color) {
@@ -2103,8 +2251,7 @@ struct ScreenshotEditorView: View {
     }
 
     private func pickColorFromImage(at point: CGPoint) {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData) else { return }
+        guard let bitmap = image.storageBitmapRep else { return }
 
         // Convert from image point coords to bitmap pixel coords (Retina 2x etc.)
         let scaleX = image.size.width > 0 ? CGFloat(bitmap.pixelsWide) / image.size.width : 1
@@ -2136,15 +2283,14 @@ struct ScreenshotEditorView: View {
             }
         }
 
-        selectedColor = Color(nsColor: nsColor)
-        addToRecentColors(selectedColor)
+        selectedColor.wrappedValue = Color(nsColor: nsColor)
+        addToRecentColors(selectedColor.wrappedValue)
         selectedTool = .select
     }
 
     /// Sample average background color from the edges of a rectangle in the image.
     private func sampleBackgroundColor(in rect: CGRect) -> Color {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData) else { return .white }
+        guard let bitmap = image.storageBitmapRep else { return .white }
 
         // Convert from image point coords to pixel coords (Retina 2x etc.)
         let pxScaleX = image.size.width > 0 ? CGFloat(bitmap.pixelsWide) / image.size.width : 1
@@ -2211,8 +2357,7 @@ struct ScreenshotEditorView: View {
     // MARK: - Rotate
 
     private func rotateImage(clockwise: Bool) {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
+        guard let bitmap = image.storageBitmapRep,
               let cgImage = bitmap.cgImage else { return }
 
         let size = image.size
@@ -2241,8 +2386,7 @@ struct ScreenshotEditorView: View {
     // MARK: - Flip
 
     private func flipImage(horizontal: Bool) {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
+        guard let bitmap = image.storageBitmapRep,
               let cgImage = bitmap.cgImage else { return }
 
         let size = image.size
@@ -2290,8 +2434,7 @@ struct ScreenshotEditorView: View {
 
         let flippedY = image.size.height - clamped.origin.y - clamped.height
 
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
+        guard let bitmap = image.storageBitmapRep,
               let cgImage = bitmap.cgImage else {
             self.cropRect = nil
             return
@@ -2463,8 +2606,7 @@ struct ScreenshotEditorView: View {
         guard newWidth >= 1, newHeight >= 1,
               newWidth <= 16384, newHeight <= 16384 else { return }
 
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
+        guard let bitmap = image.storageBitmapRep,
               let cgImage = bitmap.cgImage else { return }
 
         let colorSpace = cgImage.colorSpace ?? CGColorSpaceCreateDeviceRGB()

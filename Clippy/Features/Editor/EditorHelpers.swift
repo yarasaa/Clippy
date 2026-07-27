@@ -84,10 +84,11 @@ func applyPixelateFilter(to sourceImage: NSImage, in rect: CGRect) -> NSImage? {
     let rectInSource = rect.intersection(sourceRect)
     guard !rectInSource.isEmpty, rectInSource.width > 1, rectInSource.height > 1 else { return nil }
 
-    guard let tiffData = sourceImage.tiffRepresentation,
-          let ciImage = CIImage(data: tiffData) else {
-        return nil
-    }
+    // CIImage(cgImage:) wraps the existing pixels; going via
+    // tiffRepresentation would serialise the whole image first. See
+    // ImageEncoding.swift for the measurements.
+    guard let cgSource = sourceImage.storageCGImage else { return nil }
+    let ciImage = CIImage(cgImage: cgSource)
 
     // Convert from image point coords to CIImage pixel coords (Retina 2x etc.)
     let pxScaleX = sourceImage.size.width > 0 ? ciImage.extent.width / sourceImage.size.width : 1
@@ -124,10 +125,11 @@ func applyGaussianBlurFilter(to sourceImage: NSImage, in rect: CGRect, radius: C
     let rectInSource = rect.intersection(sourceRect)
     guard !rectInSource.isEmpty, rectInSource.width > 1, rectInSource.height > 1 else { return nil }
 
-    guard let tiffData = sourceImage.tiffRepresentation,
-          let ciImage = CIImage(data: tiffData) else {
-        return nil
-    }
+    // CIImage(cgImage:) wraps the existing pixels; going via
+    // tiffRepresentation would serialise the whole image first. See
+    // ImageEncoding.swift for the measurements.
+    guard let cgSource = sourceImage.storageCGImage else { return nil }
+    let ciImage = CIImage(cgImage: cgSource)
 
     // Convert from image point coords to CIImage pixel coords (Retina 2x etc.)
     let pxScaleX = sourceImage.size.width > 0 ? ciImage.extent.width / sourceImage.size.width : 1
@@ -535,6 +537,193 @@ private struct ScrollEventView: NSViewRepresentable {
 
 // MARK: - Custom Text Editor
 
+/// Single source of truth for how a text annotation's font is built.
+///
+/// The Inspector has offered a font-family picker (Default / Round /
+/// Serif / Mono) for a while, but `Annotation.fontName` was never read by
+/// either the canvas renderer or the live editor — picking "Serif" lit
+/// the chip up and changed nothing on screen. Both sides now resolve the
+/// font from here so they can't disagree again.
+enum AnnotationFont {
+
+    static func design(for fontName: String?) -> Font.Design {
+        switch fontName {
+        case "rounded": return .rounded
+        case "serif":   return .serif
+        case "mono":    return .monospaced
+        default:        return .default
+        }
+    }
+
+    /// Text annotations reuse the shared `lineWidth` field to carry their
+    /// font size, scaled by this factor. Every conversion goes through the
+    /// two helpers below so the ratio lives in exactly one place — the
+    /// Inspector used to show the raw `lineWidth` as "SIZE", meaning it
+    /// reported 10 for what was actually 40pt type.
+    static let pointsPerLineWidth: CGFloat = 4
+
+    static func pointSize(fromLineWidth lineWidth: CGFloat) -> CGFloat {
+        lineWidth * pointsPerLineWidth
+    }
+
+    static func lineWidth(fromPointSize pointSize: CGFloat) -> CGFloat {
+        pointSize / pointsPerLineWidth
+    }
+
+    /// Point size for an annotation.
+    static func size(for annotation: Annotation, scale: CGFloat = 1) -> CGFloat {
+        pointSize(fromLineWidth: annotation.lineWidth) * scale
+    }
+
+    /// SwiftUI font used by the canvas renderer.
+    static func swiftUIFont(for annotation: Annotation) -> Font {
+        var font = Font.system(
+            size: size(for: annotation),
+            weight: annotation.isBold ? .bold : .regular,
+            design: design(for: annotation.fontName)
+        )
+        if annotation.isItalic { font = font.italic() }
+        return font
+    }
+
+    /// AppKit font used by the live NSTextView, matched to the above.
+    static func nsFont(for annotation: Annotation, scale: CGFloat = 1) -> NSFont {
+        let pointSize = size(for: annotation, scale: scale)
+        let base = annotation.isBold
+            ? NSFont.boldSystemFont(ofSize: pointSize)
+            : NSFont.systemFont(ofSize: pointSize)
+
+        var descriptor = base.fontDescriptor
+        switch design(for: annotation.fontName) {
+        case .rounded:    descriptor = descriptor.withDesign(.rounded) ?? descriptor
+        case .serif:      descriptor = descriptor.withDesign(.serif) ?? descriptor
+        case .monospaced: descriptor = descriptor.withDesign(.monospaced) ?? descriptor
+        default:          break
+        }
+        if annotation.isItalic {
+            descriptor = descriptor.withSymbolicTraits(
+                descriptor.symbolicTraits.union(.italic)
+            )
+        }
+        return NSFont(descriptor: descriptor, size: pointSize) ?? base
+    }
+}
+
+/// Builds the attributed string for a text annotation.
+///
+/// The canvas used to render text with SwiftUI's `Text`, which can't
+/// express an outline, letter spacing or line height — so `textStrokeWidth`,
+/// `textLetterSpacing`, `textLineHeight` and even `textAlignment` were all
+/// stored, exposed in the Inspector, and then quietly ignored at draw time.
+/// One attributed string covers every one of them.
+enum AnnotationTextStyle {
+
+    static func attributes(for annotation: Annotation, scale: CGFloat = 1) -> [NSAttributedString.Key: Any] {
+        let font = AnnotationFont.nsFont(for: annotation, scale: scale)
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = annotation.textAlignment.nsTextAlignment
+        paragraph.lineBreakMode = .byWordWrapping
+        if annotation.textLineHeight != 1.0 {
+            paragraph.lineHeightMultiple = annotation.textLineHeight
+        }
+
+        var attrs: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor(annotation.color),
+            .paragraphStyle: paragraph
+        ]
+
+        if annotation.textLetterSpacing != 0 {
+            attrs[.kern] = annotation.textLetterSpacing * scale
+        }
+
+        if annotation.textStrokeWidth > 0 {
+            // A NEGATIVE strokeWidth means "stroke *and* fill". A positive
+            // value would draw only the outline, leaving hollow letters —
+            // which is not what an outline control is asking for. The value
+            // is a percentage of font size, hence the sign flip only.
+            attrs[.strokeWidth] = -annotation.textStrokeWidth
+            attrs[.strokeColor] = NSColor(annotation.textStrokeColor)
+        }
+
+        return attrs
+    }
+
+    static func attributedString(for annotation: Annotation, scale: CGFloat = 1) -> NSAttributedString {
+        NSAttributedString(string: annotation.text, attributes: attributes(for: annotation, scale: scale))
+    }
+
+    /// Y offset that places the text block according to the annotation's
+    /// vertical alignment inside `containerHeight`.
+    static func verticalOffset(for annotation: Annotation,
+                               textHeight: CGFloat,
+                               containerHeight: CGFloat) -> CGFloat {
+        let slack = max(0, containerHeight - textHeight)
+        switch annotation.textVerticalAlignment {
+        case .top:    return 0
+        case .center: return slack / 2
+        case .bottom: return slack
+        }
+    }
+}
+
+/// NSTextView that reports the two "I'm done" gestures back to SwiftUI.
+///
+/// Needed because `.onSubmit` / `.onExitCommand` don't fire for an
+/// NSViewRepresentable — the text view consumes key events itself, so
+/// those SwiftUI modifiers were silently dead and there was no reliable
+/// way to finish editing except clicking somewhere else.
+///
+/// Return still inserts a newline (annotations are multi-line); ⌘Return
+/// commits, matching the convention in Notes, Mail and Xcode comments.
+final class AnnotationTextView: NSTextView {
+    var onCommit: (() -> Void)?
+    /// ⌘+ / ⌘− : +1 or −1 step of font size.
+    var onAdjustSize: ((CGFloat) -> Void)?
+    /// ⌘B / ⌘I.
+    var onToggleBold: (() -> Void)?
+    var onToggleItalic: (() -> Void)?
+
+    override func cancelOperation(_ sender: Any?) {
+        onCommit?()
+    }
+
+    override func keyDown(with event: NSEvent) {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+
+        if flags.contains(.command) {
+            let isReturn = event.keyCode == 36 || event.keyCode == 76
+            if isReturn {
+                onCommit?()
+                return
+            }
+            // Font-size and style shortcuts have to be intercepted here:
+            // NSTextView is a plain-text field, so it doesn't implement
+            // them itself, and SwiftUI `.keyboardShortcut` never sees keys
+            // while an AppKit responder has focus.
+            switch event.charactersIgnoringModifiers {
+            case "+", "=":
+                onAdjustSize?(2)
+                return
+            case "-", "_":
+                onAdjustSize?(-2)
+                return
+            case "b", "B":
+                onToggleBold?()
+                return
+            case "i", "I":
+                onToggleItalic?()
+                return
+            default:
+                break
+            }
+        }
+
+        super.keyDown(with: event)
+    }
+}
+
 struct CustomTextEditor: NSViewRepresentable {
     @Binding var text: String
     var font: NSFont
@@ -543,12 +732,41 @@ struct CustomTextEditor: NSViewRepresentable {
     var maxWidth: CGFloat = 400
     var onHeightChange: ((CGFloat) -> Void)?
     var onSizeChange: ((CGSize) -> Void)?
+    /// Esc or ⌘Return — the user is finished with this annotation.
+    var onCommit: (() -> Void)?
+    /// Typing attributes mirrored from the annotation (outline, kerning,
+    /// line height, alignment) so what you type looks like what you get.
+    var typingAttributes: [NSAttributedString.Key: Any] = [:]
+    /// Where the text sits vertically in the box. The canvas offsets the
+    /// rendered text for this; without matching it here the text would
+    /// move the moment editing ended — the same jump the shared
+    /// `contentInset` was introduced to remove.
+    var verticalAlignment: VerticalTextAlignment = .top
+    /// ⌘+ / ⌘− while typing. Delta is in points.
+    var onAdjustSize: ((CGFloat) -> Void)?
+    var onToggleBold: (() -> Void)?
+    var onToggleItalic: (() -> Void)?
+
+    /// Padding around the text. Kept identical to the inset the canvas
+    /// renderer uses so the text doesn't visibly jump the moment editing
+    /// ends; previously the editor used (0,0) when there was no background
+    /// while the renderer always drew at +8/+4.
+    static let contentInset = NSSize(width: 8, height: 4)
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSTextView.scrollableTextView()
-        let textView = scrollView.documentView as! NSTextView
+        let scrollView = NSScrollView()
+        let textView = AnnotationTextView()
 
+        textView.onCommit = onCommit
+        textView.onAdjustSize = onAdjustSize
+        textView.onToggleBold = onToggleBold
+        textView.onToggleItalic = onToggleItalic
         textView.delegate = context.coordinator
+        textView.minSize = .zero
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude,
+                                  height: CGFloat.greatestFiniteMagnitude)
+
+        scrollView.documentView = textView
         scrollView.hasVerticalScroller = false
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
@@ -556,6 +774,7 @@ struct CustomTextEditor: NSViewRepresentable {
         textView.isRichText = false
         textView.font = font
         textView.textColor = textColor
+        textView.textContainerInset = Self.contentInset
 
         if let bgColor = backgroundColor {
             textView.drawsBackground = true
@@ -563,11 +782,9 @@ struct CustomTextEditor: NSViewRepresentable {
             textView.wantsLayer = true
             textView.layer?.cornerRadius = 6
             textView.layer?.masksToBounds = true
-            textView.textContainerInset = NSSize(width: 8, height: 4)
         } else {
             textView.drawsBackground = false
             textView.backgroundColor = .clear
-            textView.textContainerInset = NSSize(width: 0, height: 0)
         }
 
         textView.isSelectable = true
@@ -578,6 +795,17 @@ struct CustomTextEditor: NSViewRepresentable {
 
         // Load existing text so re-editing preserves content
         textView.string = text
+        applyStyle(to: textView)
+
+        // Put the caret in the box straight away. `.focused()` in the
+        // SwiftUI layer does nothing for an NSViewRepresentable, so
+        // without this the user had to click into a box they had just
+        // created before they could type a single character.
+        DispatchQueue.main.async {
+            guard textView.window != nil else { return }
+            textView.window?.makeFirstResponder(textView)
+            textView.setSelectedRange(NSRange(location: (textView.string as NSString).length, length: 0))
+        }
 
         // Text wraps at maxWidth, only height grows
         let insetW = textView.textContainerInset.width * 2
@@ -592,12 +820,17 @@ struct CustomTextEditor: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
-        let textView = nsView.documentView as! NSTextView
+        guard let textView = nsView.documentView as? AnnotationTextView else { return }
+        textView.onCommit = onCommit
+        textView.onAdjustSize = onAdjustSize
+        textView.onToggleBold = onToggleBold
+        textView.onToggleItalic = onToggleItalic
         if textView.font != font {
             textView.font = font
         }
         if textView.textColor != textColor {
             textView.textColor = textColor
+            textView.insertionPointColor = textColor
         }
 
         if let bgColor = backgroundColor {
@@ -607,15 +840,64 @@ struct CustomTextEditor: NSViewRepresentable {
                 textView.wantsLayer = true
                 textView.layer?.cornerRadius = 6
                 textView.layer?.masksToBounds = true
-                textView.textContainerInset = NSSize(width: 8, height: 4)
             }
-        } else {
-            if textView.drawsBackground {
-                textView.drawsBackground = false
-                textView.backgroundColor = .clear
-                textView.textContainerInset = NSSize(width: 0, height: 0)
-            }
+        } else if textView.drawsBackground {
+            textView.drawsBackground = false
+            textView.backgroundColor = .clear
         }
+        // Inset stays constant either way — see `contentInset`.
+        applyStyle(to: textView)
+        applyVerticalAlignment(to: textView)
+    }
+
+    /// NSTextView always lays text out from the top, so vertical alignment
+    /// is expressed by padding the top inset with whatever slack the box
+    /// has left over.
+    private func applyVerticalAlignment(to textView: NSTextView) {
+        guard verticalAlignment != .top else {
+            if textView.textContainerInset.height != Self.contentInset.height {
+                textView.textContainerInset = Self.contentInset
+            }
+            return
+        }
+        guard let layoutManager = textView.layoutManager,
+              let container = textView.textContainer else { return }
+
+        layoutManager.ensureLayout(for: container)
+        let textHeight = layoutManager.usedRect(for: container).height
+        let available = textView.bounds.height - Self.contentInset.height * 2
+        let slack = max(0, available - textHeight)
+        let top = Self.contentInset.height + (verticalAlignment == .center ? slack / 2 : slack)
+
+        if abs(textView.textContainerInset.height - top) > 0.5 {
+            textView.textContainerInset = NSSize(width: Self.contentInset.width, height: top)
+        }
+    }
+
+    /// Pushes the annotation's typography onto the live text view, so an
+    /// outline or letter spacing is visible while typing rather than only
+    /// appearing once editing ends.
+    private func applyStyle(to textView: NSTextView) {
+        guard !typingAttributes.isEmpty else { return }
+        var attrs = typingAttributes
+        attrs[.font] = font
+        attrs[.foregroundColor] = textColor
+        textView.typingAttributes = attrs
+
+        let full = NSRange(location: 0, length: (textView.string as NSString).length)
+        guard full.length > 0 else { return }
+
+        // Detach the delegate first. Re-styling the storage posts
+        // NSTextDidChange, and this runs from updateNSView — so the
+        // delegate would write straight back into the SwiftUI binding
+        // *during a view update*, which is exactly the "Publishing changes
+        // from within view updates is not allowed" case. The text isn't
+        // changing here, only its attributes, so there's nothing for the
+        // delegate to report.
+        let delegate = textView.delegate
+        textView.delegate = nil
+        textView.textStorage?.setAttributes(attrs, range: full)
+        textView.delegate = delegate
     }
 
     func makeCoordinator() -> Coordinator {
@@ -646,13 +928,26 @@ struct CustomTextEditor: NSViewRepresentable {
             let usedRect = layoutManager.usedRect(for: textContainer)
 
             let inset = textView.textContainerInset
-            let verticalInset = inset.height * 2
-
             let minHeight: CGFloat = 20
-            let newHeight = max(minHeight, usedRect.height + verticalInset)
+            let newHeight = max(minHeight, usedRect.height + inset.height * 2)
 
-            // Width is fixed (container width + insets), only height grows
-            let newWidth = self.parent.maxWidth
+            // Natural width = the longest line if nothing were wrapping.
+            // `usedRect` is clamped to the container, so it can only ever
+            // report the box we already have — measuring unconstrained is
+            // what lets a click-placed box hug its content instead of
+            // staying at the width it was guessed to need.
+            let attributes = textView.typingAttributes.isEmpty
+                ? [NSAttributedString.Key.font: textView.font ?? NSFont.systemFont(ofSize: 12)]
+                : textView.typingAttributes
+            let natural = (textView.string as NSString).boundingRect(
+                with: NSSize(width: CGFloat.greatestFiniteMagnitude,
+                             height: CGFloat.greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: attributes
+            )
+            // +2 covers the sub-pixel the layout manager rounds off, which
+            // otherwise clips the last glyph.
+            let newWidth = ceil(natural.width) + inset.width * 2 + 2
 
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
@@ -702,8 +997,7 @@ struct TextRegionDetector {
     /// Detect text bounding boxes within a region of an image.
     /// Returns rects in image coordinates (origin top-left).
     static func detectTextRegions(in image: NSImage, within region: CGRect) -> [CGRect] {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
+        guard let bitmap = image.storageBitmapRep,
               let cgImage = bitmap.cgImage else { return [] }
 
         let imageWidth = CGFloat(cgImage.width)

@@ -24,6 +24,13 @@ class PreviewPanelController {
     /// hide animation is already in flight (which would restart it).
     private var isHiding = false
 
+    /// Bumped on every `show()`. The hide animation's completion handler
+    /// captures the value at the time it started and only tears the panel
+    /// down if it still matches — otherwise a fade-out that was already
+    /// running when the user hovered a new dock icon would `orderOut` the
+    /// panel we just presented, which looked like "the preview won't open".
+    private var showGeneration = 0
+
     private var currentAppIdentifier: String?
 
     var onWindowCloseAction: ((CGWindowID) -> Void)?
@@ -38,12 +45,24 @@ class PreviewPanelController {
     init() {
     }
 
+    /// Guards against `show` being entered again while it's still running.
+    /// Window ordering and hosting-controller sizing both drive layout,
+    /// and a re-entrant call there is what turned a layout cycle into a
+    /// stack overflow rather than a dropped frame.
+    private var isShowing = false
+
     func show(appName: String, appIcon: NSImage?, items: [PreviewItem], at position: NSPoint, dockIconFrame: CGRect = .zero, forceUpdate: Bool = false) {
+        guard !isShowing else { return }
+        isShowing = true
+        defer { isShowing = false }
+
         currentItems = items
         selectedIndex = 0
         // A new show cancels any in-flight hide (e.g. the user moved
-        // from one dock icon straight to the panel).
+        // from one dock icon straight to the panel), and invalidates that
+        // hide's pending completion handler.
         isHiding = false
+        showGeneration &+= 1
 
         if panel?.isVisible == true, currentAppIdentifier == appName, !forceUpdate {
             return
@@ -106,12 +125,15 @@ class PreviewPanelController {
         }
         panel.contentViewController = host
 
-        // Force a synchronous layout pass NOW so the call to
-        // `fittingSize` inside `positionPanel` reads the freshly-computed
-        // size for THIS content, not whatever was cached from before.
-        host.view.layoutSubtreeIfNeeded()
-        panel.contentView?.layoutSubtreeIfNeeded()
-
+        // `fittingSize` (read in positionPanel) already lays the view out
+        // on demand, so forcing it here was redundant — and unsafe.
+        //
+        // Calling `layoutSubtreeIfNeeded` on a view that AppKit is already
+        // laying out is explicitly illegal ("It's not legal to call
+        // -layoutSubtreeIfNeeded on a view which is already being laid
+        // out"), and when show() happened to be reached during a layout
+        // pass it recursed until the stack ran out — crashing in
+        // `orderFront` with EXC_BAD_ACCESS from `___chkstk_darwin`.
         positionPanel(panel, above: position, dockIconFrame: dockIconFrame)
 
         let finalFrame = panel.frame
@@ -152,6 +174,7 @@ class PreviewPanelController {
         // the panel is already hidden or a hide is already animating.
         guard let panel = panel, panel.isVisible, !isHiding else { return }
         isHiding = true
+        let generation = showGeneration
 
         currentAppIdentifier = nil
 
@@ -177,9 +200,13 @@ class PreviewPanelController {
             panel.animator().alphaValue = 0.0
             panel.animator().setFrame(finalFrame, display: true)
         }, completionHandler: { [weak self] in
+            guard let self else { return }
+            // A show() that landed mid-fade already claimed this panel —
+            // leave it alone rather than ordering out a live preview.
+            guard self.showGeneration == generation else { return }
             panel.orderOut(nil)
             panel.setFrame(currentFrame, display: false)
-            self?.isHiding = false
+            self.isHiding = false
         })
     }
 
@@ -210,7 +237,10 @@ class PreviewPanelController {
         // we just asked to lay out in `show()`.
         let panelSize: CGSize = {
             if let hostView = panel.contentViewController?.view {
-                hostView.layoutSubtreeIfNeeded()
+                // No explicit `layoutSubtreeIfNeeded()` here: `fittingSize`
+                // already lays the view out on demand, and forcing it is
+                // illegal if AppKit happens to be mid-layout already. Measured
+                // both ways against the real view hierarchy — identical sizes.
                 return hostView.fittingSize
             }
             return panel.contentView?.fittingSize ?? .zero

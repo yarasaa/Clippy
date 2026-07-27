@@ -19,6 +19,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var diffWindow: NSWindow?
     var clipboardMonitor: ClipboardMonitor?
     var parameterWindow: NSWindow?
+    var templateReviewWindow: NSWindow?
     var keywordManager: KeywordExpansionManager?
     var screenshotEditorWindow: NSWindow?
     var editorWindow: NSWindow?
@@ -29,6 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var sequentialPasteHotKey: HotKey?
     var clearQueueHotKey: HotKey?
     var screenshotHotKey: HotKey?
+    var screenTextGrabHotKey: HotKey?
     var quickPreviewHotKey: HotKey?
 
     private var dockPreviewCoordinator: DockPreviewCoordinator?
@@ -58,6 +60,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         PasteManager.shared.statusBarController = statusBarController
         PasteManager.shared.clipboardMonitor = clipboardMonitor
+        ScreenTextGrabber.shared.clipboardMonitor = clipboardMonitor
 
         createMenu()
 
@@ -127,6 +130,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             settings.$clearQueueHotkeyModifiers.map { _ in () }.eraseToAnyPublisher(),
             settings.$screenshotHotkeyKey.map { _ in () }.eraseToAnyPublisher(),
             settings.$screenshotHotkeyModifiers.map { _ in () }.eraseToAnyPublisher(),
+            settings.$enableScreenTextGrab.map { _ in () }.eraseToAnyPublisher(),
+            settings.$screenTextGrabHotkeyKey.map { _ in () }.eraseToAnyPublisher(),
+            settings.$screenTextGrabHotkeyModifiers.map { _ in () }.eraseToAnyPublisher(),
             settings.$quickPreviewHotkeyKey.map { _ in () }.eraseToAnyPublisher(),
             settings.$quickPreviewHotkeyModifiers.map { _ in () }.eraseToAnyPublisher(),
             settings.$switcherHotkeyKey.map { _ in () }.eraseToAnyPublisher(),
@@ -187,6 +193,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.stopSwitcherEventTap()
                 }
             }
+
+        // Come alive as soon as the user grants Accessibility in System
+        // Settings — previously the feature stayed dead until Clippy was
+        // relaunched, which made granting the permission look ineffective.
+        NotificationCenter.default.addObserver(
+            forName: .clippyPermissionGranted, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let self,
+                  (note.userInfo?["permission"] as? String) == ClippyPermission.accessibility.rawValue,
+                  SettingsManager.shared.enableDockPreview else { return }
+            Task { @MainActor in
+                self.dockPreviewCoordinator = DockPreviewCoordinator.shared
+                self.dockPreviewCoordinator?.start()
+                self.setupSwitcherEventTap()
+            }
+        }
     }
 
     private func stopSwitcherEventTap() {
@@ -261,34 +283,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @MainActor
     private func startDockPreviewWithPermissionCheck() {
-        // Erişilebilirlik iznini kontrol et - macOS'un kendi dialogunu göster
-        let options: [String: Bool] = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-        guard AXIsProcessTrustedWithOptions(options as CFDictionary) else {
-            // İzin verilmedi - macOS zaten dialog gösterdi, ayarı kapat
-            SettingsManager.shared.enableDockPreview = false
+        guard PermissionManager.shared.isGranted(.accessibility) else {
+            // Don't silently flip the setting back off — that reads as
+            // "the toggle is broken". Ask properly (system prompt the
+            // first time, System Settings after that), leave the toggle
+            // on, and start the moment permission lands.
+            PermissionManager.shared.request(.accessibility)
             return
         }
 
-        // İzin tamam, Dock Preview'u başlat
-        // Screen Recording izni sadece Live Preview kullanıldığında gerekli
+        // Screen Recording is only needed for live previews, not static ones.
         dockPreviewCoordinator?.start()
     }
 
     @MainActor
     func requestAccessibilityPermissions() {
-        // macOS'un kendi izin dialogunu tetikle (prompt: true).
-        // İlk seferde sistem dialogu gösterilir. Daha önce reddedildiyse
-        // macOS dialog göstermez ama Sistem Ayarları'nı otomatik açarız.
-        let options: [String: Bool] = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-        _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
+        // Routed through PermissionManager so the "already asked once"
+        // case opens System Settings instead of doing nothing — macOS
+        // shows its own dialog only once per app, ever.
+        PermissionManager.shared.request(.accessibility)
     }
 
     @MainActor
     func requestScreenCapturePermission() {
-        // Kullanıcıyı doğrudan Ekran Kaydı ayarlarına yönlendir.
-        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
-        // İzin verilmediği için özelliği devre dışı bırak.
-        SettingsManager.shared.enableDockPreview = false
+        PermissionManager.shared.request(.screenRecording)
     }
 
     private func updateAllHotkeys() {
@@ -298,6 +316,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateSequentialPasteHotkey()
         updateClearQueueHotkey()
         updateScreenshotHotkey()
+        updateScreenTextGrabHotkey()
         updateQuickPreviewHotkey()
         // updateSwitcherHotkey() artık kullanılmıyor.
     }
@@ -435,6 +454,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    func updateScreenTextGrabHotkey() {
+        let settings = SettingsManager.shared
+        guard settings.enableScreenTextGrab,
+              !settings.screenTextGrabHotkeyKey.isEmpty,
+              let key = Key(string: settings.screenTextGrabHotkeyKey.lowercased()) else {
+            screenTextGrabHotKey = nil
+            return
+        }
+        let modifiers = NSEvent.ModifierFlags(rawValue: settings.screenTextGrabHotkeyModifiers)
+
+        screenTextGrabHotKey = nil
+        screenTextGrabHotKey = HotKey(key: key, modifiers: modifiers)
+        screenTextGrabHotKey?.keyDownHandler = {
+            ScreenTextGrabber.shared.grab()
+        }
+    }
+
     func updateQuickPreviewHotkey() {
         let settings = SettingsManager.shared
         guard settings.enableQuickPreview,
@@ -488,7 +524,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        let toggleKeywordExpansionItem = NSMenuItem(title: L("Toggle Keyword Expansion", settings: SettingsManager.shared), action: #selector(toggleKeywordExpansion), keyEquivalent: "")
+        let toggleKeywordExpansionItem = NSMenuItem(title: L("Keyword Expansion", settings: SettingsManager.shared), action: #selector(toggleKeywordExpansion), keyEquivalent: "")
         toggleKeywordExpansionItem.target = self
         menu.addItem(toggleKeywordExpansionItem)
 
@@ -668,12 +704,49 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Position on the same screen as the popover, centered and clamped within visible frame.
         positionWindowOnPopoverScreen(window, popoverWindow: mainPopoverWindow)
 
-        mainPopoverWindow.addChildWindow(window, ordered: .above)
+        mainPopoverWindow.addChildWindowSafely(window, ordered: .above)
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
         self.detailWindow = window
+    }
+
+    /// Presents the "Make a template" review window for a detected
+    /// repeated-copy pattern. Hosted as a child of the popover window
+    /// (like the detail window) so it survives the popover losing focus.
+    func showTemplateReviewWindow(samples: [String], skeleton: String) {
+        templateReviewWindow?.close()
+        templateReviewWindow = nil
+
+        guard let monitor = clipboardMonitor,
+              let mainPopoverWindow = statusBarController?.popover.contentViewController?.view.window else {
+            return
+        }
+
+        let view = TemplateSuggestionSheet(
+            samples: samples,
+            skeleton: skeleton,
+            onClose: { [weak self] in
+                self?.templateReviewWindow?.close()
+                self?.templateReviewWindow = nil
+                // Nudge the main view to re-check for the next pending
+                // suggestion now that this one is handled.
+                NotificationCenter.default.post(name: .clippyTemplateCandidateDetected, object: nil)
+            }
+        )
+        .environmentObject(SettingsManager.shared)
+        .environmentObject(monitor)
+
+        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+        window.title = L("Make a Template", settings: SettingsManager.shared)
+        window.styleMask = [.titled, .closable]
+        window.delegate = self
+        positionWindowOnPopoverScreen(window, popoverWindow: mainPopoverWindow)
+        mainPopoverWindow.addChildWindowSafely(window, ordered: .above)
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        self.templateReviewWindow = window
     }
 
     /// Centers `window` on the same NSScreen as `popoverWindow`, then clamps
@@ -705,11 +778,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         window.setFrameOrigin(origin)
     }
 
-    func showDiffWindow(oldText: String, newText: String) {
+    func showDiffWindow(oldText: String, newText: String,
+                        oldLabel: String = "Older", newLabel: String = "Newer") {
         diffWindow?.close()
         diffWindow = nil
 
-        let diffView = DiffView(oldText: oldText, newText: newText)
+        let diffView = DiffView(
+            oldText: oldText,
+            newText: newText,
+            oldLabel: oldLabel,
+            newLabel: newLabel,
+            // The window is a plain NSWindow, so SwiftUI's dismiss() is a
+            // no-op here — close it explicitly instead.
+            onClose: { [weak self] in
+                self?.diffWindow?.close()
+                self?.diffWindow = nil
+            }
+        )
             .environmentObject(SettingsManager.shared)
             .environmentObject(clipboardMonitor!)
 
@@ -720,7 +805,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
-        mainPopoverWindow.addChildWindow(window, ordered: .above)
+        mainPopoverWindow.addChildWindowSafely(window, ordered: .above)
 
         window.title = L("Compare Differences", settings: SettingsManager.shared)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -902,30 +987,39 @@ extension AppDelegate: NSWindowDelegate, NSMenuItemValidation {
         }
         if (notification.object as? NSWindow) == detailWindow {
             detailWindow = nil
-            if let parentWindow = statusBarController?.popover.contentViewController?.view.window,
-               let childWindow = notification.object as? NSWindow {
-                parentWindow.removeChildWindow(childWindow)
-            }
         }
         if (notification.object as? NSWindow) == diffWindow {
             diffWindow = nil
-            if let parentWindow = statusBarController?.popover.contentViewController?.view.window,
-               let childWindow = notification.object as? NSWindow {
-                parentWindow.removeChildWindow(childWindow)
-            }
         }
+        if (notification.object as? NSWindow) == templateReviewWindow {
+            templateReviewWindow = nil
+        }
+
+        // Detach unconditionally, via the window's own `parent`.
+        //
+        // The old code re-derived the parent from the popover's content
+        // view, which is nil once the popover has closed — so the edge
+        // survived exactly when it most needed clearing, and the template
+        // review window was never detached at all. Stale edges are how the
+        // child-window graph accumulates until a cycle forms, at which
+        // point AppKit recurses through the chain until the stack dies.
+        (notification.object as? NSWindow)?.detachFromParentWindow()
     }
 
+    /// Toggle items follow the macOS convention: a stable noun title plus a
+    /// checkmark for the current state. Flipping the *title* between
+    /// "Enable…"/"Disable…" while also showing a checkmark says two
+    /// contradictory things at once — a ticked "Disable Dock Preview" reads
+    /// as "disabling is on".
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == #selector(toggleKeywordExpansion) {
             guard SettingsManager.shared.isKeywordExpansionEnabled else { return false }
-
-            menuItem.title = (keywordManager?.isEnabled ?? false) ? L("Pause Keyword Expansion", settings: SettingsManager.shared) : L("Resume Keyword Expansion", settings: SettingsManager.shared)
+            menuItem.title = L("Keyword Expansion", settings: SettingsManager.shared)
+            menuItem.state = (keywordManager?.isEnabled ?? false) ? .on : .off
         }
         if menuItem.action == #selector(toggleDockPreview) {
-            let isEnabled = SettingsManager.shared.enableDockPreview
-            menuItem.state = isEnabled ? .on : .off
-            menuItem.title = isEnabled ? L("Disable Dock Preview & Switcher", settings: SettingsManager.shared) : L("Enable Dock Preview & Switcher", settings: SettingsManager.shared)
+            menuItem.title = L("Dock Preview & Switcher", settings: SettingsManager.shared)
+            menuItem.state = SettingsManager.shared.enableDockPreview ? .on : .off
         }
         return true
     }

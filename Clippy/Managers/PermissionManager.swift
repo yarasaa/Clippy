@@ -7,6 +7,12 @@ import Combine
 // Centralised detection + quick-open handlers for every system permission
 // Clippy might need. Written as small enum so UI can iterate over them.
 
+extension Notification.Name {
+    /// Fired when a permission the user was sent to grant becomes granted.
+    /// userInfo: ["permission": ClippyPermission.rawValue]
+    static let clippyPermissionGranted = Notification.Name("com.yarasa.Clippy.permissionGranted")
+}
+
 enum ClippyPermission: String, CaseIterable, Identifiable {
     case accessibility
     case screenRecording
@@ -93,29 +99,55 @@ final class PermissionManager: ObservableObject {
         }
     }
 
-    func check(_ permission: ClippyPermission) -> PermissionStatus {
+    /// True once we've fired the one-and-only system prompt for this
+    /// permission. macOS shows that dialog a single time per app: after the
+    /// user dismisses or denies it, calling the API again does nothing at
+    /// all. Remembering that we already asked is what lets us switch to
+    /// "open System Settings" instead of silently doing nothing.
+    private func hasPrompted(_ permission: ClippyPermission) -> Bool {
+        UserDefaults.standard.bool(forKey: "permissionPrompted.\(permission.rawValue)")
+    }
+
+    private func markPrompted(_ permission: ClippyPermission) {
+        UserDefaults.standard.set(true, forKey: "permissionPrompted.\(permission.rawValue)")
+    }
+
+    func isGranted(_ permission: ClippyPermission) -> Bool {
         switch permission {
         case .accessibility:
-            // AXIsProcessTrusted is synchronous; no prompt with this form.
-            return AXIsProcessTrusted() ? .granted : .notDetermined
-
+            return AXIsProcessTrusted()
         case .screenRecording:
-            if #available(macOS 10.15, *) {
-                // CGPreflightScreenCaptureAccess returns whether access is granted
-                // without triggering a prompt.
-                return CGPreflightScreenCaptureAccess() ? .granted : .notDetermined
-            }
-            return .granted
-
+            if #available(macOS 10.15, *) { return CGPreflightScreenCaptureAccess() }
+            return true
         case .automation:
-            // Automation per target app — no universal check. Treat as "not determined"
-            // unless the user has clearly granted it to the target bundle. We surface a
-            // helper button to open the pane regardless.
-            return .notDetermined
+            // No universal API to query Automation; it's per target app.
+            return false
         }
     }
 
+    func check(_ permission: ClippyPermission) -> PermissionStatus {
+        if isGranted(permission) { return .granted }
+        // Previously `.denied` was never returned, so a refused permission
+        // kept showing as "Not asked" with a Request button that could no
+        // longer do anything.
+        return hasPrompted(permission) ? .denied : .notDetermined
+    }
+
+    /// Ask for a permission the right way for whatever state we're in.
+    ///
+    /// First time: fire the real system prompt. Every time after that the
+    /// OS will never show it again, so the only honest thing left is to
+    /// take the user to the exact System Settings pane.
     func request(_ permission: ClippyPermission) {
+        guard !isGranted(permission) else { return }
+
+        if hasPrompted(permission) || permission == .automation {
+            openSystemSettings(for: permission)
+            startWatching(permission)
+            return
+        }
+
+        markPrompted(permission)
         switch permission {
         case .accessibility:
             let options: [String: Bool] = [
@@ -129,9 +161,38 @@ final class PermissionManager: ObservableObject {
         case .automation:
             openSystemSettings(for: .automation)
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            self.refreshAll()
+        startWatching(permission)
+    }
+
+    // MARK: - Live re-check
+
+    private var watchers: [ClippyPermission: Timer] = [:]
+
+    /// Polls until the permission is granted (or we give up), so a feature
+    /// lights up the moment the user flips the switch in System Settings —
+    /// without needing to relaunch Clippy. Accessibility in particular has
+    /// no notification we can subscribe to.
+    func startWatching(_ permission: ClippyPermission, timeout: TimeInterval = 120) {
+        watchers[permission]?.invalidate()
+        let deadline = Date().addingTimeInterval(timeout)
+
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            Task { @MainActor in
+                guard let self else { timer.invalidate(); return }
+                if self.isGranted(permission) || Date() >= deadline {
+                    timer.invalidate()
+                    self.watchers[permission] = nil
+                    self.refreshAll()
+                    if self.isGranted(permission) {
+                        NotificationCenter.default.post(
+                            name: .clippyPermissionGranted, object: nil,
+                            userInfo: ["permission": permission.rawValue]
+                        )
+                    }
+                }
+            }
         }
+        watchers[permission] = timer
     }
 
     func openSystemSettings(for permission: ClippyPermission) {
@@ -145,6 +206,15 @@ final class PermissionManager: ObservableObject {
     /// keeps an orphaned permission entry around.
     func resetAllPermissions() {
         guard let bundleID = Bundle.main.bundleIdentifier else { return }
+
+        // tccutil wipes the system's record, so our "already prompted"
+        // flags must go too — otherwise we'd keep sending the user to
+        // System Settings when macOS is once again willing to show the
+        // real prompt.
+        for permission in ClippyPermission.allCases {
+            UserDefaults.standard.removeObject(forKey: "permissionPrompted.\(permission.rawValue)")
+        }
+
         let process = Process()
         process.launchPath = "/usr/bin/tccutil"
         process.arguments = ["reset", "All", bundleID]

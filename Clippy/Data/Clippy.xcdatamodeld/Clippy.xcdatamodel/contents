@@ -2,6 +2,7 @@
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24299" systemVersion="25A362" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
     <entity name="ClipboardItemEntity" representedClassName="ClipboardItemEntity" syncable="YES" codeGenerationType="class">
         <attribute name="applicationRules" optional="YES" attributeType="String"/>
+        <attribute name="autoTitle" optional="YES" attributeType="String"/>
         <attribute name="category" optional="YES" attributeType="String"/>
         <attribute name="content" optional="YES" attributeType="String"/>
         <attribute name="contentType" optional="YES" attributeType="String"/>

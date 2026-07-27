@@ -159,8 +159,7 @@ class FileConversionService {
             return
         }
 
-        guard let tiffData = image.tiffRepresentation,
-              let imageRep = NSBitmapImageRep(data: tiffData) else {
+        guard let imageRep = image.storageBitmapRep else {
             throw ConversionError.readFailed("Could not create bitmap representation")
         }
 
@@ -188,9 +187,7 @@ class FileConversionService {
     }
 
     private func convertImageToHEIC(image: NSImage, destination: URL) throws {
-        guard let tiffData = image.tiffRepresentation,
-              let imageRep = NSBitmapImageRep(data: tiffData),
-              let cgImage = imageRep.cgImage else {
+        guard let cgImage = image.storageCGImage else {
             throw ConversionError.readFailed("Could not create CGImage")
         }
 
@@ -219,9 +216,7 @@ class FileConversionService {
 
         context.beginPDFPage(nil)
 
-        guard let tiffData = image.tiffRepresentation,
-              let imageRep = NSBitmapImageRep(data: tiffData),
-              let cgImage = imageRep.cgImage else {
+        guard let cgImage = image.storageCGImage else {
             throw ConversionError.readFailed("Could not create CGImage for PDF")
         }
 

@@ -36,7 +36,24 @@ struct PersistenceController {
                 fatalError("Unresolved error \(error), \(error.userInfo)")
             }
         })
-        container.viewContext.automaticallyMergesChangesFromParent = true
+
+        let viewContext = container.viewContext
+        viewContext.automaticallyMergesChangesFromParent = true
+
+        // Without an explicit policy this context uses NSErrorMergePolicy,
+        // which *throws* on any conflict instead of merging. That matters
+        // here because OCR, auto-titling and the history pruner all write
+        // from background contexts and merge into this one — a save that
+        // collided with one of them would fail, and `saveContext()`
+        // discards the error, so the user's edit would vanish silently.
+        // Property-level merge with in-memory changes winning is the right
+        // shape: background jobs only fill in derived fields, so a user's
+        // own edit should never lose to them.
+        viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+
+        // An undo manager retains every change for the life of the context.
+        // Nothing here offers undo, so this is pure memory growth.
+        viewContext.undoManager = nil
     }
 
     static var preview: PersistenceController = {

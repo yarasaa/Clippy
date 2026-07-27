@@ -41,6 +41,9 @@ enum AIAction: String, CaseIterable {
     /// Tuned for error messages, chart labels, UI fragments — not
     /// long-form prose (use `.summarize` for that).
     case explain = "explain"
+    /// v1.1: generate a short scannable title for a long item.
+    /// Runs automatically (local providers only) via AutoTitleService.
+    case autoTitle = "autoTitle"
 
     var systemPrompt: String {
         switch self {
@@ -68,6 +71,8 @@ enum AIAction: String, CaseIterable {
             return "You are a helpful assistant. Follow the user's instructions precisely."
         case .explain:
             return "You are a helpful explainer. The given text was extracted from a screenshot — it could be an error message, an article fragment, a chart label, or a UI element. Explain in 2-4 sentences what it is and what it likely means. If it looks like an error, suggest the most likely cause. Plain, friendly tone. Reply in the same language as the input."
+        case .autoTitle:
+            return "You create very short titles. Given some text (possibly OCR'd from a screenshot), produce a 3-6 word title that captures what it is, in the SAME language as the content. Return ONLY the title — no quotes, no trailing punctuation, no explanations."
         }
     }
 

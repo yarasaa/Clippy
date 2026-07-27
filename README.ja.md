@@ -27,6 +27,12 @@
 > The app's UI is currently in English — Clippy uses minimal, icon-rich
 > labels that are easy to follow regardless of your language.
 
+> **1.0.14の新機能** — 普通の言葉でクリップボードに質問、画面の任意の範囲から
+> テキストを取得、再利用できるテンプレート、そして本格的なキーボード操作。
+> [変更点を見る →](https://github.com/yarasaa/Clippy/releases/latest)
+
+**目次** — [Clippyを選ぶ理由](#clippyを選ぶ理由) · [機能](#-機能一覧) · [主要機能](#主要機能) · [設定](#設定) · [インストール](#インストール) · [ショートカット](#キーボードショートカット) · [プライバシー](#プライバシー)
+
 ---
 
 ## Clippyを選ぶ理由
@@ -34,9 +40,11 @@
 コピーしたもの — テキスト、画像、コード、カラー、URL — は通常、
 クリップボードに一瞬だけ残ってすぐ消えてしまいます。Clippyはそれらを
 すべて保持します。メニューバーに美しい履歴として並べ、検索、スター、
-ピン留め、ホットキーでの貼り付けができます。さらに、スクリーンショットへの
-注釈、ファイル形式の変換、Shelfでのファイル保管、ローカル/クラウドAIによる
-テキスト変換まで行えます。
+ピン留め、ホットキーでの貼り付けができます。
+
+さらに一歩進んで、普通の言葉で質問したり、スクリーンショットや画面の
+任意の範囲からテキストを取り出したり、画像に注釈を付けたり、ファイルを
+変換したり、ローカル/クラウドAIでテキストを変換したりできます。
 
 すべて**あなたのMacの中だけ**で完結します。アカウント登録なし。
 クラウド送信なし。テレメトリなし。
@@ -45,57 +53,32 @@
 
 | | |
 |---|---|
+| 📋 **スマートなクリップボード履歴** — テキスト、URL、カラー、JSON、コード、画像のコンテンツ認識プレビュー | <img src="docs/screenshots/01-main-popover.png" width="280"> |
+| 💬 **クリップボードに質問** — 「あの電話番号は？」普通の言葉で聞けば、出典付きで答えが返る | <img src="docs/screenshots/32-ask.png" width="280"> |
 | 🔍 **検索できるスクリーンショット** — 自動OCRがすべての画像をデバイス上で読み取り、画像で*見ただけ*のテキストも検索できる | <img src="docs/screenshots/27-searchable-ocr.png" width="280"> |
 | 🎯 **スマート検出** — 電話番号、メール、日付、住所、機密データ（カード、IBAN、APIキー）がワンタップの操作に | <img src="docs/screenshots/28-ocr-badges.png" width="280"> |
-| 🔤 **Live Text** — 写真アプリのように、スクリーンショット上で直接テキストを選択 | <img src="docs/screenshots/29-live-text.png" width="280"> |
-| 🌍 **言語バッジ** — スクリーンショットに検出された言語のフラグが付く | <img src="docs/screenshots/31-language-badge.png" width="280"> |
-| 📋 **スマートなクリップボード履歴** — URL、カラー、JSON、コード、画像のコンテンツ認識プレビュー | <img src="docs/screenshots/01-main-popover.png" width="280"> |
-| 🎯 **ホバーアクション** — Paste、Star、Pin、AI変換が必要な瞬間に現れる | <img src="docs/screenshots/02-card-hover.png" width="280"> |
-| ⚡ **Quick Preview** — ホットキーでフローティングオーバーレイから最近のアイテムを貼り付け | <img src="docs/screenshots/13-quick-preview.png" width="280"> |
 | ✍️ **スクリーンショットエディター** — Studio Bar、コンテキスト対応Inspector、20以上の注釈ツール | <img src="docs/screenshots/14-editor.png" width="280"> |
+| ⚡ **Quick Preview** — ホットキーでフローティングオーバーレイから最近のアイテムを貼り付け | <img src="docs/screenshots/13-quick-preview.png" width="280"> |
+| ✨ **AI変換** — 要約、翻訳、文法修正、コード説明。Ollamaでローカル、またはクラウド | <img src="docs/screenshots/09-ai-menu.png" width="280"> |
 | 🪟 **Dockプレビュー** — Windows 11風のサムネイル、ライブストリーミングと番号バッジ | <img src="docs/screenshots/17-dock-preview.png" width="280"> |
-| ✨ **AI変換** — 要約、翻訳、文法修正、コード説明。Ollamaでローカル、またはクラウド (APIキー持ち込み) | <img src="docs/screenshots/09-ai-menu.png" width="280"> |
 | 🧩 **自動展開スニペット** — キーワードで保存、どこでも呼び出し可能 | <img src="docs/screenshots/07-snippets-tab.png" width="280"> |
-| 🗂 **ファイルコンバーター** — 画像、ドキュメント、音声、動画、データ形式。ドラッグ、ドロップ、変換 | <img src="docs/screenshots/16-file-converter.png" width="280"> |
-| 📦 **Shelf** — アプリ間で手元に置いておきたいファイル用の専用引き出し | <img src="docs/screenshots/15-shelf.png" width="280"> |
-| 🔐 **暗号化アイテム** とタイプ別フィルター — 機密エントリをロック、タイプで絞り込み | <img src="docs/screenshots/04-pinned.png" width="280"> |
+
+### その他の機能
+
+- 🔎 **画面からテキスト取得** — ⇧⌘2 を押して画面の任意の範囲をドラッグすると、その中のテキストがクリップボードに入る
+- 📐 **テンプレート** — 繰り返しコピーするテキストをClippyが見つけ、再利用できるテンプレートへの変換を提案
+- 📱 **スマホに送る** — リンクがスキャンできるQRコードに
+- 🏷 **自動タイトル** — すべての項目に短く読みやすい名前が付く
+- 🔤 **Live Text** — 写真アプリのように、スクリーンショット上で直接テキストを選択
+- 🌍 **言語バッジ** — スクリーンショットに検出された言語のフラグが付く
+- 🎯 **ホバーアクション** — Paste、Star、Pin、AI変換が必要な瞬間に現れる
+- 🗂 **ファイルコンバーター** — 画像、ドキュメント、音声、動画、データ形式
+- 📦 **Shelf** — アプリ間で手元に置いておきたいファイル用の引き出し
+- 🔐 **暗号化アイテム** とタイプ別フィルター — 機密エントリをロック、タイプで絞り込み
 
 ---
 
 ## 主要機能
-
-### 🔍 検索できるスクリーンショット（自動OCR）
-
-どんな画像でもコピーすれば、Clippyがバックグラウンドで中のテキストを読み取ります — デバイス上で、プライベートに、無料で。スクリーンショットで*見ただけ*の単語を検索すれば、すぐに出てきます。Apple Visionを使用し、**30以上の言語**を設定不要で自動認識します。
-
-<p align="center">
-  <img src="docs/screenshots/27-searchable-ocr.png" alt="OCRテキストでスクリーンショットを検索" width="420">
-</p>
-
-### 🎯 スマートなコンテンツ検出
-
-Clippyは**テキストとスクリーンショットの両方**から操作可能なコンテンツを見つけ、ワンタップの操作に変えます:
-
-- **📞 電話 / ✉️ メール / 🔗 URL** — タップして発信、メール、または開く
-- **📅 日付** — そのままカレンダーに追加
-- **📍 住所** — マップで開く
-- **🔒 機密データ** — クレジットカード、IBAN、APIキー、TC kimlik を検出（チェックサム検証付き）し、暗号化を提案
-
-<p align="center">
-  <img src="docs/screenshots/28-ocr-badges.png" alt="スクリーンショット上の操作バッジと暗号化の提案" width="420">
-</p>
-
-### 🔤 Live Text
-
-どんなスクリーンショットも詳細ウィンドウで開き、**画像上で直接**テキストを選択 — 写真アプリと同じように。コピーしたり、リンクをタップしたり。言語フラグでClippyが検出した言語が一目でわかります。
-
-<p align="center">
-  <img src="docs/screenshots/29-live-text.png" alt="Live Textでスクリーンショット上のテキストを選択" width="640">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/31-language-badge.png" alt="検出された言語フラグでタグ付けされたスクリーンショット" width="420">
-</p>
 
 ### スマートなクリップボード履歴
 
@@ -118,38 +101,117 @@ Clippyは**テキストとスクリーンショットの両方**から操作可�
   <img src="docs/screenshots/02-card-hover.png" alt="カードのホバーアクション" width="420">
 </p>
 
-### ライブ検索
+### 💬 クリップボードに質問
 
-入力して即座にフィルター。プレースホルダーはアクティブなタブに合わせて
-変わります (Search clipboard… / Search snippets… / Search images…)。
-常に何を検索しているか分かります。
+コピーしたあの一つを探してスクロールするのは、もう終わりです。聞いてください:
+
+> *「あの電話番号は」* · *「昨日のリンク」* · *「ピン留めしたもの」*
+
+Clippyは質問の意図を読み取り — 期間、コンテンツの種類、どのアプリから来たか — キーワードの一致ではなく**意味**で履歴を並べ替え、根拠として使った項目とともに答えを表示します。
+
+具体的な値はモデルに書き直させるのではなく、元のテキストから**そのまま**抽出されます。だから電話番号は、実際にコピーしたその番号です。
+
+Ollamaによるローカルモデルでも、クラウドのプロバイダーでも動作します。モデルが設定されていない場合はデバイス上のマッチングにフォールバックします。
 
 <p align="center">
-  <img src="docs/screenshots/03-search.png" alt="ライブ検索フィルタリング" width="420">
+  <img src="docs/screenshots/32-ask.png" alt="クリップボード履歴についてClippyに質問する" width="420">
 </p>
 
-### ピン留め & スター
+### 🔍 検索できるスクリーンショット（自動OCR）
 
-ピン留めされたアイテムはRecentストリームの上に浮かび、大切なものを
-失うことはありません — 機密項目用のClippyの **暗号化コンテンツ** も含めて。
+どんな画像でもコピーすれば、Clippyがバックグラウンドで中のテキストを読み取ります — デバイス上で、プライベートに、無料で。スクリーンショットで*見ただけ*の単語を検索すれば、すぐに出てきます。Apple Visionを使用し、**30以上の言語**を設定不要で自動認識します。
 
 <p align="center">
-  <img src="docs/screenshots/03-pinned.png" alt="暗号化アイテム付きピン留めセクション" width="420">
+  <img src="docs/screenshots/27-searchable-ocr.png" alt="OCRテキストでスクリーンショットを検索" width="420">
 </p>
 
-長期保存したいものをスターして、Starredタブでそれだけを表示。
+### 🔎 画面からテキスト取得
+
+**⇧⌘2** を押して画面の任意の範囲をドラッグすると、その中のテキストがそのままクリップボードに入ります。動画の中の文字、選択できないPDF、誰かに送られたスクリーンショット — 見えるものはコピーできます。選択範囲内のQRコードも読み取ります。
+
+こんなときに:
+
+- 動画の中や、誰かが映しているスライドの文字
+- 選択させてくれないPDF
+- チャットで送られてきたスクリーンショット
+- そのままでは手で打ち直すことになるエラーダイアログ
+
+### 🎯 スマートなコンテンツ検出
+
+Clippyは**テキストとスクリーンショットの両方**から操作可能なコンテンツを見つけ、ワンタップの操作に変えます:
+
+- **📞 電話 / ✉️ メール / 🔗 URL** — タップして発信、メール、または開く
+- **📅 日付** — そのままカレンダーに追加
+- **📍 住所** — マップで開く
+- **🔒 機密データ** — クレジットカード、IBAN、APIキー、TC kimlik を検出（チェックサム検証付き）し、暗号化を提案
 
 <p align="center">
-  <img src="docs/screenshots/05-starred.png" alt="Starredタブ" width="420">
+  <img src="docs/screenshots/28-ocr-badges.png" alt="スクリーンショット上の操作バッジと暗号化の提案" width="420">
 </p>
 
-### タイプ別フィルター
+### スクリーンショットエディター — "Studio"
 
-上部のタブでリストを単一のコンテンツタイプに絞り込み — All、
-**Images**、Snippets、Starred。
+内蔵エディターには独自のデザイン言語があります。左にツールレール、中央に
+ライブキャンバス、右に **コンテキスト対応インスペクター** — アクティブな
+ツールのプロパティ、または選択された注釈の詳細を表示します。
 
 <p align="center">
-  <img src="docs/screenshots/06-images-tab.png" alt="画像のみのタブ" width="420">
+  <img src="docs/screenshots/14-editor.png" alt="Inspector付きスクリーンショットエディター" width="720">
+</p>
+
+20以上のツール、すべてライブ構成可能:
+
+- 5つの矢印スタイルと5つのストロークパターンを持つArrow
+- 太字/斜体/配置、コントラスト対応背景、ボックスサイズのText
+- 3つのブラシスタイル (solid/dashed/marker) を持つPen
+- 角丸、塗りつぶしモード、グラデーションの図形
+- 矢印/矩形/楕円を手描き風にするSketchモード
+- ブラー、ピクセル化、スポットライト、ピン (番号マーカー)、絵文字、拡大鏡、定規
+- ピクセル精度のルーペと9つのカラー形式コピーオプションを持つスポイト
+- エフェクト: 背景パディング、影、角丸、境界線、透かし
+
+### Quick Previewオーバーレイ
+
+Quick Previewホットキー (デフォルト **⌘⌥V**) をどこでも押すと、フローティング
+パネルに最新10アイテムを表示。`1`-`9` キーで直接貼り付け、`↑↓` でナビゲート、
+`esc` で閉じる。
+
+<p align="center">
+  <img src="docs/screenshots/13-quick-preview.png" alt="Quick Previewオーバーレイ" width="380">
+</p>
+
+### AIテキスト変換
+
+任意のクリップボードアイテムで実行: 要約、展開、文法修正、翻訳 (30以上の
+言語)、箇条書き、メール作成、コード用のアクション (説明、コメント追加、
+バグ検出、最適化)。
+
+プロバイダーを選択:
+
+- **Apple Intelligence** — macOS 26以降のデフォルト。完全にデバイス上で
+  動作し、APIキー不要、サインアップ不要、Macから何も出ていきません
+- **Ollama** — 完全ローカル、無料、プライベート
+- **OpenAI**、**Anthropic**、**Google Gemini** — 自分のAPIキー
+
+<p align="center">
+  <img src="docs/screenshots/30-apple-intelligence.png" alt="Apple Intelligenceを選択したAI設定 — オンデバイスモデル準備完了" width="520">
+</p>
+
+内蔵テキストユーティリティも: Base64エンコード/デコード、大文字小文字変換、
+JSONフォーマット/ミニファイ、重複行削除、行結合。
+
+<p align="center">
+  <img src="docs/screenshots/09-ai-menu.png" alt="AIアクション付き変換メニュー" width="340">
+</p>
+
+### Dockプレビュー & アプリスイッチャー
+
+Dockの任意のアプリにホバーしてWindows 11風のサムネイルを表示 — 番号付きの
+キーボードヒント、インラインタイトルバー、そして (オプションで) 5FPSの
+ライブストリーミング。
+
+<p align="center">
+  <img src="docs/screenshots/17-dock-preview.png" alt="Dockプレビュー" width="520">
 </p>
 
 ### 自動展開スニペット
@@ -234,37 +296,47 @@ inspectorからよく使うスニペットを一目で確認できます。
   <img src="docs/screenshots/07-snippets-tab.png" alt="Snippetsタブ" width="420">
 </p>
 
+### ライブ検索
+
+入力して即座にフィルター。プレースホルダーはアクティブなタブに合わせて
+変わります (Search clipboard… / Search snippets… / Search images…)。
+常に何を検索しているか分かります。
+
+<p align="center">
+  <img src="docs/screenshots/03-search.png" alt="ライブ検索フィルタリング" width="420">
+</p>
+
+### ピン留め & スター
+
+ピン留めされたアイテムはRecentストリームの上に浮かび、大切なものを
+失うことはありません — 機密項目用のClippyの **暗号化コンテンツ** も含めて。
+
+<p align="center">
+  <img src="docs/screenshots/04-pinned.png" alt="暗号化アイテム付きピン留めセクション" width="420">
+</p>
+
+長期保存したいものをスターして、Starredタブでそれだけを表示。
+
+<p align="center">
+  <img src="docs/screenshots/05-starred.png" alt="Starredタブ" width="420">
+</p>
+
+### タイプ別フィルター
+
+上部のタブでリストを単一のコンテンツタイプに絞り込み — All、
+**Images**、Snippets、Starred。
+
+<p align="center">
+  <img src="docs/screenshots/06-images-tab.png" alt="画像のみのタブ" width="420">
+</p>
+
 ### 右クリックのパワーメニュー
 
 すべてのカードには豊富なコンテキストメニュー: コピー、貼り付け、共有、
 カラー形式変換、スター、ピン、暗号化、画像結合、削除。
 
 <p align="center">
-  <img src="docs/screenshots/06-context-menu.png" alt="右クリックコンテキストメニュー" width="360">
-</p>
-
-### AIテキスト変換
-
-任意のクリップボードアイテムで実行: 要約、展開、文法修正、翻訳 (30以上の
-言語)、箇条書き、メール作成、コード用のアクション (説明、コメント追加、
-バグ検出、最適化)。
-
-プロバイダーを選択:
-
-- **Apple Intelligence** — macOS 26以降のデフォルト。完全にデバイス上で
-  動作し、APIキー不要、サインアップ不要、Macから何も出ていきません
-- **Ollama** — 完全ローカル、無料、プライベート
-- **OpenAI**、**Anthropic**、**Google Gemini** — 自分のAPIキー
-
-<p align="center">
-  <img src="docs/screenshots/30-apple-intelligence.png" alt="Apple Intelligenceを選択したAI設定 — オンデバイスモデル準備完了" width="520">
-</p>
-
-内蔵テキストユーティリティも: Base64エンコード/デコード、大文字小文字変換、
-JSONフォーマット/ミニファイ、重複行削除、行結合。
-
-<p align="center">
-  <img src="docs/screenshots/07-ai-menu.png" alt="AIアクション付き変換メニュー" width="340">
+  <img src="docs/screenshots/08-context-menu.png" alt="右クリックコンテキストメニュー" width="360">
 </p>
 
 ### 詳細ウィンドウ — アクションレール + インスペクター
@@ -274,14 +346,14 @@ JSONフォーマット/ミニファイ、重複行削除、行結合。
 右: コンテキスト対応インスペクター (キーワード、アプリスコープ、使用統計)。
 
 <p align="center">
-  <img src="docs/screenshots/08-detail-url.png" alt="URL詳細ウィンドウ" width="520">
+  <img src="docs/screenshots/10-detail-url.png" alt="URL詳細ウィンドウ" width="520">
 </p>
 
 コンテンツタイプによって異なる表示 — JSONはツリービュー、Valid JSONバッジ、
 Raw切替ボタン付き。
 
 <p align="center">
-  <img src="docs/screenshots/09-detail-json.png" alt="JSON詳細ビュー" width="520">
+  <img src="docs/screenshots/11-detail-json.png" alt="JSON詳細ビュー" width="520">
 </p>
 
 カラーには専用カード: 光るスウォッチとHEX、RGB、HSL間を変換するワンタップ
@@ -291,46 +363,45 @@ Copyメニュー。
   <img src="docs/screenshots/12-detail-color.png" alt="カラー詳細ビュー" width="520">
 </p>
 
-### Quick Previewオーバーレイ
+### 🏷 自動タイトル
 
-Quick Previewホットキー (デフォルト **⌘⌥V**) をどこでも押すと、フローティング
-パネルに最新10アイテムを表示。`1`-`9` キーで直接貼り付け、`↑↓` でナビゲート、
-`esc` で閉じる。
+すべての項目に短く読みやすいタイトルが付くので、URLの先頭40文字を眺める代わりに、履歴を一目で見渡せます。タイトルは検索対象で、**設定 → 機能**からまとめてオフにできます。
+
+### 🔤 Live Text
+
+どんなスクリーンショットも詳細ウィンドウで開き、**画像上で直接**テキストを選択 — 写真アプリと同じように。コピーしたり、リンクをタップしたり。言語フラグでClippyが検出した言語が一目でわかります。
 
 <p align="center">
-  <img src="docs/screenshots/13-quick-preview.png" alt="Quick Previewオーバーレイ" width="380">
+  <img src="docs/screenshots/29-live-text.png" alt="Live Textでスクリーンショット上のテキストを選択" width="640">
 </p>
 
-### スクリーンショットエディター — "Studio"
-
-内蔵エディターには独自のデザイン言語があります。左にツールレール、中央に
-ライブキャンバス、右に **コンテキスト対応インスペクター** — アクティブな
-ツールのプロパティ、または選択された注釈の詳細を表示します。
-
 <p align="center">
-  <img src="docs/screenshots/10-editor.png" alt="Inspector付きスクリーンショットエディター" width="720">
+  <img src="docs/screenshots/31-language-badge.png" alt="検出された言語フラグでタグ付けされたスクリーンショット" width="420">
 </p>
 
-20以上のツール、すべてライブ構成可能:
+### 🧩 テンプレート
 
-- 5つの矢印スタイルと5つのストロークパターンを持つArrow
-- 太字/斜体/配置、コントラスト対応背景、ボックスサイズのText
-- 3つのブラシスタイル (solid/dashed/marker) を持つPen
-- 角丸、塗りつぶしモード、グラデーションの図形
-- 矢印/矩形/楕円を手描き風にするSketchモード
-- ブラー、ピクセル化、スポットライト、ピン (番号マーカー)、絵文字、拡大鏡、定規
-- ピクセル精度のルーペと9つのカラー形式コピーオプションを持つスポイト
-- エフェクト: 背景パディング、影、角丸、境界線、透かし
+請求書の明細、チケット番号、日報 — 同じ*形*のテキストを繰り返しコピーしていることにClippyが気づき、可変部分を埋めたテンプレートへの変換を提案します。保存される前に内容を確認でき、閉じればそれ以上は促してきません。
 
-### Shelf
+たとえば、次のようなものをいくつかコピーすると:
 
-複数のアプリを行き来するときに、手元に置いておきたいファイル用の専用ドロワーです —
-ダウンロード、添付ファイル、モックアップ、PDFなど。どこからでもファイルをShelfに
-ドラッグして保管し、必要なときに取り出せます。タイプバッジ (PDF / ZIP / フォルダ /
-画像サイズ) と一括操作に対応しています。
+```
+INV-2026-0142 · Acme Ltd · €1,240.00 · due 2026-08-15
+INV-2026-0143 · Globex · €880.00 · due 2026-08-18
+```
+
+Clippyは変化する部分をフィールドにしたテンプレートを提案します:
+
+```
+INV-{番号} · {会社} · €{金額} · due {日付}
+```
+
+### 📱 スマホに送る
+
+リンクを右クリック →**スマホに送る**。QRコードが表示されるので、カメラを向けるだけで向こうで開きます。ペアリングも、アカウントも、ネットワーク経由のやり取りも不要です。
 
 <p align="center">
-  <img src="docs/screenshots/11-shelf.png" alt="Shelfウィンドウ" width="520">
+  <img src="docs/screenshots/35-send-to-phone.png" alt="リンクをスマホに送るQRコード" width="420">
 </p>
 
 ### ファイルコンバーター
@@ -344,17 +415,18 @@ Quick Previewホットキー (デフォルト **⌘⌥V**) をどこでも押す
 - **データ:** JSON、YAML、XML、CSV、PLIST
 
 <p align="center">
-  <img src="docs/screenshots/12-file-converter.png" alt="ファイルコンバーター" width="640">
+  <img src="docs/screenshots/16-file-converter.png" alt="ファイルコンバーター" width="640">
 </p>
 
-### Dockプレビュー & アプリスイッチャー
+### Shelf
 
-Dockの任意のアプリにホバーしてWindows 11風のサムネイルを表示 — 番号付きの
-キーボードヒント、インラインタイトルバー、そして (オプションで) 5FPSの
-ライブストリーミング。
+複数のアプリを行き来するときに、手元に置いておきたいファイル用の専用ドロワーです —
+ダウンロード、添付ファイル、モックアップ、PDFなど。どこからでもファイルをShelfに
+ドラッグして保管し、必要なときに取り出せます。タイプバッジ (PDF / ZIP / フォルダ /
+画像サイズ) と一括操作に対応しています。
 
 <p align="center">
-  <img src="docs/screenshots/13-dock-preview.png" alt="Dockプレビュー" width="520">
+  <img src="docs/screenshots/15-shelf.png" alt="Shelfウィンドウ" width="520">
 </p>
 
 ---
@@ -457,7 +529,21 @@ open Clippy.xcodeproj
 | Sequential Copy | `⌘⇧C` |
 | Sequential Paste | `⌘⇧V` (上書き) |
 | スクリーンショット撮影 | `⌘⇧S` |
+| 画面からテキスト取得 | `⇧⌘2` |
 | App Switcher | `⌘⇥` (有効時) |
+
+### ポップオーバー内
+
+| アクション | キー |
+|---|---|
+| 履歴を移動 | `↑` `↓` |
+| 選択中の項目を貼り付け | `⏎` |
+| 1〜9番目の項目を直接貼り付け | `⌘1`–`⌘9` |
+| 検索欄とリストの間でフォーカス移動 | `⇥` |
+| 閉じる | `esc` |
+
+ポップオーバーを開いても検索欄がフォーカスを奪わないので、Clippyが現れた
+瞬間から数字のショートカットが使えます。
 
 Quick Previewオーバーレイには独自のナビゲーションキーがあります —
 `1`-`9` で貼り付け、`↑↓` で移動、`esc` で閉じる。

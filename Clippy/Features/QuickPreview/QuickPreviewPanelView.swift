@@ -395,10 +395,12 @@ struct QuickPreviewItemRow: View {
         }
     }
 
+    /// This draws a 26pt icon, so it asks for a small thumbnail rather than
+    /// decoding the original. The previous version fully decoded the image
+    /// — tens of MB for a screenshot — with no cache at all, meaning it
+    /// paid that cost again on every render pass.
     private func loadImage(from path: String) -> NSImage? {
-        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
-        let imageURL = appSupport.appendingPathComponent("Clippy/Images").appendingPathComponent(path)
-        return NSImage(contentsOf: imageURL)
+        ThumbnailStore.thumbnail(for: path, maxPixel: 128)
     }
 }
 

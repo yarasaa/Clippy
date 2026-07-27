@@ -61,7 +61,13 @@ enum OCRLinkDetector {
     /// Extract all actionable items from a string. Returns
     /// deduplicated lists in document order. Empty `OCRLinks` if
     /// nothing is found or the input is empty.
-    static func detect(in text: String) -> OCRLinks {
+    /// - Parameter isCode: when true, dates and addresses are skipped.
+    ///   Source code is full of words the date parser treats as times —
+    ///   `let today = Date()` reads as today's date, `deadline: Friday` in
+    ///   a comment as next Friday — and a calendar badge on a code snippet
+    ///   is noise regardless. Links and emails still count: a URL in a
+    ///   comment is worth surfacing.
+    static func detect(in text: String, isCode: Bool = false) -> OCRLinks {
         guard !text.isEmpty, let detector else { return OCRLinks() }
 
         var result = OCRLinks()
@@ -76,7 +82,8 @@ enum OCRLinkDetector {
         for match in matches {
             switch match.resultType {
             case .phoneNumber:
-                if let phone = match.phoneNumber {
+                if let phone = match.phoneNumber,
+                   isPlausiblePhone(match: match, in: text) {
                     let normalized = normalizePhone(phone)
                     if seenPhones.insert(normalized).inserted {
                         result.phoneNumbers.append(phone)
@@ -101,6 +108,8 @@ enum OCRLinkDetector {
                 }
 
             case .address:
+                // Skipped for code — see `isCode`.
+                guard !isCode else { break }
                 // NSDataDetector returns components in a dictionary;
                 // we keep the matched substring so the user sees what
                 // was actually written in the screenshot.
@@ -128,11 +137,24 @@ enum OCRLinkDetector {
         // name interrupts. Re-collect raw matches with range info
         // and merge a date-only + adjacent time-only pair into a
         // single combined event.
-        result.dates = collectAndMergeDateMatches(text: text, matches: matches)
+        result.dates = isCode ? [] : collectAndMergeDateMatches(text: text, matches: matches)
 
         // Sensitive patterns run on the same text afterward so we
         // have a single OCRLinks struct for all badge types.
         result.sensitiveHits = SensitiveDataDetector.scan(text)
+
+        // Anything that passed a real checksum — a TC kimlik number, a
+        // Luhn-valid card, an IBAN — is definitively that thing, and
+        // therefore definitively not a phone number. Those algorithms are
+        // exact, so they outrank the phone heuristic rather than competing
+        // with it: an 11-digit TC kimlik was being offered as a number to
+        // call.
+        if !result.sensitiveHits.isEmpty {
+            let sensitiveDigits = Set(result.sensitiveHits.map { $0.snippet.filter(\.isNumber) })
+            result.phoneNumbers.removeAll { phone in
+                sensitiveDigits.contains(phone.filter(\.isNumber))
+            }
+        }
 
         return result
     }
@@ -210,6 +232,53 @@ enum OCRLinkDetector {
     /// Strip everything except digits and a leading + so two
     /// formattings of the same number ("(555) 123-4567" vs
     /// "+1 555-123-4567") don't both appear as separate badges.
+    /// Words that, sitting just before a number, say it isn't a phone.
+    private static let nonPhoneContext = [
+        "sku", "order", "sipariş", "siparis", "invoice", "fatura",
+        "seri", "serial", "tracking", "takip", "ref", "id:", "no:", "nr:",
+        "code", "kod", "version", "versiyon", "port", "line", "satır", "satir",
+        "isbn", "iban", "account", "hesap", "card", "kart", "pin", "otp"
+    ]
+
+    /// Second opinion on NSDataDetector's phone matches.
+    ///
+    /// The detector is reliable at *rejecting* version numbers, dates, IP
+    /// addresses and UUIDs, but it happily reports any bare run of digits:
+    /// order numbers, SKUs, card numbers and even `let x = 100000000` all
+    /// came back as phone numbers. Three cheap checks remove those without
+    /// costing a single real number:
+    ///
+    ///   1. Digit count outside 7…15 isn't a phone (E.164 caps at 15), and
+    ///      exactly 16 is card-shaped — that belongs to the sensitive-data
+    ///      path, not here.
+    ///   2. A disqualifying word immediately before it ("SKU", "sipariş
+    ///      no", "takip") means the number was already labelled as
+    ///      something else.
+    ///   3. With no phone-ish punctuation at all — no `+`, no parentheses,
+    ///      no leading trunk `0`, no separators — a digit blob is just a
+    ///      number.
+    private static func isPlausiblePhone(match: NSTextCheckingResult, in text: String) -> Bool {
+        let ns = text as NSString
+        guard match.range.location != NSNotFound,
+              NSMaxRange(match.range) <= ns.length else { return false }
+
+        let matched = ns.substring(with: match.range)
+        let digitCount = matched.filter(\.isNumber).count
+        guard (7...15).contains(digitCount) else { return false }
+
+        let contextStart = max(0, match.range.location - 16)
+        let context = ns.substring(
+            with: NSRange(location: contextStart, length: match.range.location - contextStart)
+        ).lowercased()
+        if nonPhoneContext.contains(where: { context.contains($0) }) { return false }
+
+        let trimmed = matched.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("+") || trimmed.contains("(") || trimmed.hasPrefix("0") {
+            return true
+        }
+        return matched.contains(" ") || matched.contains("-") || matched.contains(".")
+    }
+
     private static func normalizePhone(_ raw: String) -> String {
         var result = ""
         for (i, ch) in raw.enumerated() {

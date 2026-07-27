@@ -23,15 +23,23 @@
 
 **🌐** [English](README.md) · [Türkçe](README.tr.md) · [日本語](README.ja.md) · [简体中文](README.zh.md)
 
+> **New in 1.0.14** — ask your clipboard questions in plain language, grab
+> text from any region of your screen, reusable templates, and a real
+> keyboard flow. [See what changed →](https://github.com/yarasaa/Clippy/releases/latest)
+
+**Contents** — [Why Clippy?](#why-clippy) · [Features](#-features-at-a-glance) · [Highlights](#highlights) · [Settings](#settings) · [Installation](#installation) · [Shortcuts](#keyboard-shortcuts) · [Privacy](#privacy)
+
 ---
 
 ## Why Clippy?
 
 Everything you copy — text, images, code, colors, URLs — lives on briefly
 in your clipboard and is gone. Clippy keeps it all, in a beautiful menu
-bar history you can search, star, pin, and paste with a hotkey. Then it
-goes further: annotate screenshots, convert files, stash downloads on a
-shelf, transform text with local or cloud AI.
+bar history you can search, star, pin, and paste with a hotkey.
+
+Then it goes further: ask it questions in plain language, lift text out of
+any screenshot or region of your screen, annotate images, convert files,
+and transform text with local or cloud AI.
 
 All **on your Mac**. No accounts. No cloud. No telemetry.
 
@@ -39,57 +47,32 @@ All **on your Mac**. No accounts. No cloud. No telemetry.
 
 | | |
 |---|---|
+| 📋 **Smart clipboard history** — content-aware previews for text, URLs, colors, JSON, code and images | <img src="docs/screenshots/01-main-popover.png" width="280"> |
+| 💬 **Ask your clipboard** — "what was that phone number?" Ask in plain language, get the answer with its sources | <img src="docs/screenshots/32-ask.png" width="280"> |
 | 🔍 **Searchable screenshots** — auto-OCR reads every image on-device, so you can search text you only ever *saw* in a picture | <img src="docs/screenshots/27-searchable-ocr.png" width="280"> |
-| 🎯 **Smart detection** — phones, emails, dates, addresses, and sensitive data (cards, IBANs, API keys) become one-tap actions | <img src="docs/screenshots/28-ocr-badges.png" width="280"> |
-| 🔤 **Live Text** — select text right on any screenshot, just like Photos | <img src="docs/screenshots/29-live-text.png" width="280"> |
-| 🌍 **Language badges** — screenshots are tagged with their detected language | <img src="docs/screenshots/31-language-badge.png" width="280"> |
-| 📋 **Smart clipboard history** with content-aware previews for URLs, colors, JSON, code, images | <img src="docs/screenshots/01-main-popover.png" width="280"> |
-| 🎯 **Hover actions** — Paste, Star, Pin, AI transform appear the moment you need them | <img src="docs/screenshots/02-card-hover.png" width="280"> |
-| ⚡ **Quick Preview** — hit the hotkey, paste from the last N items in a floating overlay | <img src="docs/screenshots/13-quick-preview.png" width="280"> |
-| ✍️ **Screenshot editor** with Studio Bar, context-aware Inspector, 20+ annotation tools | <img src="docs/screenshots/14-editor.png" width="280"> |
+| 🎯 **Smart detection** — phones, emails, dates, addresses and sensitive data (cards, IBANs, API keys) become one-tap actions | <img src="docs/screenshots/28-ocr-badges.png" width="280"> |
+| ✍️ **Screenshot editor** — Studio Bar, context-aware Inspector, 20+ annotation tools | <img src="docs/screenshots/14-editor.png" width="280"> |
+| ⚡ **Quick Preview** — hit the hotkey, paste from your recent items in a floating overlay | <img src="docs/screenshots/13-quick-preview.png" width="280"> |
+| ✨ **AI transformations** — summarize, translate, fix grammar, explain code. Local via Ollama or cloud | <img src="docs/screenshots/09-ai-menu.png" width="280"> |
 | 🪟 **Dock Preview** — Windows 11–style thumbnails with live streaming and numbered badges | <img src="docs/screenshots/17-dock-preview.png" width="280"> |
-| ✨ **AI transformations** — Summarize, translate, fix grammar, explain code. Local via Ollama or cloud | <img src="docs/screenshots/09-ai-menu.png" width="280"> |
 | 🧩 **Snippets that type themselves** — save reusable text with a keyword, summon it anywhere | <img src="docs/screenshots/07-snippets-tab.png" width="280"> |
-| 🗂 **File Converter** — images, docs, audio, video, data formats. Drag, drop, convert | <img src="docs/screenshots/16-file-converter.png" width="280"> |
-| 📦 **Shelf** — a dedicated drawer for files you need to keep handy across apps | <img src="docs/screenshots/15-shelf.png" width="280"> |
-| 🔐 **Encrypted items** & per-type filters — lock sensitive entries, filter by type | <img src="docs/screenshots/04-pinned.png" width="280"> |
+
+### Also included
+
+- 🔎 **Screen Text Grab** — press ⇧⌘2, drag over any region of your screen, and the text inside it lands in your clipboard
+- 📐 **Templates** — Clippy spots text you copy repeatedly and offers to turn it into a reusable template
+- 📱 **Send to Phone** — any link becomes a QR code you can scan
+- 🏷 **Automatic titles** — every item gets a short, readable name
+- 🔤 **Live Text** — select text right on any screenshot, just like Photos
+- 🌍 **Language badges** — screenshots are tagged with their detected language
+- 🎯 **Hover actions** — Paste, Star, Pin and AI transform appear the moment you need them
+- 🗂 **File Converter** — images, documents, audio, video, data formats
+- 📦 **Shelf** — a drawer for files you need handy across apps
+- 🔐 **Encrypted items** & per-type filters — lock sensitive entries, filter by type
 
 ---
 
 ## Highlights
-
-### 🔍 Searchable screenshots (Auto-OCR)
-
-Copy any image and Clippy reads the text inside it in the background — on-device, private, and free. Search for a word you only ever *saw* in a screenshot and it comes right up. Powered by Apple Vision, it recognizes **30+ languages** automatically with no setup.
-
-<p align="center">
-  <img src="docs/screenshots/27-searchable-ocr.png" alt="Searching screenshots by their OCR text" width="420">
-</p>
-
-### 🎯 Smart content detection
-
-Clippy spots actionable content — in both **text and screenshots** — and turns it into one-tap actions:
-
-- **📞 Phone / ✉️ Email / 🔗 URL** — tap to call, mail, or open
-- **📅 Dates** — add straight to Calendar
-- **📍 Addresses** — open in Maps
-- **🔒 Sensitive data** — credit cards, IBANs, API keys, and TC kimlik are detected (with checksum validation) and Clippy offers to encrypt them
-
-<p align="center">
-  <img src="docs/screenshots/28-ocr-badges.png" alt="Actionable badges on a screenshot, with the encrypt suggestion" width="420">
-</p>
-
-### 🔤 Live Text
-
-Open any screenshot in the detail window and select the text **right on the image** — just like Photos. Copy it, tap links, done. Language flags tell you what Clippy detected at a glance.
-
-<p align="center">
-  <img src="docs/screenshots/29-live-text.png" alt="Selecting text directly on a screenshot with Live Text" width="640">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/31-language-badge.png" alt="Screenshots tagged with detected-language flags" width="420">
-</p>
 
 ### Smart clipboard history
 
@@ -112,39 +95,127 @@ Hover any card to reveal transform, star, pin, and paste actions.
   <img src="docs/screenshots/02-card-hover.png" alt="Hover actions on a card" width="420">
 </p>
 
-### Live search
+### 💬 Ask your clipboard
 
-Type to filter instantly. The placeholder adapts to the active tab
-(Search clipboard… / Search snippets… / Search images…) so you always
-know what you're searching.
+Stop scrolling for that one thing you copied. Ask for it:
+
+> *"what was that phone number"* · *"the link from yesterday"* · *"my pinned items"*
+
+Clippy works out what you're asking for — timeframe, content type, which
+app it came from — ranks your history by meaning rather than keyword
+overlap, and shows the answer alongside the items it used.
+
+Concrete values are pulled **verbatim** from the original text instead of
+being retyped by a model, so a phone number is always the number you
+actually copied.
+
+Works with local models through Ollama or with a cloud provider, and falls
+back to on-device matching when no model is configured.
 
 <p align="center">
-  <img src="docs/screenshots/03-search.png" alt="Live search filtering" width="420">
+  <img src="docs/screenshots/32-ask.png" alt="Asking Clippy a question about clipboard history" width="420">
 </p>
 
-### Pinned & starred
+### 🔍 Searchable screenshots (Auto-OCR)
 
-Pinned items float above the Recent stream so you never lose what matters —
-including Clippy's **Encrypted content** entries for anything sensitive.
+Copy any image and Clippy reads the text inside it in the background — on-device, private, and free. Search for a word you only ever *saw* in a screenshot and it comes right up. Powered by Apple Vision, it recognizes **30+ languages** automatically with no setup.
 
 <p align="center">
-  <img src="docs/screenshots/04-pinned.png" alt="Pinned section with encrypted item" width="420">
+  <img src="docs/screenshots/27-searchable-ocr.png" alt="Searching screenshots by their OCR text" width="420">
 </p>
 
-Star anything you want to keep long-term and jump to the Starred tab to
-see only those.
+### 🔎 Screen Text Grab
+
+Press **⇧⌘2**, drag over any region of your screen, and the text inside it
+goes straight to your clipboard. Text in a video, a PDF that won't let you
+select, a screenshot someone sent you — if you can see it, you can copy
+it. QR codes in the selection are decoded too.
+
+Handy for:
+
+- text in a video or a slide someone is presenting
+- a PDF that refuses to let you select
+- a screenshot sent to you in chat
+- an error dialog you'd otherwise retype by hand
+
+### 🎯 Smart content detection
+
+Clippy spots actionable content — in both **text and screenshots** — and turns it into one-tap actions:
+
+- **📞 Phone / ✉️ Email / 🔗 URL** — tap to call, mail, or open
+- **📅 Dates** — add straight to Calendar
+- **📍 Addresses** — open in Maps
+- **🔒 Sensitive data** — credit cards, IBANs, API keys, and TC kimlik are detected (with checksum validation) and Clippy offers to encrypt them
 
 <p align="center">
-  <img src="docs/screenshots/05-starred.png" alt="Starred tab" width="420">
+  <img src="docs/screenshots/28-ocr-badges.png" alt="Actionable badges on a screenshot, with the encrypt suggestion" width="420">
 </p>
 
-### Per-type filters
+### Screenshot editor — "Studio"
 
-Tabs at the top narrow the list to a single content type — All,
-**Images**, Snippets, Starred.
+The built-in editor has its own design language. Tool rail on the left,
+live canvas in the middle, **context-aware Inspector** on the right that
+shows either the active tool's properties or the selected annotation's
+details.
 
 <p align="center">
-  <img src="docs/screenshots/06-images-tab.png" alt="Images-only tab" width="420">
+  <img src="docs/screenshots/14-editor.png" alt="Screenshot editor with Inspector" width="720">
+</p>
+
+20+ tools, every one of them configurable live:
+
+- Arrow with 5 arrowhead styles and 5 stroke patterns
+- Text with bold/italic/alignment, contrast-aware backgrounds, box sizing
+- Pen with 3 brush styles (solid/dashed/marker)
+- Shapes with corner radius, fill modes, gradient
+- Sketch mode for a hand-drawn look on arrows/rects/ellipses
+- Blur, pixelate, spotlight, pin (numbered markers), emoji, magnifier, ruler
+- Eyedropper with pixel-accurate loupe and 9 color-format copy options
+- Effects: backdrop padding, shadow, corner radius, border, watermark
+
+### Quick Preview overlay
+
+Hit the Quick Preview hotkey (default **⌘⌥V**) anywhere to see the last
+10 items in a floating panel. Number keys `1`-`9` paste directly, `↑↓`
+navigate, `esc` dismisses.
+
+<p align="center">
+  <img src="docs/screenshots/13-quick-preview.png" alt="Quick Preview overlay" width="380">
+</p>
+
+### AI text transformations
+
+Run Summarize, Expand, Fix Grammar, Translate (30+ languages), Bullet
+Points, Draft Email, "Explain this" on a confusing error screenshot,
+and code-specific actions (Explain, Add Comments, Find Bugs, Optimize)
+on any clipboard item — text **or** screenshot.
+
+Choose your provider:
+
+- **Apple Intelligence** — on macOS 26+, the default. Runs entirely
+  on-device, no API key, no signup, nothing leaves your Mac
+- **Ollama** — fully local, free, private
+- **OpenAI**, **Anthropic**, **Google Gemini** — bring-your-own-key
+
+<p align="center">
+  <img src="docs/screenshots/30-apple-intelligence.png" alt="AI settings with Apple Intelligence selected — on-device model ready" width="520">
+</p>
+
+There are text utilities built-in too: Base64 encode/decode, case
+conversion, JSON format/minify, duplicate-line removal, line joining.
+
+<p align="center">
+  <img src="docs/screenshots/09-ai-menu.png" alt="Transform menu with AI actions" width="340">
+</p>
+
+### Dock Preview & App Switcher
+
+Hover any app in the Dock to see Windows 11–style thumbnails — with
+numbered keyboard hints, inline title bars, and (optionally) live
+streaming at 5 FPS.
+
+<p align="center">
+  <img src="docs/screenshots/17-dock-preview.png" alt="Dock preview" width="520">
 </p>
 
 ### Snippets that type themselves
@@ -223,6 +294,41 @@ so `;signature` only fires where you want it.
 **Usage-aware** — Clippy tracks how often each snippet fires, so you
 can see your power-users at a glance from the detail inspector.
 
+### Live search
+
+Type to filter instantly. The placeholder adapts to the active tab
+(Search clipboard… / Search snippets… / Search images…) so you always
+know what you're searching.
+
+<p align="center">
+  <img src="docs/screenshots/03-search.png" alt="Live search filtering" width="420">
+</p>
+
+### Pinned & starred
+
+Pinned items float above the Recent stream so you never lose what matters —
+including Clippy's **Encrypted content** entries for anything sensitive.
+
+<p align="center">
+  <img src="docs/screenshots/04-pinned.png" alt="Pinned section with encrypted item" width="420">
+</p>
+
+Star anything you want to keep long-term and jump to the Starred tab to
+see only those.
+
+<p align="center">
+  <img src="docs/screenshots/05-starred.png" alt="Starred tab" width="420">
+</p>
+
+### Per-type filters
+
+Tabs at the top narrow the list to a single content type — All,
+**Images**, Snippets, Starred.
+
+<p align="center">
+  <img src="docs/screenshots/06-images-tab.png" alt="Images-only tab" width="420">
+</p>
+
 ### Right-click power menu
 
 Every card has a rich context menu: copy, paste, share, convert color
@@ -230,31 +336,6 @@ format, star, pin, encrypt, combine images, delete.
 
 <p align="center">
   <img src="docs/screenshots/08-context-menu.png" alt="Right-click context menu" width="360">
-</p>
-
-### AI text transformations
-
-Run Summarize, Expand, Fix Grammar, Translate (30+ languages), Bullet
-Points, Draft Email, "Explain this" on a confusing error screenshot,
-and code-specific actions (Explain, Add Comments, Find Bugs, Optimize)
-on any clipboard item — text **or** screenshot.
-
-Choose your provider:
-
-- **Apple Intelligence** — on macOS 26+, the default. Runs entirely
-  on-device, no API key, no signup, nothing leaves your Mac
-- **Ollama** — fully local, free, private
-- **OpenAI**, **Anthropic**, **Google Gemini** — bring-your-own-key
-
-<p align="center">
-  <img src="docs/screenshots/30-apple-intelligence.png" alt="AI settings with Apple Intelligence selected — on-device model ready" width="520">
-</p>
-
-There are text utilities built-in too: Base64 encode/decode, case
-conversion, JSON format/minify, duplicate-line removal, line joining.
-
-<p align="center">
-  <img src="docs/screenshots/09-ai-menu.png" alt="Transform menu with AI actions" width="340">
 </p>
 
 ### Detail window — action rail + inspector
@@ -281,47 +362,53 @@ menu that converts between HEX, RGB, HSL formats.
   <img src="docs/screenshots/12-detail-color.png" alt="Color detail view" width="520">
 </p>
 
-### Quick Preview overlay
+### 🏷 Automatic titles
 
-Hit the Quick Preview hotkey (default **⌘⌥V**) anywhere to see the last
-10 items in a floating panel. Number keys `1`-`9` paste directly, `↑↓`
-navigate, `esc` dismisses.
+Every item gets a short, readable title, so your history scans at a glance
+instead of showing you the first 40 characters of a URL. Titles are
+searchable, and the whole thing can be switched off in **Settings →
+Features**.
+
+### 🔤 Live Text
+
+Open any screenshot in the detail window and select the text **right on the image** — just like Photos. Copy it, tap links, done. Language flags tell you what Clippy detected at a glance.
 
 <p align="center">
-  <img src="docs/screenshots/13-quick-preview.png" alt="Quick Preview overlay" width="380">
+  <img src="docs/screenshots/29-live-text.png" alt="Selecting text directly on a screenshot with Live Text" width="640">
 </p>
 
-### Screenshot editor — "Studio"
-
-The built-in editor has its own design language. Tool rail on the left,
-live canvas in the middle, **context-aware Inspector** on the right that
-shows either the active tool's properties or the selected annotation's
-details.
-
 <p align="center">
-  <img src="docs/screenshots/14-editor.png" alt="Screenshot editor with Inspector" width="720">
+  <img src="docs/screenshots/31-language-badge.png" alt="Screenshots tagged with detected-language flags" width="420">
 </p>
 
-20+ tools, every one of them configurable live:
+### 🧩 Templates
 
-- Arrow with 5 arrowhead styles and 5 stroke patterns
-- Text with bold/italic/alignment, contrast-aware backgrounds, box sizing
-- Pen with 3 brush styles (solid/dashed/marker)
-- Shapes with corner radius, fill modes, gradient
-- Sketch mode for a hand-drawn look on arrows/rects/ellipses
-- Blur, pixelate, spotlight, pin (numbered markers), emoji, magnifier, ruler
-- Eyedropper with pixel-accurate loupe and 9 color-format copy options
-- Effects: backdrop padding, shadow, corner radius, border, watermark
+Clippy notices when you copy the same *shape* of text again and again —
+invoice lines, ticket references, standup notes — and offers to turn it
+into a template with the variable parts filled in. You review the
+suggestion before anything is saved, and dismissing it keeps Clippy quiet.
 
-### Shelf
+For example, after you copy a few of these:
 
-A dedicated drawer for files you want to keep around across apps —
-downloads, attachments, mockups, PDFs. Drag files onto the shelf from
-anywhere; drag them back out when you need them. Shown with type pills
-(PDF / ZIP / folder / image dimensions) and batch actions.
+```
+INV-2026-0142 · Acme Ltd · €1,240.00 · due 2026-08-15
+INV-2026-0143 · Globex · €880.00 · due 2026-08-18
+```
+
+Clippy offers a template with the parts that change turned into fields:
+
+```
+INV-{number} · {company} · €{amount} · due {date}
+```
+
+### 📱 Send to Phone
+
+Right-click any link → **Send to Phone**. A QR code appears; point your
+camera at it and the link opens over there. No pairing, no account, no
+network round trip.
 
 <p align="center">
-  <img src="docs/screenshots/15-shelf.png" alt="Shelf window" width="520">
+  <img src="docs/screenshots/35-send-to-phone.png" alt="QR code for sending a link to a phone" width="420">
 </p>
 
 ### File converter
@@ -338,14 +425,15 @@ Drag files in, pick output formats, convert in batch:
   <img src="docs/screenshots/16-file-converter.png" alt="File converter" width="640">
 </p>
 
-### Dock Preview & App Switcher
+### Shelf
 
-Hover any app in the Dock to see Windows 11–style thumbnails — with
-numbered keyboard hints, inline title bars, and (optionally) live
-streaming at 5 FPS.
+A dedicated drawer for files you want to keep around across apps —
+downloads, attachments, mockups, PDFs. Drag files onto the shelf from
+anywhere; drag them back out when you need them. Shown with type pills
+(PDF / ZIP / folder / image dimensions) and batch actions.
 
 <p align="center">
-  <img src="docs/screenshots/17-dock-preview.png" alt="Dock preview" width="520">
+  <img src="docs/screenshots/15-shelf.png" alt="Shelf window" width="520">
 </p>
 
 ---
@@ -448,7 +536,21 @@ All rebindable from **Settings → Shortcuts**.
 | Sequential Copy | `⌘⇧C` |
 | Sequential Paste | `⌘⇧V` (overridden) |
 | Take Screenshot | `⌘⇧S` |
+| Screen Text Grab | `⇧⌘2` |
 | App Switcher | `⌘⇥` (when enabled) |
+
+### In the popover
+
+| Action | Key |
+|---|---|
+| Move through history | `↑` `↓` |
+| Paste the selected item | `⏎` |
+| Paste item 1–9 directly | `⌘1`–`⌘9` |
+| Move focus between search and list | `⇥` |
+| Close | `esc` |
+
+Search doesn't take focus when the popover opens, so the number shortcuts
+work the moment Clippy appears.
 
 Quick Preview overlay has its own nav keys — `1`-`9` to paste, `↑↓` to
 move, `esc` to dismiss.

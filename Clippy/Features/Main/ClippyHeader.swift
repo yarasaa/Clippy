@@ -8,12 +8,16 @@ struct ClippyHeader: View {
     @Binding var selectedTab: ContentView.Tab
     @Binding var selectedCategory: String?
     @Binding var searchText: String
+    @Binding var askMode: Bool
+    @Binding var focusZone: ContentView.FocusZone
     let isEmpty: Bool
 
     let onClear: () -> Void
     let onImportSnippets: () -> Void
     let onGenerateUUID: () -> Void
     let onGenerateLorem: () -> Void
+    /// Submit the current search text as an "ask your clipboard" question.
+    let onAskSubmit: () -> Void
 
     /// Context-aware label for the single clear action. Reflects the
     /// tab you're looking at so it's obvious what will be cleared.
@@ -48,6 +52,16 @@ struct ClippyHeader: View {
                 .opacity(0.3)
         }
         .background(.ultraThinMaterial)
+        // Keep the AppKit first responder and our focus model in step, in
+        // both directions: ⇥ moves the zone, and clicking straight into the
+        // field must move the zone too or the two would disagree.
+        .onChange(of: focusZone) { zone in
+            searchFocused = (zone == .search)
+        }
+        .onChange(of: searchFocused) { isFocused in
+            if isFocused { focusZone = .search }
+            else if focusZone == .search { focusZone = .list }
+        }
     }
 
     // MARK: Brand row
@@ -121,19 +135,8 @@ struct ClippyHeader: View {
     private var tabPills: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
-                tabPill(.history, label: "All", icon: "tray.full")
-
-                if settings.showCodeTab {
-                    tabPill(.code, label: "Code", icon: "chevron.left.forwardslash.chevron.right")
-                }
-                if settings.showImagesTab {
-                    tabPill(.images, label: "Images", icon: "photo")
-                }
-                if settings.showSnippetsTab {
-                    tabPill(.snippets, label: "Snippets", icon: "text.badge.star")
-                }
-                if settings.showFavoritesTab {
-                    tabPill(.favorites, label: "Starred", icon: "star")
+                ForEach(ContentView.Tab.visible(settings), id: \.self) { tab in
+                    tabPill(tab, label: tab.label, icon: tab.icon)
                 }
             }
             .padding(.horizontal, Ember.Space.md)
@@ -178,22 +181,38 @@ struct ClippyHeader: View {
                 radius: 4,
                 y: 2
             )
+            // Focus ring while ⇥ has the tabs row: without it there's no
+            // way to tell that ←→ is currently steering the tabs.
+            .overlay(
+                Capsule()
+                    .strokeBorder(Ember.Palette.amber, lineWidth: 2)
+                    .padding(-2)
+                    .opacity(focusZone == .tabs && isActive ? 1 : 0)
+            )
         }
         .buttonStyle(.plain)
     }
 
     // MARK: Search bar
 
+    /// Whether AI-powered "Ask your clipboard" mode is available.
+    private var askAvailable: Bool {
+        settings.enableAI && AIService.shared.isConfigured
+    }
+
     private var searchBar: some View {
         HStack(spacing: Ember.Space.sm) {
-            Image(systemName: "magnifyingglass")
+            Image(systemName: askMode ? "sparkles" : "magnifyingglass")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundColor(searchFocused ? Ember.Palette.amber : Ember.secondaryText(scheme))
+                .foregroundColor(askMode || searchFocused ? Ember.Palette.amber : Ember.secondaryText(scheme))
 
-            TextField(searchPlaceholder, text: $searchText)
+            TextField(askMode ? "Ask your clipboard…" : searchPlaceholder, text: $searchText)
                 .textFieldStyle(.plain)
                 .font(Ember.Font.body)
                 .focused($searchFocused)
+                .onSubmit {
+                    if askMode { onAskSubmit() }
+                }
 
             if !searchText.isEmpty {
                 Button {
@@ -206,6 +225,28 @@ struct ClippyHeader: View {
                 .buttonStyle(.plain)
                 .transition(.opacity)
             }
+
+            // Ask-mode toggle. Only shown when a provider is configured
+            // — no point advertising AI Q&A the app can't run.
+            if askAvailable {
+                Button {
+                    withAnimation(Ember.Motion.gentle) {
+                        askMode.toggle()
+                        searchText = ""
+                    }
+                    searchFocused = true
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(askMode ? Ember.Palette.amber : Ember.tertiaryText(scheme))
+                        .padding(4)
+                        .background(
+                            Circle().fill(askMode ? Ember.Palette.amberSoft : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+                .help(askMode ? "Back to search" : "Ask your clipboard")
+            }
         }
         .padding(.horizontal, Ember.Space.md)
         .padding(.vertical, 7)
@@ -216,11 +257,13 @@ struct ClippyHeader: View {
         .overlay(
             RoundedRectangle(cornerRadius: Ember.Radius.md, style: .continuous)
                 .strokeBorder(
-                    searchFocused ? Ember.Palette.amber.opacity(0.6) : Color.clear,
+                    askMode ? Ember.Palette.amber.opacity(0.6)
+                            : (searchFocused ? Ember.Palette.amber.opacity(0.6) : Color.clear),
                     lineWidth: 1.5
                 )
         )
         .animation(Ember.Motion.gentle, value: searchFocused)
+        .animation(Ember.Motion.gentle, value: askMode)
         .padding(.horizontal, Ember.Space.md)
         .padding(.bottom, Ember.Space.sm)
     }

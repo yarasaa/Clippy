@@ -27,72 +27,55 @@
 > 应用界面目前为英文 — Clippy 使用图标丰富的简洁标签,
 > 无论你的母语是什么都能轻松上手。
 
+> **1.0.14 新增** — 用平常的话向剪贴板提问、从屏幕任意区域取字、可复用的
+> 模板，以及一套真正好用的键盘操作。
+> [查看更新内容 →](https://github.com/yarasaa/Clippy/releases/latest)
+
+**目录** — [为什么选择 Clippy?](#为什么选择-clippy) · [功能](#-功能速览) · [亮点](#亮点) · [设置](#设置) · [安装](#安装) · [快捷键](#键盘快捷键) · [隐私](#隐私)
+
 ---
 
 ## 为什么选择 Clippy?
 
-你复制的一切 — 文本、图片、代码、颜色、URL — 在剪贴板中短暂停留后
-就消失了。Clippy 将所有内容保留下来,以美观的菜单栏历史记录呈现,
-你可以搜索、收藏、固定,并通过热键粘贴。更进一步:为截图添加注释、
-转换文件格式、在 Shelf 中暂存下载,使用本地或云端 AI 转换文本。
+你复制的每样东西 — 文字、图片、代码、颜色、链接 — 在剪贴板里只停留
+片刻就消失了。Clippy 会把它们全部留下，放进菜单栏里一份漂亮的历史中，
+可以搜索、加星、置顶，并用快捷键粘贴。
 
-全部在**你的 Mac 上**。无需账号。无云端。无遥测。
+然后它更进一步：你可以用平常的话向它提问，从任意截图或屏幕区域中取出
+文字，给图片加注释，转换文件格式，以及用本地或云端 AI 处理文本。
+
+一切都在**你自己的 Mac 上**。无需账号。不上传云端。没有遥测。
 
 ## ✨ 功能速览
 
 | | |
 |---|---|
+| 📋 **智能剪贴板历史** — 为文字、链接、颜色、JSON、代码和图片提供内容感知预览 | <img src="docs/screenshots/01-main-popover.png" width="280"> |
+| 💬 **向剪贴板提问** — “那个电话号码是多少？”用平常的话问，连同出处一起给你答案 | <img src="docs/screenshots/32-ask.png" width="280"> |
 | 🔍 **可搜索的截图** — 自动 OCR 在设备上读取每张图片，让你能搜索只在图片里*见过*的文字 | <img src="docs/screenshots/27-searchable-ocr.png" width="280"> |
 | 🎯 **智能识别** — 电话、邮箱、日期、地址和敏感数据（卡号、IBAN、API 密钥）一键成为操作 | <img src="docs/screenshots/28-ocr-badges.png" width="280"> |
-| 🔤 **实况文本** — 像"照片"应用一样，直接在任意截图上选中文字 | <img src="docs/screenshots/29-live-text.png" width="280"> |
-| 🌍 **语言标记** — 截图会被标注检测到的语言 | <img src="docs/screenshots/31-language-badge.png" width="280"> |
-| 📋 **智能剪贴板历史** — 针对 URL、颜色、JSON、代码、图片的内容感知预览 | <img src="docs/screenshots/01-main-popover.png" width="280"> |
-| 🎯 **悬停操作** — Paste、Star、Pin、AI 转换按需出现 | <img src="docs/screenshots/02-card-hover.png" width="280"> |
-| ⚡ **Quick Preview** — 按下热键,从浮动面板中直接粘贴最近复制的条目 | <img src="docs/screenshots/13-quick-preview.png" width="280"> |
-| ✍️ **截图编辑器** — Studio Bar、上下文感知 Inspector、20+ 注释工具 | <img src="docs/screenshots/14-editor.png" width="280"> |
-| 🪟 **Dock 预览** — Windows 11 风格的缩略图,支持实时画面预览和编号标记 | <img src="docs/screenshots/17-dock-preview.png" width="280"> |
-| ✨ **AI 转换** — 总结、翻译、语法修正、代码解释。Ollama 本地运行或云端 (自带 API 密钥) | <img src="docs/screenshots/09-ai-menu.png" width="280"> |
-| 🧩 **自动输入的片段** — 用关键字保存,在任何地方召唤 | <img src="docs/screenshots/07-snippets-tab.png" width="280"> |
-| 🗂 **文件转换器** — 图片、文档、音频、视频、数据格式。拖放即转换 | <img src="docs/screenshots/16-file-converter.png" width="280"> |
-| 📦 **Shelf** — 跨应用随手可取的文件专属抽屉 | <img src="docs/screenshots/15-shelf.png" width="280"> |
-| 🔐 **加密条目** 和类型筛选 — 锁定敏感条目、按类型筛选 | <img src="docs/screenshots/04-pinned.png" width="280"> |
+| ✍️ **截图编辑器** — Studio Bar、随上下文变化的 Inspector、20 多种标注工具 | <img src="docs/screenshots/14-editor.png" width="280"> |
+| ⚡ **Quick Preview** — 按下快捷键，从浮层中粘贴最近的条目 | <img src="docs/screenshots/13-quick-preview.png" width="280"> |
+| ✨ **AI 文本转换** — 总结、翻译、修正语法、解释代码。通过 Ollama 本地运行或用云端 | <img src="docs/screenshots/09-ai-menu.png" width="280"> |
+| 🪟 **Dock 预览** — Windows 11 风格缩略图，支持实时画面和编号角标 | <img src="docs/screenshots/17-dock-preview.png" width="280"> |
+| 🧩 **自动输入的片段** — 用关键词保存可复用文本，在任何地方唤出 | <img src="docs/screenshots/07-snippets-tab.png" width="280"> |
+
+### 还包含
+
+- 🔎 **屏幕取字** — 按 ⇧⌘2 在屏幕任意区域拖选，其中的文字直接进入剪贴板
+- 📐 **模板** — Clippy 会发现你反复复制的内容，并建议把它变成可复用的模板
+- 📱 **发送到手机** — 任意链接变成可扫描的二维码
+- 🏷 **自动标题** — 每个条目都有一个简短易读的名字
+- 🔤 **实况文本** — 像“照片”应用一样，直接在任意截图上选中文字
+- 🌍 **语言角标** — 截图会标注识别出的语言
+- 🎯 **悬停操作** — 粘贴、加星、置顶和 AI 转换在你需要的那一刻出现
+- 🗂 **文件转换器** — 图片、文档、音频、视频、数据格式
+- 📦 **Shelf** — 一个抽屉，放那些你需要跨 App 随手取用的文件
+- 🔐 **加密条目** 与按类型筛选 — 锁定敏感条目，按类型过滤
 
 ---
 
 ## 亮点
-
-### 🔍 可搜索的截图（自动 OCR）
-
-复制任意图片，Clippy 会在后台读取其中的文字 — 在设备上、私密且免费。搜索一个你只在截图里*见过*的词，它立刻就会出现。由 Apple Vision 驱动，无需设置即可自动识别 **30 多种语言**。
-
-<p align="center">
-  <img src="docs/screenshots/27-searchable-ocr.png" alt="按 OCR 文字搜索截图" width="420">
-</p>
-
-### 🎯 智能内容识别
-
-Clippy 会在**文本和截图**中发现可操作的内容，并将其变成一键操作:
-
-- **📞 电话 / ✉️ 邮箱 / 🔗 网址** — 轻点即可拨号、发邮件或打开
-- **📅 日期** — 直接加入日历
-- **📍 地址** — 在地图中打开
-- **🔒 敏感数据** — 检测信用卡、IBAN、API 密钥和 TC kimlik（带校验和验证），并建议加密
-
-<p align="center">
-  <img src="docs/screenshots/28-ocr-badges.png" alt="截图上的可操作标记与加密建议" width="420">
-</p>
-
-### 🔤 实况文本
-
-在详情窗口中打开任意截图，**直接在图片上**选中文字 — 就像"照片"应用一样。复制、点击链接，一气呵成。语言标记让你一眼看清 Clippy 识别出的语言。
-
-<p align="center">
-  <img src="docs/screenshots/29-live-text.png" alt="用实况文本在截图上选中文字" width="640">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/31-language-badge.png" alt="带检测语言标记的截图" width="420">
-</p>
 
 ### 智能剪贴板历史
 
@@ -115,38 +98,114 @@ Clippy 会在**文本和截图**中发现可操作的内容，并将其变成一
   <img src="docs/screenshots/02-card-hover.png" alt="卡片悬停操作" width="420">
 </p>
 
-### 实时搜索
+### 💬 向剪贴板提问
 
-输入即时筛选。占位符会根据当前选项卡调整
-(Search clipboard… / Search snippets… / Search images…) —
-你始终清楚自己在搜索什么。
+别再为了找那一条复制过的内容翻列表了，直接问：
+
+> *"那个电话号码是多少"* · *"昨天的那个链接"* · *"我置顶的内容"*
+
+Clippy 会理解你在问什么 — 时间范围、内容类型、来自哪个 App — 按**语义**而不是关键词重合度排序你的历史，并把答案连同它所依据的条目一起呈现。
+
+具体的值不是让模型重新写一遍，而是从原文中**逐字**提取的。所以电话号码永远是你当初复制的那个号码。
+
+既支持通过 Ollama 使用本地模型，也支持云端服务商；未配置任何模型时，会回退到设备本地的匹配。
 
 <p align="center">
-  <img src="docs/screenshots/03-search.png" alt="实时搜索筛选" width="420">
+  <img src="docs/screenshots/32-ask.png" alt="就剪贴板历史向 Clippy 提问" width="420">
 </p>
 
-### 固定 & 星标
+### 🔍 可搜索的截图（自动 OCR）
 
-固定的条目悬浮在 Recent 流之上,让你永远不会丢失重要内容 —
-包括 Clippy 的 **加密内容** 条目,用于任何敏感信息。
+复制任意图片，Clippy 会在后台读取其中的文字 — 在设备上、私密且免费。搜索一个你只在截图里*见过*的词，它立刻就会出现。由 Apple Vision 驱动，无需设置即可自动识别 **30 多种语言**。
 
 <p align="center">
-  <img src="docs/screenshots/03-pinned.png" alt="带加密条目的固定区" width="420">
+  <img src="docs/screenshots/27-searchable-ocr.png" alt="按 OCR 文字搜索截图" width="420">
 </p>
 
-将你想长期保存的内容加星标,然后跳转到 Starred 选项卡只查看这些。
+### 🔎 屏幕取字
+
+按 **⇧⌘2**，在屏幕任意区域拖选，其中的文字会直接进入剪贴板。视频里的字、不让选中的 PDF、别人发来的截图 — 只要你看得见，就能复制。选区内的二维码也会一并识别。
+
+特别适合:
+
+- 视频里、或别人正在演示的幻灯片上的文字
+- 不让你选中的 PDF
+- 聊天里别人发来的截图
+- 否则就得手动重打一遍的报错弹窗
+
+### 🎯 智能内容识别
+
+Clippy 会在**文本和截图**中发现可操作的内容，并将其变成一键操作:
+
+- **📞 电话 / ✉️ 邮箱 / 🔗 网址** — 轻点即可拨号、发邮件或打开
+- **📅 日期** — 直接加入日历
+- **📍 地址** — 在地图中打开
+- **🔒 敏感数据** — 检测信用卡、IBAN、API 密钥和 TC kimlik（带校验和验证），并建议加密
 
 <p align="center">
-  <img src="docs/screenshots/05-starred.png" alt="Starred 选项卡" width="420">
+  <img src="docs/screenshots/28-ocr-badges.png" alt="截图上的可操作标记与加密建议" width="420">
 </p>
 
-### 按类型筛选
+### 截图编辑器 — "Studio"
 
-顶部的选项卡可将列表缩小到单一内容类型 — All、
-**Images**、Snippets、Starred。
+内置编辑器有自己独特的设计语言。左侧工具栏、中间实时画布、右侧
+**上下文感知检查器** — 显示当前工具的属性或所选注释的详细信息。
 
 <p align="center">
-  <img src="docs/screenshots/06-images-tab.png" alt="仅图片选项卡" width="420">
+  <img src="docs/screenshots/14-editor.png" alt="带 Inspector 的截图编辑器" width="720">
+</p>
+
+20+ 种工具,每一种都可实时配置:
+
+- 5 种箭头样式和 5 种描边图案的 Arrow
+- 粗体/斜体/对齐、对比度感知背景、盒子尺寸的 Text
+- 3 种笔刷样式 (solid/dashed/marker) 的 Pen
+- 圆角半径、填充模式、渐变的 Shapes
+- 为箭头/矩形/椭圆提供手绘风格的 Sketch 模式
+- 模糊、像素化、聚光、图钉 (编号标记)、表情、放大镜、标尺
+- 像素精度放大镜和 9 种颜色格式复制选项的 Eyedropper
+- 效果:背景内边距、阴影、圆角、边框、水印
+
+### Quick Preview 浮层
+
+在任何地方按下 Quick Preview 热键 (默认 **⌘⌥V**) 即可在浮动面板中
+查看最近 10 个条目。数字键 `1`-`9` 直接粘贴,`↑↓` 导航,`esc` 关闭。
+
+<p align="center">
+  <img src="docs/screenshots/13-quick-preview.png" alt="Quick Preview 浮层" width="380">
+</p>
+
+### AI 文本转换
+
+在任何剪贴板条目上运行:Summarize、Expand、Fix Grammar、Translate
+(30+ 种语言)、Bullet Points、Draft Email,以及针对代码的操作
+(Explain、Add Comments、Find Bugs、Optimize)。
+
+选择你的提供商:
+
+- **Apple Intelligence** — 在 macOS 26+ 上为默认。完全在设备上运行，
+  无需 API 密钥、无需注册，任何数据都不会离开你的 Mac
+- **Ollama** — 完全本地、免费、私密
+- **OpenAI**、**Anthropic**、**Google Gemini** — 自带 API 密钥
+
+<p align="center">
+  <img src="docs/screenshots/30-apple-intelligence.png" alt="选择 Apple Intelligence 的 AI 设置 — 设备端模型已就绪" width="520">
+</p>
+
+还内置了文本实用工具:Base64 编码/解码、大小写转换、JSON 格式化/压缩、
+去除重复行、合并行。
+
+<p align="center">
+  <img src="docs/screenshots/09-ai-menu.png" alt="带 AI 操作的转换菜单" width="340">
+</p>
+
+### Dock 预览 & 应用切换器
+
+悬停 Dock 上的任意应用,即可看到 Windows 11 风格的缩略图 — 编号键盘
+提示、内嵌标题栏,以及 (可选) 5 FPS 实时流。
+
+<p align="center">
+  <img src="docs/screenshots/17-dock-preview.png" alt="Dock 预览" width="520">
 </p>
 
 ### 自动输入的片段
@@ -222,37 +281,47 @@ Clippy 会检测触发字符、删除它,并粘贴展开后的内容。TextExpan
 **使用频率追踪** — Clippy 记录每个片段的触发次数,在 detail inspector
 中一眼看出你的高频片段。
 
+### 实时搜索
+
+输入即时筛选。占位符会根据当前选项卡调整
+(Search clipboard… / Search snippets… / Search images…) —
+你始终清楚自己在搜索什么。
+
+<p align="center">
+  <img src="docs/screenshots/03-search.png" alt="实时搜索筛选" width="420">
+</p>
+
+### 固定 & 星标
+
+固定的条目悬浮在 Recent 流之上,让你永远不会丢失重要内容 —
+包括 Clippy 的 **加密内容** 条目,用于任何敏感信息。
+
+<p align="center">
+  <img src="docs/screenshots/04-pinned.png" alt="带加密条目的固定区" width="420">
+</p>
+
+将你想长期保存的内容加星标,然后跳转到 Starred 选项卡只查看这些。
+
+<p align="center">
+  <img src="docs/screenshots/05-starred.png" alt="Starred 选项卡" width="420">
+</p>
+
+### 按类型筛选
+
+顶部的选项卡可将列表缩小到单一内容类型 — All、
+**Images**、Snippets、Starred。
+
+<p align="center">
+  <img src="docs/screenshots/06-images-tab.png" alt="仅图片选项卡" width="420">
+</p>
+
 ### 右键菜单的强大功能
 
 每张卡片都有丰富的上下文菜单:复制、粘贴、分享、颜色格式转换、星标、
 固定、加密、合并图片、删除。
 
 <p align="center">
-  <img src="docs/screenshots/06-context-menu.png" alt="右键上下文菜单" width="360">
-</p>
-
-### AI 文本转换
-
-在任何剪贴板条目上运行:Summarize、Expand、Fix Grammar、Translate
-(30+ 种语言)、Bullet Points、Draft Email,以及针对代码的操作
-(Explain、Add Comments、Find Bugs、Optimize)。
-
-选择你的提供商:
-
-- **Apple Intelligence** — 在 macOS 26+ 上为默认。完全在设备上运行，
-  无需 API 密钥、无需注册，任何数据都不会离开你的 Mac
-- **Ollama** — 完全本地、免费、私密
-- **OpenAI**、**Anthropic**、**Google Gemini** — 自带 API 密钥
-
-<p align="center">
-  <img src="docs/screenshots/30-apple-intelligence.png" alt="选择 Apple Intelligence 的 AI 设置 — 设备端模型已就绪" width="520">
-</p>
-
-还内置了文本实用工具:Base64 编码/解码、大小写转换、JSON 格式化/压缩、
-去除重复行、合并行。
-
-<p align="center">
-  <img src="docs/screenshots/07-ai-menu.png" alt="带 AI 操作的转换菜单" width="340">
+  <img src="docs/screenshots/08-context-menu.png" alt="右键上下文菜单" width="360">
 </p>
 
 ### 详情窗口 — 操作栏 + 检查器
@@ -262,14 +331,14 @@ Clippy 会检测触发字符、删除它,并粘贴展开后的内容。TextExpan
 使用统计)。
 
 <p align="center">
-  <img src="docs/screenshots/08-detail-url.png" alt="URL 详情窗口" width="520">
+  <img src="docs/screenshots/10-detail-url.png" alt="URL 详情窗口" width="520">
 </p>
 
 不同的内容类型有不同的处理方式 — JSON 有树状视图、Valid JSON 徽章和
 Raw 切换按钮。
 
 <p align="center">
-  <img src="docs/screenshots/09-detail-json.png" alt="JSON 详情视图" width="520">
+  <img src="docs/screenshots/11-detail-json.png" alt="JSON 详情视图" width="520">
 </p>
 
 颜色有专属卡片:发光的色样,以及可在 HEX、RGB、HSL 之间一键切换并
@@ -279,43 +348,45 @@ Raw 切换按钮。
   <img src="docs/screenshots/12-detail-color.png" alt="颜色详情视图" width="520">
 </p>
 
-### Quick Preview 浮层
+### 🏷 自动标题
 
-在任何地方按下 Quick Preview 热键 (默认 **⌘⌥V**) 即可在浮动面板中
-查看最近 10 个条目。数字键 `1`-`9` 直接粘贴,`↑↓` 导航,`esc` 关闭。
+每个条目都会有一个简短易读的标题，历史一眼就能扫完，而不是只看到一个 URL 的前 40 个字符。标题可被搜索，也可以在**设置 → 功能**中整体关闭。
+
+### 🔤 实况文本
+
+在详情窗口中打开任意截图，**直接在图片上**选中文字 — 就像"照片"应用一样。复制、点击链接，一气呵成。语言标记让你一眼看清 Clippy 识别出的语言。
 
 <p align="center">
-  <img src="docs/screenshots/13-quick-preview.png" alt="Quick Preview 浮层" width="380">
+  <img src="docs/screenshots/29-live-text.png" alt="用实况文本在截图上选中文字" width="640">
 </p>
 
-### 截图编辑器 — "Studio"
-
-内置编辑器有自己独特的设计语言。左侧工具栏、中间实时画布、右侧
-**上下文感知检查器** — 显示当前工具的属性或所选注释的详细信息。
-
 <p align="center">
-  <img src="docs/screenshots/10-editor.png" alt="带 Inspector 的截图编辑器" width="720">
+  <img src="docs/screenshots/31-language-badge.png" alt="带检测语言标记的截图" width="420">
 </p>
 
-20+ 种工具,每一种都可实时配置:
+### 🧩 模板
 
-- 5 种箭头样式和 5 种描边图案的 Arrow
-- 粗体/斜体/对齐、对比度感知背景、盒子尺寸的 Text
-- 3 种笔刷样式 (solid/dashed/marker) 的 Pen
-- 圆角半径、填充模式、渐变的 Shapes
-- 为箭头/矩形/椭圆提供手绘风格的 Sketch 模式
-- 模糊、像素化、聚光、图钉 (编号标记)、表情、放大镜、标尺
-- 像素精度放大镜和 9 种颜色格式复制选项的 Eyedropper
-- 效果:背景内边距、阴影、圆角、边框、水印
+发票行、工单编号、日报 — Clippy 会注意到你反复复制同一*结构*的文本，并建议把它变成一个填好可变部分的模板。保存之前你可以先过目；关掉它，Clippy 就不再提。
 
-### Shelf
+比如，当你复制了几条这样的内容之后:
 
-跨应用随手可取的文件专属抽屉 — 下载、附件、样机、PDF。从任何地方将
-文件拖到 Shelf;需要时再拖出。显示类型徽章 (PDF / ZIP / 文件夹 /
-图片尺寸) 和批量操作。
+```
+INV-2026-0142 · Acme Ltd · €1,240.00 · due 2026-08-15
+INV-2026-0143 · Globex · €880.00 · due 2026-08-18
+```
+
+Clippy 会提议一个把可变部分变成字段的模板:
+
+```
+INV-{编号} · {公司} · €{金额} · due {日期}
+```
+
+### 📱 发送到手机
+
+右键点击任意链接 →**发送到手机**。弹出一个二维码，举起相机，链接就在那边打开了。无需配对、无需账号、不经过网络往返。
 
 <p align="center">
-  <img src="docs/screenshots/11-shelf.png" alt="Shelf 窗口" width="520">
+  <img src="docs/screenshots/35-send-to-phone.png" alt="用于把链接发送到手机的二维码" width="420">
 </p>
 
 ### 文件转换器
@@ -329,16 +400,17 @@ Raw 切换按钮。
 - **数据:** JSON、YAML、XML、CSV、PLIST
 
 <p align="center">
-  <img src="docs/screenshots/12-file-converter.png" alt="文件转换器" width="640">
+  <img src="docs/screenshots/16-file-converter.png" alt="文件转换器" width="640">
 </p>
 
-### Dock 预览 & 应用切换器
+### Shelf
 
-悬停 Dock 上的任意应用,即可看到 Windows 11 风格的缩略图 — 编号键盘
-提示、内嵌标题栏,以及 (可选) 5 FPS 实时流。
+跨应用随手可取的文件专属抽屉 — 下载、附件、样机、PDF。从任何地方将
+文件拖到 Shelf;需要时再拖出。显示类型徽章 (PDF / ZIP / 文件夹 /
+图片尺寸) 和批量操作。
 
 <p align="center">
-  <img src="docs/screenshots/13-dock-preview.png" alt="Dock 预览" width="520">
+  <img src="docs/screenshots/15-shelf.png" alt="Shelf 窗口" width="520">
 </p>
 
 ---
@@ -439,7 +511,20 @@ open Clippy.xcodeproj
 | Sequential Copy | `⌘⇧C` |
 | Sequential Paste | `⌘⇧V` (覆盖) |
 | 截图 | `⌘⇧S` |
+| 屏幕取字 | `⇧⌘2` |
 | App Switcher | `⌘⇥` (启用时) |
+
+### 面板内
+
+| 操作 | 按键 |
+|---|---|
+| 在历史中移动 | `↑` `↓` |
+| 粘贴选中项 | `⏎` |
+| 直接粘贴第 1–9 项 | `⌘1`–`⌘9` |
+| 在搜索框和列表之间切换焦点 | `⇥` |
+| 关闭 | `esc` |
+
+面板打开时搜索框不会抢占焦点，所以 Clippy 一出现，数字快捷键就能用。
 
 Quick Preview 浮层有自己的导航键 — `1`-`9` 粘贴、`↑↓` 移动、
 `esc` 关闭。

@@ -31,7 +31,7 @@ class EyedropperLoupeController {
     private init() {}
 
     func show(image: NSImage) {
-        cachedBitmap = image.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }
+        cachedBitmap = image.storageBitmapRep
 
         if panel == nil {
             let loupeSize = NSSize(width: 160, height: 190)

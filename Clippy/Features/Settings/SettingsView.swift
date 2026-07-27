@@ -496,6 +496,18 @@ struct FeaturesSettingsPane: View {
                     Toggle("", isOn: $settings.enableScreenshot).labelsHidden()
                 }
                 Divider().opacity(0.2)
+                SettingsRow("Grab screen text",
+                            help: "⇧⌘2 — select any screen region, its text is copied instantly. Reads QR codes too") {
+                    Toggle("", isOn: $settings.enableScreenTextGrab).labelsHidden()
+                }
+                if settings.enableScreenTextGrab {
+                    Divider().opacity(0.2)
+                    SettingsRow("Show grab confirmation",
+                                help: "A brief \"✓ copied\" pill near the cursor after grabbing. Errors always show.") {
+                        Toggle("", isOn: $settings.showScreenGrabHUD).labelsHidden()
+                    }
+                }
+                Divider().opacity(0.2)
                 SettingsRow("OCR text recognition", help: "Extract text from copied images") {
                     Toggle("", isOn: $settings.enableOCR).labelsHidden()
                 }
@@ -594,6 +606,18 @@ struct AISettingsPane: View {
             SettingsGroup("Enable") {
                 SettingsRow("AI features", help: "Unlock Summarize, Translate, Fix Grammar, and 8+ more actions") {
                     Toggle("", isOn: $settings.enableAI).labelsHidden()
+                }
+                if settings.enableAI {
+                    Divider().opacity(0.2)
+                    SettingsRow("Auto-title long items",
+                                help: "Runs on-device with Apple Intelligence or Ollama. Skipped for cloud providers to avoid per-request costs") {
+                        Toggle("", isOn: $settings.enableAutoTitle).labelsHidden()
+                    }
+                    Divider().opacity(0.2)
+                    SettingsRow("Suggest templates",
+                                help: "Notices text you copy repeatedly with only the details changed and offers to turn it into a reusable snippet. On-device only") {
+                        Toggle("", isOn: $settings.enableTemplateDetection).labelsHidden()
+                    }
                 }
             }
 
@@ -791,6 +815,8 @@ struct ShortcutsSettingsPane: View {
 
             SettingsGroup("Tools") {
                 shortcutRow("Screenshot", $settings.screenshotHotkeyKey, $settings.screenshotHotkeyModifiers)
+                Divider().opacity(0.2)
+                shortcutRow("Grab Screen Text", $settings.screenTextGrabHotkeyKey, $settings.screenTextGrabHotkeyModifiers)
                 Divider().opacity(0.2)
                 shortcutRow("App Switcher", $settings.switcherHotkeyKey, $settings.switcherHotkeyModifiers)
             }

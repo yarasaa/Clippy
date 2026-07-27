@@ -35,7 +35,16 @@ struct EditorInspectorPanel: View {
 
     // Selection
     @Binding var selectedAnnotationID: UUID?
+    /// Remembered sizes that don't share `selectedLineWidth`.
+    var textPointSize: Binding<CGFloat> = .constant(0)
+    var pinSize: Binding<CGFloat> = .constant(40)
     @ObservedObject var viewModel: ScreenshotEditorViewModel
+    /// The screenshot itself — needed so "Make readable" can look at what
+    /// is actually behind the text rather than guessing.
+    var sourceImage: NSImage?
+
+    @StateObject private var presetStore = TextStylePresetStore.shared
+    @State private var newPresetName: String = ""
 
     @Environment(\.colorScheme) private var scheme
     @State private var effectsExpanded: Bool = true
@@ -488,7 +497,7 @@ struct EditorInspectorPanel: View {
 
                 // WIDTH — most tools
                 if annotationUsesLineWidth(tool) {
-                    sectionLabel(tool == .text ? "SIZE" : "WIDTH")
+                    sectionLabel(tool == .text ? "SIZE (PT)" : (tool == .pin ? "SIZE" : "WIDTH"))
                     HStack(spacing: Ember.Space.sm) {
                         Circle()
                             .fill(b.wrappedValue.color)
@@ -496,15 +505,58 @@ struct EditorInspectorPanel: View {
                                    height: max(4, min(b.wrappedValue.lineWidth * 2, 22)))
                             .frame(width: 24, height: 24)
 
-                        Slider(value: floatBinding(id: id,
-                                                   get: { b.wrappedValue.lineWidth },
-                                                   set: { $0.lineWidth = $1 }),
-                               in: 1...(tool == .text ? 40 : 20), step: 1)
+                        if tool == .pin {
+                            // A pin's size is the diameter of its badge —
+                            // `rect`, not `lineWidth`. The shared slider was
+                            // driving `lineWidth`, which nothing in the pin
+                            // renderer reads, so it appeared to do nothing
+                            // and there was no way to resize a placed pin.
+                            Slider(value: Binding(
+                                get: { b.wrappedValue.rect.size.width },
+                                set: { newValue in
+                                    let diameter = max(16, newValue)
+                                    mutateAnnotation(id: id) {
+                                        // Grow from the centre so the badge
+                                        // doesn't crawl away from what it
+                                        // was pointing at.
+                                        let centre = CGPoint(x: $0.rect.midX, y: $0.rect.midY)
+                                        $0.rect = CGRect(x: centre.x - diameter / 2,
+                                                         y: centre.y - diameter / 2,
+                                                         width: diameter, height: diameter)
+                                    }
+                                }
+                            ), in: 16...160, step: 1)
 
-                        Text("\(Int(b.wrappedValue.lineWidth))")
-                            .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundColor(Ember.secondaryText(scheme))
-                            .frame(width: 24, alignment: .trailing)
+                            Text("\(Int(b.wrappedValue.rect.size.width))")
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(Ember.secondaryText(scheme))
+                                .frame(width: 28, alignment: .trailing)
+                        } else if tool == .text {
+                            // Text carries its font size in `lineWidth`, so
+                            // the raw value read as "SIZE: 10" for 40pt
+                            // type. Drive the slider in real points and
+                            // convert on the way in and out.
+                            Slider(value: floatBinding(
+                                id: id,
+                                get: { AnnotationFont.pointSize(fromLineWidth: b.wrappedValue.lineWidth) },
+                                set: { $0.lineWidth = AnnotationFont.lineWidth(fromPointSize: $1) }
+                            ), in: 8...160, step: 1)
+
+                            Text("\(Int(AnnotationFont.pointSize(fromLineWidth: b.wrappedValue.lineWidth)))")
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(Ember.secondaryText(scheme))
+                                .frame(width: 28, alignment: .trailing)
+                        } else {
+                            Slider(value: floatBinding(id: id,
+                                                       get: { b.wrappedValue.lineWidth },
+                                                       set: { $0.lineWidth = $1 }),
+                                   in: 1...20, step: 1)
+
+                            Text("\(Int(b.wrappedValue.lineWidth))")
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(Ember.secondaryText(scheme))
+                                .frame(width: 24, alignment: .trailing)
+                        }
                     }
                 }
 
@@ -534,8 +586,14 @@ struct EditorInspectorPanel: View {
                 // TEXT — Format + box + optional background
                 if tool == .text {
                     textFormatSection(binding: b)
+                    // The font-family picker existed but was never placed in
+                    // the panel, so the four Default/Round/Serif/Mono chips
+                    // were unreachable as well as unwired.
+                    textFontFamilySection(binding: b)
+                    textReadabilitySection(binding: b)
                     textBoxSection(binding: b)
                     textBackgroundSection(binding: b)
+                    textPresetSection(binding: b)
                 }
 
                 // ARROW — arrowhead + line style + sketch
@@ -626,6 +684,151 @@ struct EditorInspectorPanel: View {
 
     // MARK: - Tool-specific sub-sections
 
+    /// TEXT: outline + vertical alignment + one-click readability.
+    ///
+    /// The outline is the part that matters most over a screenshot: a
+    /// shadow softens the edge, but a stroke separates the letterform
+    /// from whatever is behind it outright.
+    private func textReadabilitySection(binding b: Binding<Annotation>) -> some View {
+        let id = b.wrappedValue.id
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                sectionLabel("OUTLINE")
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { b.wrappedValue.textStrokeWidth > 0 },
+                    set: { on in mutateAnnotation(id: id) { $0.textStrokeWidth = on ? 3 : 0 } }
+                ))
+                .labelsHidden()
+                .controlSize(.small)
+            }
+
+            if b.wrappedValue.textStrokeWidth > 0 {
+                HStack(spacing: Ember.Space.sm) {
+                    ColorPicker("", selection: Binding(
+                        get: { b.wrappedValue.textStrokeColor },
+                        set: { c in mutateAnnotation(id: id) { $0.textStrokeColor = c } }
+                    ))
+                    .labelsHidden()
+                    .frame(width: 28)
+
+                    Slider(value: floatBinding(id: id,
+                                               get: { b.wrappedValue.textStrokeWidth },
+                                               set: { $0.textStrokeWidth = $1 }),
+                           in: 1...12, step: 0.5)
+
+                    Text(String(format: "%.1f", b.wrappedValue.textStrokeWidth))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(Ember.secondaryText(scheme))
+                        .frame(width: 28, alignment: .trailing)
+                }
+            }
+
+            sectionLabel("VERTICAL ALIGN")
+            HStack(spacing: 4) {
+                ForEach(VerticalTextAlignment.allCases) { alignment in
+                    let active = b.wrappedValue.textVerticalAlignment == alignment
+                    Button {
+                        mutateAnnotation(id: id) { $0.textVerticalAlignment = alignment }
+                    } label: {
+                        Image(systemName: alignment.icon)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(active ? .white : Ember.secondaryText(scheme))
+                            .frame(maxWidth: .infinity, minHeight: 26)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(active ? Ember.Palette.amber : Color.clear)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .help(alignment.rawValue)
+                }
+            }
+
+            Button {
+                makeTextReadable(id: id)
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "wand.and.stars")
+                    Text("Make readable")
+                }
+                .font(.system(size: 11, weight: .medium))
+                .frame(maxWidth: .infinity, minHeight: 26)
+            }
+            .buttonStyle(.plain)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Ember.Palette.amber.opacity(0.15)))
+            .foregroundColor(Ember.Palette.amber)
+            .help("Set the colours automatically from what's behind the text")
+        }
+    }
+
+    /// TEXT: saved styles. Everything above this is per-annotation; this
+    /// is the shelf you build once and reuse across screenshots.
+    private func textPresetSection(binding b: Binding<Annotation>) -> some View {
+        let id = b.wrappedValue.id
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                sectionLabel("SAVED STYLES")
+                Spacer()
+                Button {
+                    presetStore.save(b.wrappedValue, named: newPresetName)
+                    newPresetName = ""
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(Ember.Palette.amber)
+                }
+                .buttonStyle(.plain)
+                .help("Save the current text style")
+            }
+
+            TextField("Style name", text: $newPresetName)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 11))
+                .onSubmit {
+                    presetStore.save(b.wrappedValue, named: newPresetName)
+                    newPresetName = ""
+                }
+
+            if presetStore.presets.isEmpty {
+                Text("Save a style to reuse it on your next screenshot.")
+                    .font(.system(size: 10))
+                    .foregroundColor(Ember.tertiaryText(scheme))
+            } else {
+                ForEach(presetStore.presets) { preset in
+                    HStack(spacing: 6) {
+                        Button {
+                            mutateAnnotation(id: id) { preset.apply(to: &$0) }
+                        } label: {
+                            Text(preset.name)
+                                .font(.system(size: 11, weight: .medium))
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Ember.Palette.smoke.opacity(scheme == .dark ? 0.12 : 0.06))
+                                )
+                                .foregroundColor(Ember.primaryText(scheme))
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            presetStore.delete(preset)
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 11))
+                                .foregroundColor(Ember.tertiaryText(scheme))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Delete style")
+                    }
+                }
+            }
+        }
+    }
+
     // TEXT: Font family (default / rounded / serif / mono)
     private func textFontFamilySection(binding b: Binding<Annotation>) -> some View {
         let id = b.wrappedValue.id
@@ -669,6 +872,62 @@ struct EditorInspectorPanel: View {
     /// Mutate a specific annotation's struct fields via a closure, then
     /// publish the change by assigning the whole array back so @Published
     /// is guaranteed to fire and Canvas redraws.
+    /// Samples the screenshot under the text box and picks colours that
+    /// will actually be legible there.
+    ///
+    /// Same relative-luminance test used for the numbered badges: over a
+    /// dark region use white text with a dark outline, over a light one
+    /// use near-black text with a light outline. The outline (rather than
+    /// a filled plate) keeps the underlying screenshot visible, which is
+    /// usually the point of annotating it.
+    private func makeTextReadable(id: UUID) {
+        guard let idx = viewModel.annotations.firstIndex(where: { $0.id == id }) else { return }
+        let rect = viewModel.annotations[idx].rect
+
+        let backdropLuminance = averageLuminance(of: sourceImage, in: rect) ?? 0.5
+        let isDarkBackdrop = backdropLuminance < 0.5
+
+        mutateAnnotation(id: id) { annotation in
+            annotation.color = isDarkBackdrop ? .white : Color(white: 0.08)
+            annotation.textStrokeColor = isDarkBackdrop ? Color(white: 0.05) : .white
+            // Scaled to the type size so the outline stays proportionate
+            // instead of swallowing small text or vanishing on large text.
+            annotation.textStrokeWidth = 3
+            // An outline replaces the plate; leaving both looks heavy.
+            annotation.backgroundColor = nil
+        }
+    }
+
+    /// Mean relative luminance of an image region, sampled on a coarse
+    /// grid — enough to classify light vs dark without reading every pixel.
+    private func averageLuminance(of image: NSImage?, in rect: CGRect) -> CGFloat? {
+        guard let image, let bitmap = image.storageBitmapRep else { return nil }
+
+        let scaleX = CGFloat(bitmap.pixelsWide) / max(image.size.width, 1)
+        let scaleY = CGFloat(bitmap.pixelsHigh) / max(image.size.height, 1)
+        let minX = max(0, Int(rect.minX * scaleX))
+        let maxX = min(bitmap.pixelsWide - 1, Int(rect.maxX * scaleX))
+        let minY = max(0, Int(rect.minY * scaleY))
+        let maxY = min(bitmap.pixelsHigh - 1, Int(rect.maxY * scaleY))
+        guard maxX > minX, maxY > minY else { return nil }
+
+        let stepX = max(1, (maxX - minX) / 12)
+        let stepY = max(1, (maxY - minY) / 12)
+        var total: CGFloat = 0
+        var count: CGFloat = 0
+
+        for x in stride(from: minX, through: maxX, by: stepX) {
+            for y in stride(from: minY, through: maxY, by: stepY) {
+                guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                total += 0.2126 * color.redComponent
+                       + 0.7152 * color.greenComponent
+                       + 0.0722 * color.blueComponent
+                count += 1
+            }
+        }
+        return count > 0 ? total / count : nil
+    }
+
     private func mutateAnnotation(id: UUID, _ mutate: (inout Annotation) -> Void) {
         guard let idx = viewModel.annotations.firstIndex(where: { $0.id == id }) else { return }
         // Explicit pre-notify so SwiftUI-observing views (Canvas, sibling views) always see the change,
@@ -677,6 +936,37 @@ struct EditorInspectorPanel: View {
         var annotation = viewModel.annotations[idx]
         mutate(&annotation)
         viewModel.annotations[idx] = annotation
+        adoptAsToolDefaults(annotation)
+    }
+
+    /// Carries an edit made here back onto the tool, so the *next*
+    /// annotation starts out the same.
+    ///
+    /// Without this, changing a colour or size in the Inspector applied to
+    /// the selected item only — every new annotation reverted, and the
+    /// setting had to be redone each time. Editing an existing item is a
+    /// perfectly clear statement of "this is how I want them".
+    private func adoptAsToolDefaults(_ annotation: Annotation) {
+        if annotation.color != selectedColor {
+            selectedColor = annotation.color
+        }
+        // Shape stroke width only. Text and pins keep their size elsewhere
+        // (point size / badge diameter) precisely because one shared number
+        // can't mean both a 4pt line and 16pt type.
+        if annotation.tool != .text, annotation.tool != .pin,
+           annotation.lineWidth != selectedLineWidth {
+            selectedLineWidth = annotation.lineWidth
+        }
+        if annotation.tool == .text {
+            if annotation.isBold != textIsBold { textIsBold = annotation.isBold }
+            if annotation.isItalic != textIsItalic { textIsItalic = annotation.isItalic }
+            if annotation.textAlignment != textAlignment { textAlignment = annotation.textAlignment }
+            let points = AnnotationFont.pointSize(fromLineWidth: annotation.lineWidth)
+            if abs(points - textPointSize.wrappedValue) > 0.5 { textPointSize.wrappedValue = points }
+        }
+        if annotation.tool == .pin, abs(annotation.rect.width - pinSize.wrappedValue) > 0.5 {
+            pinSize.wrappedValue = annotation.rect.width
+        }
     }
 
     // TEXT: Bold/Italic/Alignment
@@ -807,7 +1097,15 @@ struct EditorInspectorPanel: View {
                 Slider(value: Binding(
                     get: { currentWidth },
                     set: { newValue in
-                        mutateAnnotation(id: id) { $0.rect.size.width = max(40, newValue) }
+                        let width = max(40, newValue)
+                        mutateAnnotation(id: id) {
+                            $0.rect.size.width = width
+                            // Text boxes size themselves from their content
+                            // within a wrap limit, so setting only the rect
+                            // would be undone by the next keystroke. Any
+                            // deliberate width gesture *is* the new limit.
+                            if $0.tool == .text { $0.textWrapWidth = width }
+                        }
                     }
                 ), in: 40...1200, step: 1)
 

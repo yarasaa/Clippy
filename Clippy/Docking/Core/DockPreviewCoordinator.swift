@@ -116,11 +116,7 @@ final class DockPreviewCoordinator {
                         await self.handleHover(on: dockItem)
                     }
                 } else {
-                    // Mouse exited — clear intent so any sleeping hover task bails out on wake.
-                    self.lastHoveredItem = nil
-                    self.currentHoverTask = nil
-                    panelController.hide()
-                    self.teardownDismissWatchers()
+                    self.handleDockExit()
                 }
             }
         }
@@ -136,13 +132,35 @@ final class DockPreviewCoordinator {
                         await self.handleHover(on: dockItem)
                     }
                 } else {
-                    self.lastHoveredItem = nil
-                    self.currentHoverTask = nil
-                    panelController.hide()
-                    self.teardownDismissWatchers()
+                    self.handleDockExit()
                 }
             }
         }
+    }
+
+    /// The Dock reports "no icon hovered". That is NOT the same as "dismiss":
+    /// moving the cursor off the icon and **onto the panel** produces exactly
+    /// this event, and the whole point of the safe zone is that such a move
+    /// keeps the preview alive.
+    ///
+    /// The previous version hid unconditionally here and tore down the
+    /// watchdog, which is why hovering the preview closed it instantly — and
+    /// why the panel's buttons stopped working, since `lastHoveredItem`
+    /// (the source of the pid every action callback needs) was cleared the
+    /// moment the cursor left the icon.
+    @MainActor
+    private func handleDockExit() {
+        currentHoverTask = nil
+
+        if panelController.isVisible, currentSafeZone().contains(NSEvent.mouseLocation) {
+            // Cursor is over the panel (or bridging to it). Keep everything
+            // alive and let the watchdog own dismissal from here.
+            return
+        }
+
+        lastHoveredItem = nil
+        panelController.hide()
+        teardownDismissWatchers()
     }
 
     func stop() {

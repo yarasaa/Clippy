@@ -38,6 +38,12 @@ class ClipboardMonitor: ObservableObject {
     @Published var isPastingFromQueue: Bool = false
     private var shouldAddToSequentialQueue = false
 
+    // NOTE: every `setObject` into these caches MUST pass `cost:`.
+    // NSCache treats a missing cost as 0, which silently makes
+    // `totalCostLimit` unenforceable — only `countLimit` would apply. That
+    // was the case here, and it mattered: a JPEG that's 200 KB on disk
+    // decodes to ~5.5 MB in memory (a full-screen Retina grab is ~59 MB),
+    // so a 50-image count limit alone permits hundreds of MB to GBs.
     private let imageCache: NSCache<NSString, NSImage> = {
         let cache = NSCache<NSString, NSImage>()
         cache.countLimit = 50
@@ -158,11 +164,7 @@ class ClipboardMonitor: ObservableObject {
     }
 
     private func saveImageInBackground(_ image: NSImage, sourceAppName: String?, sourceAppBundleIdentifier: String?) async {
-        guard let imageData = image.tiffRepresentation,
-              let imageRep = NSBitmapImageRep(data: imageData),
-              let jpegData = imageRep.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else {
-            return
-        }
+        guard let jpegData = image.storageJPEGData() else { return }
 
         let fileName = "\(UUID().uuidString).jpg"
         guard let imageDir = self.getImagesDirectory() else { return }
@@ -188,9 +190,7 @@ class ClipboardMonitor: ObservableObject {
     }
 
     func saveEditedImage(_ image: NSImage, from originalItem: ClipboardItemEntity) {
-        guard let imageData = image.tiffRepresentation,
-              let imageRep = NSBitmapImageRep(data: imageData),
-              let jpegData = imageRep.representation(using: .jpeg, properties: [.compressionFactor: 0.85]),
+        guard let jpegData = image.storageJPEGData(),
               let imageDir = getImagesDirectory() else {
             return
         }
@@ -275,6 +275,15 @@ class ClipboardMonitor: ObservableObject {
         case .text(let text):
             newItemEntity.contentType = "text"
             newItemEntity.content = text
+            // Long text → queue an AI title so the card list stays
+            // scannable. Service self-gates on settings + local-only
+            // providers and skips snippets/encrypted at write time.
+            if text.count >= AutoTitleService.minTextLength {
+                AutoTitleService.shared.requestTitle(for: item.id)
+            }
+            // Track repeated text *shapes* so we can suggest a reusable
+            // template. Cheap, synchronous, self-gates on the setting.
+            TemplateDetector.shared.observe(text, isCode: item.isCode)
         case .image(let imagePath):
             newItemEntity.contentType = "image"
             newItemEntity.content = imagePath
@@ -292,6 +301,67 @@ class ClipboardMonitor: ObservableObject {
         // the old per-type sweep didn't. notifyInsert() is fired by
         // saveContext() once the row is actually committed.
         scheduleSave()
+    }
+
+    /// The two selected text items to diff, oldest first — or nil unless
+    /// exactly two *text* items are selected.
+    ///
+    /// Resolves the IDs against the store rather than whatever list is
+    /// currently on screen. The previous implementation searched the
+    /// filtered fetch results, so typing a search or switching tabs made
+    /// an active selection silently un-comparable.
+    func comparablePair() -> (ClipboardItemEntity, ClipboardItemEntity)? {
+        guard selectedItemIDs.count == 2 else { return nil }
+
+        let request = NSFetchRequest<ClipboardItemEntity>(entityName: "ClipboardItemEntity")
+        request.predicate = NSPredicate(format: "id IN %@ AND contentType == 'text'", selectedItemIDs)
+        request.fetchLimit = 2
+        guard let found = try? viewContext.fetch(request), found.count == 2 else { return nil }
+
+        let sorted = found.sorted { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
+        return (sorted[0], sorted[1])
+    }
+
+    /// Short column label for the compare window, e.g. "Chrome · 2m ago".
+    /// Without this both sides just said "Old"/"New", which doesn't help
+    /// when you're comparing two things you copied minutes apart.
+    static func diffLabel(for item: ClipboardItemEntity) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        let when = formatter.localizedString(for: item.date ?? Date(), relativeTo: Date())
+        if let app = item.sourceAppName, !app.isEmpty {
+            return "\(app) · \(when)"
+        }
+        return when
+    }
+
+    /// Persist a reusable template as a snippet. `keyword` should already
+    /// include the `;` trigger (e.g. ";invoice"). Returns the new item's
+    /// id, or nil if a snippet with that keyword already exists.
+    @discardableResult
+    func createTemplateSnippet(keyword: String, content: String, category: String? = nil) -> UUID? {
+        let trimmedKeyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedKeyword.isEmpty, !content.isEmpty else { return nil }
+
+        // Don't clobber an existing snippet with the same trigger.
+        let existing = NSFetchRequest<ClipboardItemEntity>(entityName: "ClipboardItemEntity")
+        existing.predicate = NSPredicate(format: "keyword ==[c] %@", trimmedKeyword)
+        existing.fetchLimit = 1
+        if let hit = try? viewContext.fetch(existing), !hit.isEmpty { return nil }
+
+        let entity = ClipboardItemEntity(context: viewContext)
+        let id = UUID()
+        entity.id = id
+        entity.date = Date()
+        entity.contentType = "text"
+        entity.content = content
+        entity.keyword = trimmedKeyword
+        entity.category = category
+        entity.sourceAppName = "Clippy Templates"
+        entity.sourceAppBundleIdentifier = "com.yarasa.Clippy.Templates"
+
+        saveContext()
+        return id
     }
 
     /// Runs Apple Vision OCR on a freshly-captured image in the
@@ -322,14 +392,16 @@ class ClipboardMonitor: ObservableObject {
         Task.detached(priority: .utility) {
             guard let imagesDir = imagesDir else { return }
             let imageURL = imagesDir.appendingPathComponent(imagePath)
-            guard FileManager.default.fileExists(atPath: imageURL.path),
-                  let imageSource = CGImageSourceCreateWithURL(imageURL as CFURL, nil),
-                  let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
-                return
-            }
+            guard FileManager.default.fileExists(atPath: imageURL.path) else { return }
 
-            let languages = Self.curatedOCRLanguageList(primaryHint: appLanguage)
-            let extractedText = Self.runVisionOCR(on: cgImage, languages: languages)
+            // Serialised, and with a ceiling on the decode size. Copying
+            // several screenshots in a row used to start that many Vision
+            // recognitions concurrently, each holding a full-resolution
+            // decode — measured at 158% CPU and 108 MB → 297 MB resident.
+            let extractedText = await OCRScheduler.shared.recognize(
+                imageURL: imageURL,
+                primaryHint: appLanguage
+            )
             guard !extractedText.isEmpty else { return }
 
             // Promote to "code" when the OCR text looks like source
@@ -377,89 +449,6 @@ class ClipboardMonitor: ObservableObject {
         return language.rawValue
     }
 
-    /// Single Vision text-recognition pass with a given language list.
-    /// Returns the joined extracted text, or an empty string on any
-    /// failure (no observations, Vision error). Caller decides what
-    /// to do with an empty result.
-    nonisolated private static func runVisionOCR(on cgImage: CGImage, languages: [String]) -> String {
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.recognitionLanguages = languages
-        do {
-            try VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
-        } catch {
-            return ""
-        }
-        guard let observations = request.results, !observations.isEmpty else { return "" }
-        return observations
-            .compactMap { $0.topCandidates(1).first?.string }
-            .joined(separator: "\n")
-    }
-
-    /// Returns every Vision-supported language on this Mac, ordered
-    /// for accurate recognition. Vision biases toward languages
-    /// earlier in the list — feeding it `Set`-derived random order
-    /// caused 0 observations for CJK screenshots even when the right
-    /// language was somewhere in the list.
-    ///
-    /// Order:
-    ///   1. Script-distinct (CJK, Arabic, Cyrillic, Thai) — these
-    ///      can't be confused with Latin scripts, so leading with
-    ///      them costs nothing for Latin captures but gives non-Latin
-    ///      ones a real chance to match.
-    ///   2. The user's primary language + English fallback.
-    ///   3. Major Western Latin languages by speaker count.
-    ///   4. Everything else Vision lists, alphabetically.
-    nonisolated private static func curatedOCRLanguageList(primaryHint: String) -> [String] {
-        let supported: Set<String> = {
-            let req = VNRecognizeTextRequest()
-            req.recognitionLevel = .accurate
-            return Set((try? req.supportedRecognitionLanguages()) ?? ["en-US"])
-        }()
-
-        let scriptDistinctOrder = [
-            "ja-JP", "ko-KR", "zh-Hans", "zh-Hant",
-            "ar-SA", "ru-RU", "uk-UA", "th-TH"
-        ]
-        // Map a primary-language hint ("tr") to a BCP-47 code Vision
-        // understands. Falls back to en-US when no match.
-        let primaryBCP47: String? = {
-            switch primaryHint.lowercased() {
-            case "tr": return "tr-TR"
-            case "de": return "de-DE"
-            case "fr": return "fr-FR"
-            case "es": return "es-ES"
-            case "it": return "it-IT"
-            case "pt": return "pt-BR"
-            case "nl": return "nl-NL"
-            case "pl": return "pl-PL"
-            case "ja": return "ja-JP"
-            case "ko": return "ko-KR"
-            case "zh": return "zh-Hans"
-            case "ar": return "ar-SA"
-            case "ru": return "ru-RU"
-            default:   return nil
-            }
-        }()
-        let primaryOrder = [primaryBCP47, "en-US"].compactMap { $0 }
-        let latinPriorityOrder = [
-            "fr-FR", "de-DE", "es-ES", "it-IT", "pt-BR", "nl-NL", "pl-PL"
-        ]
-
-        var result: [String] = []
-        var seen = Set<String>()
-        for lang in scriptDistinctOrder + primaryOrder + latinPriorityOrder {
-            guard supported.contains(lang), seen.insert(lang).inserted else { continue }
-            result.append(lang)
-        }
-        // Append remaining Vision-supported languages (Czech,
-        // Norwegian variants, Indonesian, Vietnamese, etc.) so we
-        // cover everything but in a deterministic order.
-        let remaining = supported.subtracting(seen).sorted()
-        result.append(contentsOf: remaining)
-        return result.isEmpty ? ["en-US"] : result
-    }
-
     /// Retries a background fetch up to a few times so we don't lose
     /// OCR results when the main context's debounced save lags
     /// behind Vision's ~300ms finish. By the 2nd or 3rd attempt the
@@ -499,7 +488,18 @@ class ClipboardMonitor: ObservableObject {
                 }
             }
 
-            if saved { return }
+            if saved {
+                // OCR text is now persisted — if it's substantial,
+                // queue an AI title so the screenshot card gets a
+                // scannable name ("AWS IAM Policy Error" instead of
+                // just dimensions). Service self-gates on settings.
+                if text.count >= AutoTitleService.minOCRLength {
+                    await MainActor.run {
+                        AutoTitleService.shared.requestTitle(for: itemID)
+                    }
+                }
+                return
+            }
         }
     }
 
@@ -838,66 +838,45 @@ class ClipboardMonitor: ObservableObject {
         scheduleSave()
     }
 
+    /// On-disk location of a stored clipboard image.
+    func imageURL(forRelativePath path: String) -> URL? {
+        ThumbnailStore.imageURL(for: path)
+    }
+
+    /// Pixel dimensions read from the file header — no decode. See
+    /// ThumbnailStore for why this isn't `loadImage(...)?.size`.
+    func imagePixelSize(from path: String) -> CGSize? {
+        ThumbnailStore.pixelSize(for: path)
+    }
+
     func loadImage(from path: String) -> NSImage? {
         if let cachedImage = imageCache.object(forKey: path as NSString) {
             return cachedImage
         }
 
-        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+        guard let imageURL = imageURL(forRelativePath: path) else {
             return nil
         }
-        let imageURL = appSupport
-            .appendingPathComponent("Clippy/Images")
-            .appendingPathComponent(path)
 
         if let image = NSImage(contentsOf: imageURL) {
-            imageCache.setObject(image, forKey: path as NSString)
+            imageCache.setObject(image, forKey: path as NSString, cost: image.approximateByteCost)
             return image
         }
         return nil
     }
 
-    func loadThumbnail(from path: String) -> NSImage? {
-        if let cachedThumbnail = thumbnailCache.object(forKey: path as NSString) {
-            return cachedThumbnail
-        }
-
-        guard let originalImage = loadImage(from: path),
-              let cgImage = originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            return nil
-        }
-
-        let thumbnailSize = NSSize(width: 80, height: 80)
-        let bitmapRep = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: Int(thumbnailSize.width),
-            pixelsHigh: Int(thumbnailSize.height),
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0
-        )
-
-        if let bitmapRep = bitmapRep {
-            NSGraphicsContext.saveGraphicsState()
-            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmapRep)
-            NSImage(cgImage: cgImage, size: originalImage.size)
-                .draw(in: NSRect(origin: .zero, size: thumbnailSize),
-                      from: NSRect(origin: .zero, size: originalImage.size),
-                      operation: .sourceOver,
-                      fraction: 1.0)
-            NSGraphicsContext.restoreGraphicsState()
-
-            let thumbnail = NSImage(size: thumbnailSize)
-            thumbnail.addRepresentation(bitmapRep)
-            thumbnailCache.setObject(thumbnail, forKey: path as NSString)
-            return thumbnail
-        }
-
-        return nil
+    /// Card-sized thumbnail, decoded straight from disk at reduced
+    /// resolution.
+    ///
+    /// The important part is that this never goes through `loadImage`.
+    /// ImageIO decodes only the reduced bitmap, so a 5K screenshot costs
+    /// ~1.6 MB here instead of ~59 MB — and the full-size decode never
+    /// enters `imageCache` at all. The previous implementation loaded the
+    /// full image first and scaled it down, which paid the entire memory
+    /// cost to produce something small (and it was dead code — nothing
+    /// called it, so cards were rendering full-size images directly).
+    func loadThumbnail(from path: String, maxPixel: CGFloat = 640) -> NSImage? {
+        ThumbnailStore.thumbnail(for: path, maxPixel: maxPixel)
     }
 
     func loadIcon(for bundleIdentifier: String, completion: @escaping (NSImage?) -> Void) {
@@ -917,11 +896,13 @@ class ClipboardMonitor: ObservableObject {
             }
 
             if let finalIcon = icon {
-                self.appIconCache.setObject(finalIcon, forKey: bundleIdentifier as NSString)
+                self.appIconCache.setObject(finalIcon, forKey: bundleIdentifier as NSString,
+                                            cost: finalIcon.approximateByteCost)
                 await MainActor.run { completion(finalIcon) }
             } else {
                 let genericIcon = NSImage(systemSymbolName: "questionmark.app.dashed", accessibilityDescription: "Unknown App")!
-                self.appIconCache.setObject(genericIcon, forKey: bundleIdentifier as NSString)
+                self.appIconCache.setObject(genericIcon, forKey: bundleIdentifier as NSString,
+                                            cost: genericIcon.approximateByteCost)
                 await MainActor.run { completion(genericIcon) }
             }
         }
@@ -1157,9 +1138,7 @@ class ClipboardMonitor: ObservableObject {
     }
 
     private func saveImage(_ image: NSImage) -> String? {
-        guard let imageData = image.tiffRepresentation,
-              let imageRep = NSBitmapImageRep(data: imageData),
-              let jpegData = imageRep.representation(using: .jpeg, properties: [.compressionFactor: 0.85]),
+        guard let jpegData = image.storageJPEGData(),
               let imageDir = getImagesDirectory() else {
             return nil
         }
@@ -1339,7 +1318,14 @@ class ClipboardMonitor: ObservableObject {
             // disk cleanup runs on a background context, not here.
             HistoryPruner.shared.notifyInsert()
         } catch {
-            let nsError = error as NSError
+            // A failed save used to be discarded entirely — the user's edit
+            // was gone with no trace. The merge policy set on viewContext
+            // makes conflicts merge rather than throw, so reaching here now
+            // means something genuinely unexpected (disk full, corrupt
+            // store). Roll the context back so it isn't left holding
+            // unsaved changes that will fail again on every later save.
+            assertionFailure("CoreData save failed: \(error)")
+            viewContext.rollback()
         }
     }
     // applyLimits() / applyLimit(for:isFavorite:limit:) — REMOVED.
@@ -1359,5 +1345,19 @@ class ClipboardMonitor: ObservableObject {
 extension Collection {
     subscript (safe index: Index) -> Element? {
         return indices.contains(index) ? self[index] : nil
+    }
+}
+
+extension NSImage {
+    /// Rough decoded size in bytes, for NSCache cost accounting.
+    ///
+    /// Uses the representation's *pixel* dimensions, not `size` — `size` is
+    /// in points, so on a Retina display it under-reports by 4x and would
+    /// let the cache grow to four times its intended ceiling.
+    var approximateByteCost: Int {
+        if let rep = representations.first, rep.pixelsWide > 0, rep.pixelsHigh > 0 {
+            return rep.pixelsWide * rep.pixelsHigh * 4
+        }
+        return max(1, Int(size.width * size.height * 4))
     }
 }

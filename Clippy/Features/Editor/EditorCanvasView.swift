@@ -12,6 +12,8 @@ struct DrawingCanvasView: View {
     @Binding var selectedColor: Color
     @Binding var selectedLineWidth: CGFloat
     @Binding var numberSize: CGFloat
+    /// Remembered text point size (0 = none chosen yet, derive from image).
+    var textPointSize: Binding<CGFloat> = .constant(0)
     @Binding var numberShape: NumberShape
     @Binding var shapeCornerRadius: CGFloat
     @Binding var shapeFillMode: FillMode
@@ -147,7 +149,25 @@ struct DrawingCanvasView: View {
                         displayAnnotation.controlPoint = displayCP
                     }
 
-                    drawSingleAnnotation(displayAnnotation, rect: displayRect, in: &context, canvasSize: size, nsImage: image)
+                    // The Inspector offers a SHADOW toggle, colour and radius
+                    // for seven tools (rect, ellipse, callout, arrow, line,
+                    // text, pin) — but nothing ever read those fields, so
+                    // the whole section was inert. Applying it once around
+                    // the draw covers every tool that advertises it, rather
+                    // than needing the same block repeated per case.
+                    if displayAnnotation.shadowRadius > 0 {
+                        context.drawLayer { layer in
+                            layer.addFilter(.shadow(
+                                color: displayAnnotation.shadowColor,
+                                radius: displayAnnotation.shadowRadius,
+                                x: displayAnnotation.shadowOffset.width,
+                                y: displayAnnotation.shadowOffset.height
+                            ))
+                            drawSingleAnnotation(displayAnnotation, rect: displayRect, in: &layer, canvasSize: size, nsImage: image)
+                        }
+                    } else {
+                        drawSingleAnnotation(displayAnnotation, rect: displayRect, in: &context, canvasSize: size, nsImage: image)
+                    }
                 }
 
                 if let start = liveDrawingStart, let end = liveDrawingEnd {
@@ -218,30 +238,27 @@ struct DrawingCanvasView: View {
                     }
                 }
 
+                // The annotation being edited draws its own frame (see the
+                // `.text` case), so drawing the selection chrome on top of
+                // it as well produced two offset dashed boxes.
+                let editedID: UUID? = editingTextIndex.flatMap {
+                    viewModel.annotations.indices.contains($0) ? viewModel.annotations[$0].id : nil
+                }
+
                 if let selectedID = selectedAnnotationID,
+                   selectedID != editedID,
                    let selectedAnnotation = viewModel.annotations.first(where: { $0.id == selectedID }) {
 
-                    var originalRect = selectedAnnotation.rect
-
-                    if selectedAnnotation.tool == .text && !selectedAnnotation.text.isEmpty {
-                        let font = NSFont.systemFont(ofSize: selectedAnnotation.lineWidth * 4)
-                        let textAttributes: [NSAttributedString.Key: Any] = [.font: font]
-                        let textSize = (selectedAnnotation.text as NSString).boundingRect(
-                            with: CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude),
-                            options: [.usesLineFragmentOrigin, .usesFontLeading],
-                            attributes: textAttributes
-                        ).size
-
-                        let paddedWidth = textSize.width + 16
-                        let paddedHeight = textSize.height + 8
-
-                        originalRect = CGRect(
-                            x: originalRect.origin.x,
-                            y: originalRect.origin.y,
-                            width: paddedWidth,
-                            height: paddedHeight
-                        )
-                    }
+                    // The annotation's own rect, for every tool.
+                    //
+                    // Text used to get a *recomputed* rect here, measured
+                    // with a plain system font — ignoring bold, italic, the
+                    // font family and letter spacing. So the selection
+                    // frame and handles sat somewhere other than the box
+                    // that was actually drawn. The box now tightens onto
+                    // its content when editing ends, which is what that
+                    // guesswork was standing in for.
+                    let originalRect = selectedAnnotation.rect
 
                     let displayRect = CGRect(
                         x: originalRect.minX * scale + imageOffset.x,
@@ -277,6 +294,12 @@ struct DrawingCanvasView: View {
                             context.stroke(Path(ellipseIn: cpRect), with: .color(.white), lineWidth: 2)
                         }
                     } else {
+                        // Bounding box, not just the handles. Handles alone
+                        // leave the edges to be inferred — obvious for a
+                        // filled rectangle, but a text box whose content
+                        // doesn't reach its edges gave no clue where it ended.
+                        strokeContrastOutline(Path(displayRect), in: &context)
+
                         let handlePositions = getHandlePositions(for: displayRect, tool: selectedAnnotation.tool)
                         let handleSize: CGFloat = 8
 
@@ -285,6 +308,11 @@ struct DrawingCanvasView: View {
                                                    y: position.y - handleSize / 2,
                                                    width: handleSize,
                                                    height: handleSize)
+                            // Dark rim under the handle so it reads on a
+                            // white background too, where a white dot on
+                            // white was previously just the blue ring.
+                            context.stroke(Path(ellipseIn: handleRect.insetBy(dx: -1, dy: -1)),
+                                           with: .color(.black.opacity(0.4)), lineWidth: 1)
                             context.fill(Path(ellipseIn: handleRect), with: .color(.white))
                             context.stroke(Path(ellipseIn: handleRect), with: .color(.blue), lineWidth: 2)
                         }
@@ -571,6 +599,13 @@ struct DrawingCanvasView: View {
                        let index = viewModel.annotations.firstIndex(where: { $0.id == selectedID }) {
                         let newRect = calculateResizedRect(originalRect: original, handle: handle, dragTo: imageLocation)
                         viewModel.annotations[index].rect = newRect
+                        // Dragging a handle on text is a width decision, so
+                        // it moves the wrap limit too. Setting only the rect
+                        // would let the next keystroke re-clamp the box back
+                        // to the old limit and undo the drag.
+                        if viewModel.annotations[index].tool == .text {
+                            viewModel.annotations[index].textWrapWidth = newRect.width
+                        }
                     } else if let movID = movingAnnotationID,
                               let movIdx = viewModel.annotations.firstIndex(where: { $0.id == movID }) {
                         let imgTrans = toImageSize(value.translation)
@@ -641,6 +676,13 @@ struct DrawingCanvasView: View {
                        let index = viewModel.annotations.firstIndex(where: { $0.id == selectedID }) {
                         let newRect = calculateResizedRect(originalRect: original, handle: handle, dragTo: imageLocation)
                         viewModel.annotations[index].rect = newRect
+                        // Dragging a handle on text is a width decision, so
+                        // it moves the wrap limit too. Setting only the rect
+                        // would let the next keystroke re-clamp the box back
+                        // to the old limit and undo the drag.
+                        if viewModel.annotations[index].tool == .text {
+                            viewModel.annotations[index].textWrapWidth = newRect.width
+                        }
                     } else if let movID = movingAnnotationID,
                               let movIdx = viewModel.annotations.firstIndex(where: { $0.id == movID }) {
                         let imgTrans = toImageSize(value.translation)
@@ -668,10 +710,24 @@ struct DrawingCanvasView: View {
                            let index = viewModel.annotations.firstIndex(where: { $0.id == selectedID }) {
                             let newRect = calculateResizedRect(originalRect: original, handle: handle, dragTo: imageLocation)
                             viewModel.annotations[index].rect = newRect
+                            if viewModel.annotations[index].tool == .text {
+                                viewModel.annotations[index].textWrapWidth = newRect.width
+                            }
                         }
                     }
                 case .text:
-                    break
+                    // Drag defines the text box, the way it does in every
+                    // other annotation app: click for a default-width box,
+                    // drag when you want to say exactly how wide the text
+                    // should wrap. Previously dragging did nothing at all,
+                    // so the box was always a fixed guess.
+                    if movingAnnotationID != nil || resizingHandle != nil {
+                        break
+                    }
+                    if liveDrawingStart == nil {
+                        liveDrawingStart = value.location
+                    }
+                    liveDrawingEnd = value.location
 
                 case .pen:
                     if movingAnnotationID != nil {
@@ -707,6 +763,9 @@ struct DrawingCanvasView: View {
                            let index = viewModel.annotations.firstIndex(where: { $0.id == selectedID }) {
                             let newRect = calculateResizedRect(originalRect: original, handle: handle, dragTo: imageLocation)
                             viewModel.annotations[index].rect = newRect
+                            if viewModel.annotations[index].tool == .text {
+                                viewModel.annotations[index].textWrapWidth = newRect.width
+                            }
                         }
                     } else {
                         if liveDrawingStart == nil {
@@ -891,6 +950,17 @@ struct DrawingCanvasView: View {
                     onPickColor?(imageLocation)
                     return
                 case .pin:
+                    // Clicking something that's already there selects it
+                    // instead of stacking a new pin on top. The pin tool
+                    // deliberately stays active after placing one (you
+                    // usually want 1, 2, 3 in a row), which meant every
+                    // attempt to adjust a pin created another one.
+                    if let (existingID, _) = findAnnotation(at: imageLocation) {
+                        selectedAnnotationID = existingID
+                        showToolControls = true
+                        break
+                    }
+
                     let rect = CGRect(
                         x: imageLocation.x - numberSize / 2,
                         y: imageLocation.y - numberSize / 2,
@@ -940,6 +1010,11 @@ struct DrawingCanvasView: View {
                         viewModel.updateAnnotationRect(at: index, newRect: finalRect, oldRect: original, undoManager: undoManager)
                         resizingHandle = nil
                         originalRect = nil
+                    } else if let (existingID, _) = findAnnotation(at: imageLocation) {
+                        // Same rule as pins: click something that exists and
+                        // you get to edit it, not a duplicate on top of it.
+                        selectedAnnotationID = existingID
+                        showToolControls = true
                     } else {
                         let rect = CGRect(
                             x: imageLocation.x - emojiSize / 2,
@@ -964,18 +1039,60 @@ struct DrawingCanvasView: View {
                         break
                     }
 
-                    if resizingHandle == nil && liveDrawingStart == nil {
-                        let fontSize = selectedLineWidth * 4
-                        let initialWidth = min(300, max(120, image.size.width * 0.4))
-                        let initialHeight = fontSize + 12
-                        let rect = CGRect(
-                            x: imageLocation.x,
-                            y: imageLocation.y,
-                            width: initialWidth,
-                            height: initialHeight
-                        )
+                    if resizingHandle == nil {
+                        // Text must not inherit the shape tools' stroke
+                        // width. A width of 4 is a sensible line for a
+                        // rectangle but means 16pt type — unreadably small
+                        // on a Retina screenshot.
+                        //
+                        // If the user has picked a size before, that choice
+                        // stands. Otherwise scale to the image, so a
+                        // 2880px-tall capture gets proportionally larger
+                        // type than an 800px one.
+                        let remembered = textPointSize.wrappedValue
+                        let defaultPointSize = remembered > 0
+                            ? remembered
+                            : min(max(image.size.height * 0.035, 20), 72)
+                        let textLineWidth = AnnotationFont.lineWidth(fromPointSize: defaultPointSize)
+                        let minHeight = defaultPointSize + CustomTextEditor.contentInset.height * 2
 
-                        var newAnnotation = Annotation(rect: rect, color: selectedColor, lineWidth: selectedLineWidth, tool: .text)
+                        // A drag says "wrap the text inside exactly this";
+                        // a plain click falls back to a sensible default
+                        // width. The 8pt threshold keeps a slightly shaky
+                        // click from being read as a tiny drag.
+                        // A drag sets the wrap limit; the box still starts
+                        // content-sized and grows into that limit as you
+                        // type. See `Annotation.textWrapWidth`.
+                        let rect: CGRect
+                        let wrapWidth: CGFloat?
+                        if let startPoint = liveDrawingStart,
+                           let endPoint = liveDrawingEnd,
+                           hypot(endPoint.x - startPoint.x, endPoint.y - startPoint.y) > 8 {
+                            let s = toImageCoords(startPoint)
+                            let e = toImageCoords(endPoint)
+                            let limit = max(abs(e.x - s.x), 60)
+                            rect = CGRect(
+                                x: min(s.x, e.x),
+                                y: min(s.y, e.y),
+                                width: limit,
+                                height: max(abs(e.y - s.y), minHeight)
+                            )
+                            wrapWidth = limit
+                        } else {
+                            rect = CGRect(
+                                x: imageLocation.x,
+                                y: imageLocation.y,
+                                width: defaultPointSize * 4,
+                                height: minHeight
+                            )
+                            wrapWidth = nil
+                        }
+
+                        liveDrawingStart = nil
+                        liveDrawingEnd = nil
+
+                        var newAnnotation = Annotation(rect: rect, color: selectedColor, lineWidth: textLineWidth, tool: .text)
+                        newAnnotation.textWrapWidth = wrapWidth
                         // No default background — user toggles it on from Inspector with a contrast-aware preset.
                         newAnnotation.backgroundColor = nil
                         newAnnotation.opacity = annotationOpacity
@@ -1051,6 +1168,19 @@ struct DrawingCanvasView: View {
                             showToolControls = true
 
                             selectedTool = .select
+                        } else if let (existingID, _) = findAnnotation(at: imageLocation) {
+                            // The gesture was a click, not a drag, so no
+                            // shape was created — that branch was previously
+                            // a dead end. If something is under the cursor,
+                            // select it so its properties can be edited
+                            // without first switching tools.
+                            //
+                            // Note this only applies to a *click*. A drag
+                            // always creates, whatever it starts on top of:
+                            // drawing a box around an area that already has
+                            // annotations in it has to keep working.
+                            selectedAnnotationID = existingID
+                            showToolControls = true
                         }
                     }
                 }
@@ -1355,13 +1485,39 @@ struct DrawingCanvasView: View {
                 }
             }
         case .highlighter:
-            context.fill(Path(rect), with: .color(annotation.color.opacity(0.3)))
+            // A real highlighter darkens what's beneath it; it doesn't wash
+            // it out. Plain alpha compositing lightened the text underneath,
+            // leaving it grey and less readable than before it was
+            // highlighted. Multiply keeps dark text fully dark and tints
+            // only the lighter background.
+            //
+            // The 0.55 alpha is what keeps the darker inks usable: at full
+            // strength, multiplying with blue or purple swamps the content.
+            let previousBlendMode = context.blendMode
+            context.blendMode = .multiply
+            context.fill(Path(rect), with: .color(annotation.color.opacity(0.55)))
+            context.blendMode = previousBlendMode
         case .arrow:
             let start = annotation.startPoint ?? rect.origin
             let end = annotation.endPoint ?? rect.endPoint
-            if hypot(end.x - start.x, end.y - start.y) > annotation.lineWidth * 2 {
-                let headW = max(8, min(30, annotation.lineWidth * 3))
-                let headL = max(8, min(30, annotation.lineWidth * 3))
+            let shaftLength = hypot(end.x - start.x, end.y - start.y)
+            if shaftLength > annotation.lineWidth * 2 {
+                // Head scales with the stroke so a thick arrow still reads
+                // as an arrow. The old `min(30, …)` cap meant a 20pt stroke
+                // got a 30pt head (1.5x) and a 30pt stroke got a 30pt head
+                // — i.e. no visible head at all. The only ceiling now is
+                // the arrow's own length, so short arrows don't become all
+                // head.
+                //
+                // The 16pt floor is what makes thin strokes work: below
+                // roughly that size a triangle stops reading as an
+                // arrowhead no matter how correct its proportions are, so
+                // a 1–2pt line still gets a head you can actually see.
+                let headL = min(max(16, annotation.lineWidth * 4.0), shaftLength * 0.45)
+                // Wider than long. A head narrower than its length looks
+                // like a needle at small sizes; the extra width is what
+                // makes the shape legible when it's only a few points tall.
+                let headW = headL * 1.10
 
                 // Sketch mode: hand-drawn wobbly shaft + filled arrowhead.
                 if sketch {
@@ -1385,13 +1541,27 @@ struct DrawingCanvasView: View {
                     }
                 } else {
                     // Clean mode: shaft respects lineStyle (solid/dashed/dotted/dashDot/dashDotDot)
+                    //
+                    // The shaft stops at the head's base rather than running
+                    // to the tip. Drawing it all the way meant a thick
+                    // stroke's round cap pushed past the point of the
+                    // triangle, blunting it into a blob — worse the heavier
+                    // the line. Open heads are the exception: there the
+                    // shaft is *supposed* to reach the tip.
+                    let shaftEnd = shaftEndPoint(
+                        end: end,
+                        towards: annotation.controlPoint ?? start,
+                        style: annotation.arrowheadStyle,
+                        headLength: headL,
+                        headWidth: headW
+                    )
                     var shaft = Path()
                     if let cp = annotation.controlPoint {
                         shaft.move(to: start)
-                        shaft.addQuadCurve(to: end, control: cp)
+                        shaft.addQuadCurve(to: shaftEnd, control: cp)
                     } else {
                         shaft.move(to: start)
-                        shaft.addLine(to: end)
+                        shaft.addLine(to: shaftEnd)
                     }
                     let shaftStroke = strokeStyle(lineWidth: annotation.lineWidth)
                     context.stroke(shaft, with: .color(annotation.color), style: shaftStroke)
@@ -1432,15 +1602,41 @@ struct DrawingCanvasView: View {
             case .roundedSquare:
                 shapePath = Path(roundedRect: shapeRect, cornerRadius: diameter * 0.2)
             }
-            context.fill(shapePath, with: .color(annotation.color))
+            // Drop shadow, so a badge whose colour happens to match what's
+            // behind it still separates from the screenshot.
+            context.drawLayer { layer in
+                layer.addFilter(.shadow(color: .black.opacity(0.35),
+                                        radius: diameter * 0.07,
+                                        x: 0, y: diameter * 0.025))
+                layer.fill(shapePath, with: .color(annotation.color))
+            }
+
+            // Light ring — the other half of standing out on any backdrop.
+            let ringInset = diameter * 0.045
+            let ringPath: Path
+            switch shape {
+            case .circle:
+                ringPath = Path(ellipseIn: shapeRect.insetBy(dx: ringInset, dy: ringInset))
+            case .square:
+                ringPath = Path(shapeRect.insetBy(dx: ringInset, dy: ringInset))
+            case .roundedSquare:
+                ringPath = Path(roundedRect: shapeRect.insetBy(dx: ringInset, dy: ringInset),
+                                cornerRadius: diameter * 0.18)
+            }
+            context.stroke(ringPath, with: .color(.white.opacity(0.9)),
+                           lineWidth: diameter * 0.07)
 
             if let number = annotation.number {
                 let fontSize = diameter * 0.55
                 let numberText = "\(number)"
 
+                // The number colour used to be hard-coded white, which made
+                // a yellow or light-green badge hard to read and a white one
+                // literally blank. Pick whichever of black/white actually
+                // contrasts with the fill.
                 let text = Text(numberText)
                     .font(.system(size: fontSize, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(annotation.color.readableForeground)
 
                 let resolved = context.resolve(text)
 
@@ -1451,58 +1647,75 @@ struct DrawingCanvasView: View {
             let isEditing = editingTextIndex == viewModel.annotations.firstIndex(where: { $0.id == annotation.id })
 
             if !isEditing && !annotation.text.isEmpty {
-                let font: Font = {
-                    let size = annotation.lineWidth * 4
-                    if annotation.isBold && annotation.isItalic {
-                        return .system(size: size, weight: .bold).italic()
-                    } else if annotation.isBold {
-                        return .system(size: size, weight: .bold)
-                    } else if annotation.isItalic {
-                        return .system(size: size).italic()
-                    }
-                    return .system(size: size)
-                }()
-
-                let nsFont: NSFont = annotation.isBold
-                    ? NSFont.boldSystemFont(ofSize: annotation.lineWidth * 4)
-                    : NSFont.systemFont(ofSize: annotation.lineWidth * 4)
-
-                let attrs: [NSAttributedString.Key: Any] = [.font: nsFont]
-                let maxDrawWidth = rect.width - 16
-                _ = (annotation.text as NSString).boundingRect(
-                    with: NSSize(width: maxDrawWidth, height: CGFloat.greatestFiniteMagnitude),
-                    options: [.usesLineFragmentOrigin, .usesFontLeading],
-                    attributes: attrs
-                )
-
                 // Use the user-set annotation rect directly — honors manual resizing
                 // from the Inspector BOX section instead of shrink-wrapping around text.
-                let bgRect = CGRect(
-                    x: rect.minX,
-                    y: rect.minY,
-                    width: rect.width,
-                    height: rect.height
-                )
+                let bgRect = rect
 
                 if let bgColor = annotation.backgroundColor {
                     let bgPath = Path(roundedRect: bgRect, cornerRadius: 6)
                     context.fill(bgPath, with: .color(bgColor))
                 }
 
-                let text = Text(annotation.text)
-                    .font(font)
-                    .foregroundColor(annotation.color)
+                // Drawn as an attributed string rather than a SwiftUI `Text`.
+                // `Text` has no way to express an outline, letter spacing or
+                // line height, so those settings (and even alignment) were
+                // stored and shown in the Inspector but never reached the
+                // canvas. Core Text handles all of them in one pass.
+                let inset = CustomTextEditor.contentInset
+                let maxDrawWidth = rect.width - inset.width * 2
+                let attributed = AnnotationTextStyle.attributedString(for: annotation)
 
-                let resolved = context.resolve(text)
-                context.draw(resolved, in: CGRect(
-                    x: rect.minX + 8,
-                    y: rect.minY + 4,
+                let measured = attributed.boundingRect(
+                    with: NSSize(width: maxDrawWidth, height: .greatestFiniteMagnitude),
+                    options: [.usesLineFragmentOrigin, .usesFontLeading]
+                )
+                let availableHeight = bgRect.height - inset.height * 2
+                let dy = AnnotationTextStyle.verticalOffset(
+                    for: annotation,
+                    textHeight: measured.height,
+                    containerHeight: availableHeight
+                )
+
+                let textFrame = CGRect(
+                    x: rect.minX + inset.width,
+                    y: rect.minY + inset.height + dy,
                     width: maxDrawWidth,
-                    height: bgRect.height
-                ))
-            } else if annotation.text.isEmpty && isEditing {
-                let path = Path(rect)
-                context.stroke(path, with: .color(.gray), style: StrokeStyle(lineWidth: 1, dash: [4]))
+                    height: max(measured.height, availableHeight - dy)
+                )
+
+                // Shadow is applied once for every tool at the call site in
+                // `body`, so nothing tool-specific is needed here.
+                context.withCGContext { cgContext in
+                    let nsContext = NSGraphicsContext(cgContext: cgContext, flipped: true)
+                    NSGraphicsContext.saveGraphicsState()
+                    NSGraphicsContext.current = nsContext
+                    attributed.draw(with: textFrame, options: [.usesLineFragmentOrigin, .usesFontLeading])
+                    NSGraphicsContext.restoreGraphicsState()
+                }
+            }
+
+            // Frame around the text field while editing.
+            //
+            // This used to be drawn only when the text was *empty*, so it
+            // vanished on the first keystroke and never appeared at all
+            // when re-editing something — leaving no indication of where
+            // the field actually was.
+            if isEditing {
+                strokeContrastOutline(Path(roundedRect: rect, cornerRadius: 3),
+                                      in: &context,
+                                      accent: Ember.Palette.amber)
+
+                // The wrap limit, when the box has tightened inside it.
+                // Without this the limit is invisible until you type enough
+                // to hit it — you can't see how much room is left.
+                let limit = annotation.textWrapWidth
+                if let limit, limit > rect.width + 4 {
+                    var edge = Path()
+                    edge.move(to: CGPoint(x: rect.minX + limit, y: rect.minY))
+                    edge.addLine(to: CGPoint(x: rect.minX + limit, y: rect.maxY))
+                    context.stroke(edge, with: .color(Ember.Palette.amber.opacity(0.5)),
+                                   style: StrokeStyle(lineWidth: 1, dash: [2, 4]))
+                }
             }
         case .emoji:
             if let emoji = annotation.emoji {
@@ -1676,8 +1889,7 @@ struct DrawingCanvasView: View {
                     )
 
                     // Crop the source region from the image
-                    if let tiffData = nsImage.tiffRepresentation,
-                       let bitmap = NSBitmapImageRep(data: tiffData),
+                    if let bitmap = nsImage.storageBitmapRep,
                        let cgFull = bitmap.cgImage {
                         // Convert from image point coords to pixel coords (Retina 2x etc.)
                         let pxScaleX = imageSize.width > 0 ? CGFloat(cgFull.width) / imageSize.width : 1
@@ -1770,6 +1982,70 @@ struct DrawingCanvasView: View {
 }
 
 // MARK: - Arrowhead rendering
+
+/// Draws an outline that stays visible over any screenshot.
+///
+/// A single 1pt line disappears the moment the image behind it happens to
+/// be the same tone — which on a screenshot is most of the time. Laying a
+/// light dashed stroke over a solid dark one means one of the two always
+/// contrasts, whatever is underneath. It's the same trick as the classic
+/// "marching ants", and what Figma, Sketch and Photoshop all use.
+private func strokeContrastOutline(_ path: Path,
+                                   in context: inout GraphicsContext,
+                                   accent: Color? = nil,
+                                   lineWidth: CGFloat = 1.5) {
+    context.stroke(path, with: .color(.black.opacity(0.55)),
+                   style: StrokeStyle(lineWidth: lineWidth + 1))
+    context.stroke(path, with: .color(accent ?? .white),
+                   style: StrokeStyle(lineWidth: lineWidth, dash: [5, 3]))
+}
+
+extension Color {
+    /// Black or white — whichever stays legible on top of this colour.
+    ///
+    /// Uses relative luminance (the Rec. 709 weighting, which is what
+    /// WCAG contrast is built on) rather than plain brightness, because
+    /// the eye is far more sensitive to green than to blue: pure blue and
+    /// pure yellow have similar RGB averages but wildly different
+    /// perceived lightness.
+    var readableForeground: Color {
+        guard let srgb = NSColor(self).usingColorSpace(.sRGB) else { return .white }
+        let luminance = 0.2126 * srgb.redComponent
+                      + 0.7152 * srgb.greenComponent
+                      + 0.0722 * srgb.blueComponent
+        return luminance > 0.6 ? .black : .white
+    }
+}
+
+/// Where the shaft should stop so it meets the arrowhead cleanly instead
+/// of poking through its tip.
+///
+/// Filled heads (triangle, diamond, circle) cover the shaft, so it's cut
+/// back to roughly where the head's body begins — a small overlap is kept
+/// so no gap shows through a dashed stroke. An open head is just two
+/// strokes meeting at the point, so the shaft runs the whole way.
+private func shaftEndPoint(
+    end: CGPoint,
+    towards origin: CGPoint,
+    style: ArrowheadStyle,
+    headLength: CGFloat,
+    headWidth: CGFloat
+) -> CGPoint {
+    let trim: CGFloat
+    switch style {
+    case .closedTriangle: trim = headLength * 0.85
+    case .diamond:        trim = headLength * 0.85
+    case .circle:         trim = max(headWidth, headLength) * 0.85
+    case .openTriangle, .none: return end
+    }
+
+    let dx = end.x - origin.x
+    let dy = end.y - origin.y
+    let len = hypot(dx, dy)
+    guard len > 0.001 else { return end }
+    return CGPoint(x: end.x - dx / len * trim,
+                   y: end.y - dy / len * trim)
+}
 
 private func drawArrowhead(
     in context: inout GraphicsContext,

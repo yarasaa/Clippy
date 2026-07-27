@@ -176,6 +176,21 @@ enum BrushStyle: String, CaseIterable, Identifiable {
     }
 }
 
+enum VerticalTextAlignment: String, CaseIterable, Identifiable {
+    case top = "Top"
+    case center = "Center"
+    case bottom = "Bottom"
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .top:    return "arrow.up.to.line"
+        case .center: return "arrow.up.and.down"
+        case .bottom: return "arrow.down.to.line"
+        }
+    }
+}
+
 enum TextAlignment: String, CaseIterable {
     case left = "Left"
     case center = "Center"
@@ -236,6 +251,36 @@ struct Annotation: Identifiable {
     var textLetterSpacing: CGFloat = 0      // kern; positive widens, negative tightens
     var textLineHeight: CGFloat = 1.0       // line-height multiplier (1.0 = default)
     var textPadding: CGFloat = 8            // inner padding for background rect
+    /// Outline drawn around each glyph. This is what makes text readable
+    /// over a busy screenshot — a shadow softens the edge, an outline
+    /// separates the letterform from whatever is behind it outright.
+    /// 0 = off.
+    var textStrokeWidth: CGFloat = 0
+    var textStrokeColor: Color = .black
+    /// Vertical placement inside the (possibly dragged-out) box.
+    var textVerticalAlignment: VerticalTextAlignment = .top
+    /// Width at which text wraps — NOT the width of the box.
+    ///
+    /// The box itself always hugs its content:
+    ///
+    ///     drawn width = min(natural text width, textWrapWidth)
+    ///
+    /// so dragging out an area says "don't get wider than this", not
+    /// "always be exactly this". Type less than the area and the box
+    /// tightens; type more and it grows back to the limit, then wraps.
+    ///
+    /// nil = no explicit limit; a generous default is derived from the
+    /// image instead (see `defaultWrapWidth`).
+    ///
+    /// This replaced an `textAutoSize` flag that switched between a
+    /// "hug" mode and a "fixed" mode. Two modes meant every sizing
+    /// decision had to ask which one it was in; one limit needs no mode.
+    var textWrapWidth: CGFloat?
+
+    /// Fallback wrap width for text placed with a click rather than a drag.
+    static func defaultWrapWidth(for imageSize: CGSize) -> CGFloat {
+        max(200, imageSize.width * 0.6)
+    }
     var calloutTailDirection: CalloutTailDirection = .bottomLeft
     var controlPoint: CGPoint?
     var sketchStyle: Bool = false
@@ -284,6 +329,10 @@ struct Annotation: Identifiable {
         dup.textLetterSpacing = textLetterSpacing
         dup.textLineHeight = textLineHeight
         dup.textPadding = textPadding
+        dup.textStrokeWidth = textStrokeWidth
+        dup.textStrokeColor = textStrokeColor
+        dup.textVerticalAlignment = textVerticalAlignment
+        dup.textWrapWidth = textWrapWidth
         dup.calloutTailDirection = calloutTailDirection
         dup.controlPoint = controlPoint.map { CGPoint(x: $0.x + offset.width, y: $0.y + offset.height) }
         dup.sketchStyle = sketchStyle

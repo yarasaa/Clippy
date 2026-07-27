@@ -80,9 +80,7 @@ class ShelfFilePromiseDelegate: NSObject, NSFilePromiseProviderDelegate {
                 completionHandler(error)
             }
         } else if let image = provider.userInfo as? NSImage {
-            guard let tiffData = image.tiffRepresentation,
-                  let bitmap = NSBitmapImageRep(data: tiffData),
-                  let pngData = bitmap.representation(using: .png, properties: [:]) else {
+            guard let pngData = image.storageData(using: .png) else {
                 completionHandler(NSError(domain: "ShelfDrag", code: 1))
                 return
             }
@@ -432,9 +430,7 @@ class DragDropShelfViewModel: ObservableObject {
 
     private func writeImageToTemp(_ image: NSImage?) -> URL? {
         guard let image = image,
-              let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmap.representation(using: .png, properties: [:]) else { return nil }
+              let pngData = image.storageData(using: .png) else { return nil }
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd_HHmmss"

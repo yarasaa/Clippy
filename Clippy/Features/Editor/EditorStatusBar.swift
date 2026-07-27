@@ -13,6 +13,8 @@ struct EditorStatusBar: View {
     var annotationCount: Int
     var onFitToWindow: (() -> Void)?
 
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         HStack(spacing: 0) {
             // MARK: Left - Image Info
@@ -49,6 +51,18 @@ struct EditorStatusBar: View {
             .background(
                 Capsule().fill(Ember.Palette.amberSoft)
             )
+
+            // Shortcuts the text tool understands. They're intercepted
+            // inside the AppKit text view, so nothing else in the UI
+            // advertises them — and a shortcut nobody can discover is the
+            // same as not having one.
+            if selectedTool == .text || selectedTool == .select {
+                Text("⌘+ / ⌘−  size    ⌘B  bold    ⌥⌘C / ⌥⌘V  style    ⌘⏎  done")
+                    .font(.system(size: 9, design: .rounded))
+                    .foregroundColor(Ember.tertiaryText(scheme))
+                    .lineLimit(1)
+                    .padding(.leading, 10)
+            }
 
             Spacer()
 

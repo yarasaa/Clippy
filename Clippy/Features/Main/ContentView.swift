@@ -15,14 +15,79 @@ struct ContentView: View {
     @State private var sourceAppFilter: String? = nil
     @State private var sourceAppFilterName: String? = nil
 
-    @State private var comparisonData: ComparisonData?
+    // MARK: Ask your clipboard
+    /// When on, the search field becomes a natural-language question box
+    /// (the ✨ toggle in the header). Search filtering is suspended while
+    /// active — `searchText` is the question, not a filter.
+    @State private var askMode: Bool = false
+    @State private var askLoading: Bool = false
+    @State private var askResult: AskResult?
+    @State private var askError: String?
+    @State private var askTask: Task<Void, Never>?
+
+    // MARK: Template suggestions
+    /// The pending "make a template" suggestion shown as a banner. The
+    /// review UI itself is an AppDelegate child window (see
+    /// showTemplateReviewWindow), not a sheet.
+    @State private var pendingTemplate: TemplateDetector.PendingSuggestion?
+
+    // MARK: Keyboard navigation
+
+    /// Which region the keyboard is driving. ⇥ cycles between them.
+    ///
+    /// The popover deliberately opens on `.list`, not on the search field:
+    /// with the field focused every plain keystroke is swallowed as text,
+    /// so `1`–`9` couldn't paste and ⇥ couldn't move anywhere. Starting on
+    /// the list keeps the single-keystroke actions available and makes
+    /// search an explicit ⇥ away.
+    enum FocusZone { case list, search, tabs }
+    @State private var focusZone: FocusZone = .list
+
+    /// The keyboard cursor — the item ↑↓ is currently on. Paste with ⏎.
+    @State private var highlightedID: UUID?
+    /// Local event monitor that intercepts navigation keys before the
+    /// focused search field consumes them.
+    @State private var keyMonitor: Any?
 
     @FetchRequest private var items: FetchedResults<ClipboardItemEntity>
 
     @EnvironmentObject var settings: SettingsManager
+    @Environment(\.colorScheme) private var scheme
 
-    enum Tab {
+    enum Tab: Hashable, CaseIterable {
         case history, code, images, snippets, favorites
+
+        var label: String {
+            switch self {
+            case .history:   return "All"
+            case .code:      return "Code"
+            case .images:    return "Images"
+            case .snippets:  return "Snippets"
+            case .favorites: return "Starred"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .history:   return "tray.full"
+            case .code:      return "chevron.left.forwardslash.chevron.right"
+            case .images:    return "photo"
+            case .snippets:  return "text.badge.star"
+            case .favorites: return "star"
+            }
+        }
+
+        /// The tabs actually on screen, in display order. Single source of
+        /// truth for both the header pills and ⌃Tab cycling — keeping two
+        /// copies of this list would let them drift as tabs get toggled.
+        static func visible(_ settings: SettingsManager) -> [Tab] {
+            var tabs: [Tab] = [.history]
+            if settings.showCodeTab      { tabs.append(.code) }
+            if settings.showImagesTab    { tabs.append(.images) }
+            if settings.showSnippetsTab  { tabs.append(.snippets) }
+            if settings.showFavoritesTab { tabs.append(.favorites) }
+            return tabs
+        }
     }
 
     init() {
@@ -47,12 +112,41 @@ struct ContentView: View {
                 selectedTab: $selectedTab,
                 selectedCategory: $selectedCategory,
                 searchText: $searchText,
+                askMode: $askMode,
+                focusZone: $focusZone,
                 isEmpty: items.isEmpty,
                 onClear: { monitor.clear(tab: selectedTab) },
                 onImportSnippets: { importSnippets() },
                 onGenerateUUID: { monitor.generateUUID() },
-                onGenerateLorem: { monitor.generateLoremIpsum() }
+                onGenerateLorem: { monitor.generateLoremIpsum() },
+                onAskSubmit: { runAsk() }
             )
+
+            // Answer panel for "Ask your clipboard". Sits directly under
+            // the header so the answer reads as a response to the question
+            // still shown in the search field.
+            if askMode {
+                AskAnswerPanel(
+                    loading: askLoading,
+                    result: askResult,
+                    error: askError,
+                    onOpenItem: { item in monitor.appDelegate?.showDetailWindow(for: item) },
+                    onCopyItem: { item in monitor.copyToClipboard(item: item.toClipboardItem()) },
+                    onPasteItem: { item in PasteManager.shared.pasteItem(item.toClipboardItem()) },
+                    onCopyText: { text in
+                        let pb = NSPasteboard.general
+                        pb.clearContents()
+                        pb.setString(text, forType: .string)
+                    },
+                    onExample: { example in
+                        searchText = example
+                        runAsk()
+                    }
+                )
+            }
+
+            // "You keep copying this — make a template?" suggestion.
+            templateSuggestionBanner
 
             // Visible only when a per-app filter is active. Sits
             // between the header and list so it doesn't intrude on
@@ -64,7 +158,7 @@ struct ContentView: View {
                 monitor: monitor,
                 selectedTab: selectedTab,
                 searchText: $searchText,
-                comparisonData: $comparisonData
+                highlightedID: cursorItem?.id
             )
         }
         .safeAreaInset(edge: .bottom) {
@@ -76,7 +170,26 @@ struct ContentView: View {
         .onChange(of: searchText, perform: updatePredicate)
         .onChange(of: selectedCategory, perform: updatePredicate)
         .onChange(of: sourceAppFilter, perform: updatePredicate)
-        .onAppear { updatePredicate(searchText) }
+        .onChange(of: askMode) { _ in
+            // Toggling Ask mode either way is a clean slate: cancel any
+            // in-flight question and clear the previous answer.
+            askTask?.cancel()
+            askLoading = false
+            askResult = nil
+            askError = nil
+            updatePredicate(searchText)
+        }
+        .onAppear {
+            updatePredicate(searchText)
+            refreshTemplateSuggestion()
+            installKeyMonitor()
+            // @State survives the popover being dismissed, so without this
+            // a reopen would resume in whatever zone was last used — and
+            // land the cursor mid-list. Every open starts the same way.
+            focusZone = .list
+            highlightedID = nil
+        }
+        .onDisappear { removeKeyMonitor() }
         .onReceive(NotificationCenter.default.publisher(for: .clippyFilterBySourceApp)) { note in
             // Empty userInfo or missing bundleID → clear filter.
             let bundle = note.userInfo?["bundleID"] as? String
@@ -84,6 +197,128 @@ struct ContentView: View {
             sourceAppFilter = (bundle?.isEmpty == false) ? bundle : nil
             sourceAppFilterName = (name?.isEmpty == false) ? name : nil
         }
+        .onReceive(NotificationCenter.default.publisher(for: .clippyTemplateCandidateDetected)) { _ in
+            refreshTemplateSuggestion()
+        }
+    }
+
+    /// Pull the next queued template suggestion into the banner, but only
+    /// when the feature is on and a local model can actually build it.
+    private func refreshTemplateSuggestion() {
+        guard settings.enableTemplateDetection, TemplateGenerator.isEligible else {
+            pendingTemplate = nil
+            return
+        }
+        pendingTemplate = TemplateDetector.shared.nextPending
+    }
+
+    /// "You keep copying this — make a template?" banner. Appears when
+    /// TemplateDetector has queued a repeated structure and a local model
+    /// is available to draft it. Collapses when there's nothing pending.
+    @ViewBuilder
+    private var templateSuggestionBanner: some View {
+        if let suggestion = pendingTemplate {
+            HStack(spacing: Ember.Space.sm) {
+                Image(systemName: "square.on.square.dashed")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Ember.Palette.amber)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Make this a template?")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Ember.primaryText(scheme))
+                    Text("You've copied \(suggestion.samples.count) similar texts.")
+                        .font(.system(size: 10))
+                        .foregroundColor(Ember.secondaryText(scheme))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 4)
+
+                Button {
+                    monitor.appDelegate?.showTemplateReviewWindow(
+                        samples: suggestion.samples,
+                        skeleton: suggestion.skeleton
+                    )
+                    // Drop it from the persisted queue so the banner
+                    // doesn't return on the next popover open regardless
+                    // of how the review window is closed.
+                    TemplateDetector.shared.dismissPending(skeleton: suggestion.skeleton)
+                    pendingTemplate = nil
+                } label: {
+                    Text("Create")
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Ember.Palette.amber))
+                        .foregroundColor(.white)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    // Snooze this pattern for a cooldown instead of asking
+                    // again on the next open.
+                    TemplateDetector.shared.snooze(skeleton: suggestion.skeleton)
+                    refreshTemplateSuggestion()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(Ember.tertiaryText(scheme))
+                }
+                .buttonStyle(.plain)
+                .help("Dismiss for now")
+            }
+            .padding(.horizontal, Ember.Space.md)
+            .padding(.vertical, 7)
+            .background(Ember.Palette.amber.opacity(0.08))
+            .overlay(alignment: .bottom) { Divider().opacity(0.2) }
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    /// Always-on shortcut legend. The keyboard flow (↑↓ / ⏎ / ⌃Tab / ⌘1-9)
+    /// is the fastest way to use Clippy, but it was completely invisible —
+    /// an undiscoverable shortcut may as well not exist. Mirrors the hint
+    /// footer the Quick Preview panel already had.
+    private var keyboardHintBar: some View {
+        HStack(spacing: Ember.Space.md) {
+            if askMode {
+                // Return submits the question in Ask mode, so advertising
+                // "⏎ paste" here would be a lie.
+                //
+                // The `Spacer()` is load-bearing, exactly as in the branches
+                // below: it stretches the HStack to the full width, and
+                // `.background(.bar)` paints whatever the HStack occupies.
+                // Without it the bar shrank to hug these two labels and the
+                // list showed through on either side — a half-drawn strip
+                // instead of a footer.
+                KbdHint(keys: "⏎", label: "ask")
+                Spacer()
+                KbdHint(keys: "esc", label: "back to search")
+            } else {
+                switch focusZone {
+                case .tabs:
+                    KbdHint(keys: "←→", label: "switch tab")
+                    KbdHint(keys: "⏎", label: "done")
+                    Spacer()
+                    KbdHint(keys: "⇥", label: "list")
+                case .search:
+                    KbdHint(keys: "↑↓", label: "navigate")
+                    KbdHint(keys: "⏎", label: "paste")
+                    Spacer()
+                    KbdHint(keys: "esc", label: "clear")
+                case .list:
+                    KbdHint(keys: "↑↓", label: "navigate")
+                    KbdHint(keys: "⏎", label: "paste")
+                    KbdHint(keys: "1-9", label: "quick paste")
+                    Spacer()
+                    KbdHint(keys: "⇥", label: "search")
+                }
+            }
+        }
+        .padding(.horizontal, Ember.Space.md)
+        .padding(.vertical, 6)
+        .background(.bar)
     }
 
     /// Small dismissible chip shown when a source-app filter is active.
@@ -148,13 +383,15 @@ struct ContentView: View {
             predicates.append(NSPredicate(format: "isFavorite == YES"))
         }
 
-        if !searchText.isEmpty {
-            // Match the literal text content OR the OCR-extracted text
-            // from images, so screenshots become searchable by their
-            // visible text once auto-OCR has populated `extractedText`.
+        // In Ask mode the field holds a question, not a filter — leave
+        // the full list visible behind the answer panel.
+        if !searchText.isEmpty && !askMode {
+            // Match the literal content, the OCR text from images, and
+            // both title fields (user-set and AI-generated) — so items
+            // are findable by whatever name the list displays for them.
             predicates.append(NSPredicate(
-                format: "content CONTAINS[c] %@ OR extractedText CONTAINS[c] %@",
-                searchText, searchText
+                format: "content CONTAINS[c] %@ OR extractedText CONTAINS[c] %@ OR title CONTAINS[c] %@ OR autoTitle CONTAINS[c] %@",
+                searchText, searchText, searchText, searchText
             ))
         }
 
@@ -164,6 +401,213 @@ struct ContentView: View {
         }
 
         items.nsPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+    }
+
+    // MARK: - Keyboard navigation
+
+    /// Items in visual order. The fetch is already sorted pinned-first,
+    /// date-descending, which is exactly how the list renders them.
+    private var orderedItems: [ClipboardItemEntity] { Array(items) }
+
+    /// The cursor resolved against the *current* filter. If the previously
+    /// highlighted item was filtered away (user typed a search, switched
+    /// tab), the cursor falls back to the first row — so ⏎ always pastes
+    /// the top match without any state-syncing gymnastics.
+    private var cursorIndex: Int {
+        if let id = highlightedID,
+           let idx = orderedItems.firstIndex(where: { $0.id == id }) {
+            return idx
+        }
+        return 0
+    }
+
+    private var cursorItem: ClipboardItemEntity? {
+        orderedItems.indices.contains(cursorIndex) ? orderedItems[cursorIndex] : nil
+    }
+
+    private func installKeyMonitor() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            handleKey(event) ? nil : event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        keyMonitor = nil
+    }
+
+    /// Returns true when the event was consumed (so it never reaches the
+    /// focused search field).
+    private func handleKey(_ event: NSEvent) -> Bool {
+        // Only ever act while the popover is actually on screen. Without
+        // this, a monitor that outlives an onDisappear would swallow
+        // arrows/Esc in the Settings, Detail or Editor windows.
+        guard monitor.appDelegate?.statusBarController?.popover.isShown == true else {
+            return false
+        }
+        // Never steal keys from a text field in another window (e.g. the
+        // detail editor) that happens to be key while the popover is up.
+        if let keyWindow = NSApp.keyWindow,
+           keyWindow !== monitor.appDelegate?.statusBarController?.popover.contentViewController?.view.window {
+            return false
+        }
+
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let hasCommand = flags.contains(.command)
+
+        // ⌃Tab / ⌃⇧Tab — jump straight between tabs from any zone.
+        // Control+Tab rather than the ⌘1–5 the Mac normally uses for tabs,
+        // because ⌘1–9 is already the clipboard-manager convention for
+        // "paste item N" here. It's also layout-independent: Safari's
+        // ⌘⇧[ / ⌘⇧] would be unreachable on a Turkish keyboard, where
+        // [ and ] sit behind AltGr.
+        if flags.contains(.control), event.keyCode == 48 {
+            cycleTab(by: flags.contains(.shift) ? -1 : 1)
+            return true
+        }
+
+        // ⇥ / ⇧⇥ — move between list, search and tabs.
+        if event.keyCode == 48 {
+            cycleFocusZone(by: flags.contains(.shift) ? -1 : 1)
+            return true
+        }
+
+        // ⌘1–9 — paste the Nth visible item, from any zone.
+        if hasCommand,
+           let digit = event.charactersIgnoringModifiers?.first?.wholeNumberValue,
+           digit >= 1, digit <= 9 {
+            return pasteByIndex(digit - 1)
+        }
+
+        // Bare 1–9 — same thing without the modifier. Only outside the
+        // search field, where those keystrokes are text the user is typing.
+        if focusZone != .search, flags.isEmpty,
+           let digit = event.charactersIgnoringModifiers?.first?.wholeNumberValue,
+           digit >= 1, digit <= 9 {
+            return pasteByIndex(digit - 1)
+        }
+
+        // ←→ steer the tabs while the tab row holds focus.
+        if focusZone == .tabs, event.keyCode == 123 || event.keyCode == 124 {
+            cycleTab(by: event.keyCode == 124 ? 1 : -1)
+            return true
+        }
+
+        switch event.keyCode {
+        case 125: // ↓
+            moveCursor(by: 1)
+            return true
+
+        case 126: // ↑
+            moveCursor(by: -1)
+            return true
+
+        case 36, 76: // ⏎ / numpad enter
+            // In Ask mode Return submits the question — leave it alone.
+            if askMode { return false }
+            // From the tab row, Return just commits the choice and hands
+            // the keyboard back to the list.
+            if focusZone == .tabs {
+                focusZone = .list
+                return true
+            }
+            guard let item = cursorItem else { return true }
+            paste(item)
+            return true
+
+        case 53: // esc — unwind one step at a time, close only at the end
+            if !searchText.isEmpty {
+                searchText = ""
+                return true
+            }
+            if askMode {
+                askMode = false
+                return true
+            }
+            if focusZone != .list {
+                focusZone = .list
+                return true
+            }
+            NotificationCenter.default.post(name: .closeClippyPopover, object: nil)
+            return true
+
+        default:
+            return false
+        }
+    }
+
+    /// ⇥ order: list → search → tabs → list. Search comes first because
+    /// it's the more common detour; the tab row is rarely the destination.
+    private func cycleFocusZone(by delta: Int) {
+        let zones: [FocusZone] = Tab.visible(settings).count > 1
+            ? [.list, .search, .tabs]
+            : [.list, .search]          // no point focusing a single tab
+        let current = zones.firstIndex(of: focusZone) ?? 0
+        let next = (current + delta + zones.count) % zones.count
+        withAnimation(Ember.Motion.gentle) {
+            focusZone = zones[next]
+        }
+    }
+
+    /// Pastes the item at `index` in the visible list. Always consumes the
+    /// key, so an out-of-range digit is a no-op rather than leaking into
+    /// whatever is behind the popover.
+    private func pasteByIndex(_ index: Int) -> Bool {
+        guard orderedItems.indices.contains(index) else { return true }
+        paste(orderedItems[index])
+        return true
+    }
+
+    /// Moves to the next/previous *visible* tab, wrapping around. Hidden
+    /// tabs are skipped because they aren't reachable by clicking either.
+    private func cycleTab(by delta: Int) {
+        let tabs = Tab.visible(settings)
+        guard tabs.count > 1 else { return }
+        let current = tabs.firstIndex(of: selectedTab) ?? 0
+        let next = (current + delta + tabs.count) % tabs.count
+        withAnimation(Ember.Motion.gentle) {
+            selectedTab = tabs[next]
+        }
+        // Start the cursor at the top of the newly shown list.
+        highlightedID = nil
+    }
+
+    private func moveCursor(by delta: Int) {
+        guard !orderedItems.isEmpty else { return }
+        let next = (cursorIndex + delta + orderedItems.count) % orderedItems.count
+        highlightedID = orderedItems[next].id
+    }
+
+    private func paste(_ item: ClipboardItemEntity) {
+        PasteManager.shared.pasteItem(item.toClipboardItem())
+        NotificationCenter.default.post(name: .closeClippyPopover, object: nil)
+    }
+
+    /// Submit the current search text as an "ask your clipboard" question
+    /// and stream the result into the answer panel.
+    private func runAsk() {
+        let question = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !question.isEmpty else { return }
+
+        askTask?.cancel()
+        askError = nil
+        askResult = nil
+        askLoading = true
+
+        askTask = Task {
+            do {
+                let result = try await AskClipboardEngine.ask(question)
+                if Task.isCancelled { return }
+                askResult = result
+                askLoading = false
+            } catch {
+                if Task.isCancelled { return }
+                askError = (error as? AskClipboardEngine.AskError)?.errorDescription
+                    ?? error.localizedDescription
+                askLoading = false
+            }
+        }
     }
 
     private var colorScheme: ColorScheme? {
@@ -220,12 +664,38 @@ struct ContentView: View {
 
     @ViewBuilder
     private var bottomBar: some View {
-        if !monitor.selectedItemIDs.isEmpty {
+        if monitor.selectedItemIDs.isEmpty {
+            keyboardHintBar
+        } else {
             HStack {
                 Text(String(format: L("%d items selected", settings: settings), monitor.selectedItemIDs.count))
                     .font(.footnote)
                     .foregroundColor(.secondary)
                 Spacer()
+
+                // Compare belongs here — this bar is the one place the app
+                // already knows a multi-selection exists. It used to live
+                // only in the 39-item card context menu, where it was
+                // effectively undiscoverable.
+                if let pair = monitor.comparablePair() {
+                    Button {
+                        monitor.appDelegate?.showDiffWindow(
+                            oldText: pair.0.content ?? "",
+                            newText: pair.1.content ?? "",
+                            oldLabel: ClipboardMonitor.diffLabel(for: pair.0),
+                            newLabel: ClipboardMonitor.diffLabel(for: pair.1)
+                        )
+                        monitor.clearSelection()
+                    } label: {
+                        Label(L("Compare", settings: settings), systemImage: "square.split.2x1")
+                    }
+                } else if monitor.selectedItemIDs.count == 2 {
+                    // Two things are selected but they aren't both text —
+                    // say why instead of silently hiding the action.
+                    Text(L("Select 2 text items to compare", settings: settings))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
 
                 if settings.enableSequentialPaste && monitor.selectedItemIDs.count > 1 {
                     Button {
@@ -266,652 +736,11 @@ struct AITransformState: Identifiable {
     var customPrompt: String?
 }
 
-struct ComparisonData: Identifiable {
-    let id = UUID()
-    let oldItem: ClipboardItem
-    let newItem: ClipboardItem
-}
-
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
             .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
             .environmentObject(SettingsManager.shared)
             .environmentObject(ClipboardMonitor())
-    }
-}
-
-struct ClipboardRowView: View {
-    @ObservedObject var item: ClipboardItemEntity
-    let items: FetchedResults<ClipboardItemEntity>
-    @Binding var comparisonData: ComparisonData?
-    @ObservedObject var monitor: ClipboardMonitor
-    @EnvironmentObject var settings: SettingsManager
-    let selectedTab: ContentView.Tab
-
-    @State private var didCopy = false
-    @State private var aiTransformState: AITransformState? = nil
-
-    private let commonLanguages = [
-        "English", "Turkish", "Spanish", "French", "German",
-        "Italian", "Portuguese", "Russian", "Chinese", "Japanese",
-        "Korean", "Arabic", "Hindi", "Dutch", "Polish",
-        "Swedish", "Norwegian", "Danish", "Finnish", "Greek",
-        "Czech", "Romanian", "Hungarian", "Ukrainian", "Thai",
-        "Vietnamese", "Indonesian", "Malay", "Filipino", "Hebrew"
-    ]
-
-    var body: some View {
-        rowContent
-        .onDrag {
-            let provider: NSItemProvider
-
-            let isMultiDrag = monitor.selectedItemIDs.count > 1 && monitor.selectedItemIDs.contains(item.id ?? UUID())
-
-            if isMultiDrag {
-                provider = monitor.createItemProviderForSelection()
-            } else {
-                provider = self.itemProvider(for: item)
-            }
-
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(name: .closeClippyPopover, object: nil)
-                if isMultiDrag {
-                    monitor.clearSelection()
-                }
-            }
-
-            return provider
-        } preview: {
-            let itemToShow = item
-
-            VStack {
-                if itemToShow.contentType == "text" {
-                    Text(String((itemToShow.content ?? "").prefix(1000)))
-                        .lineLimit(15)
-                        .font(.body)
-                } else if itemToShow.contentType == "image", let imagePath = itemToShow.content {
-                    if let image = loadImage(from: imagePath) {
-                        Image(nsImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxWidth: 200, maxHeight: 200)
-                    }
-                }
-            }
-            .padding(10)
-            .background(.regularMaterial)
-            .cornerRadius(8)
-            .shadow(radius: 3)
-        }
-    }
-
-    private var rowContent: some View {
-        let isSelected = monitor.selectedItemIDs.contains(item.id ?? UUID())
-
-        return HStack(spacing: 12) {
-            favoriteButton(for: item)
-
-            Button(action: {
-                withAnimation { monitor.togglePin(for: item.id ?? UUID()) }
-            }) {
-                Image(systemName: item.isPinned ? "pin.fill" : "pin")
-                    .foregroundColor(item.isPinned ? .accentColor : .secondary)
-                    .rotationEffect(.degrees(item.isPinned ? 0 : -45))
-            }
-            .buttonStyle(.plain)
-            .help(item.isPinned ? L("Unpin Item", settings: settings) : L("Pin Item", settings: settings))
-
-            contentView(for: item)
-
-            Spacer()
-
-            HStack(spacing: 0) {
-                if item.contentType == "text" {
-                    if let content = item.content, content.count <= 2048,
-                       let url = URL(string: content), let scheme = url.scheme, ["http", "https"].contains(scheme) {
-                        Button { NSWorkspace.shared.open(url) } label: {
-                            Image(systemName: "safari")
-                        }
-                        .buttonStyle(.borderless)
-                        .help(L("Open URL in Browser", settings: settings))
-                    }
-                    if item.detectedDate != nil {
-                        Button { monitor.createCalendarEvent(for: item) } label: {
-                            Image(systemName: "calendar.badge.plus")
-                        }
-                        .buttonStyle(.borderless)
-                        .help(L("Add to Calendar", settings: settings))
-                    }
-                    transformationMenu(for: item)
-                }
-                pasteButton
-            }
-        }
-        .padding(.vertical, 4)
-        .id(item.id)
-        .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear) 
-        .cornerRadius(4)
-        .contentShape(SwiftUI.Rectangle())
-        .onTapGesture {
-            if NSEvent.modifierFlags.contains(.command) {
-                monitor.toggleSelection(for: item.id ?? UUID())
-            } else {
-                monitor.appDelegate?.showDetailWindow(for: item)
-            }
-        }
-        .contextMenu { contextMenuItems }
-        .popover(item: $aiTransformState) { state in
-            AITransformView(
-                text: state.text,
-                action: state.action,
-                targetLanguage: state.targetLanguage,
-                customPrompt: state.customPrompt,
-                onResult: { result in
-                    if let itemID = item.id {
-                        monitor.updateText(for: itemID, transformation: { _ in result })
-                    }
-                    aiTransformState = nil
-                },
-                onDismiss: {
-                    aiTransformState = nil
-                }
-            )
-            .environmentObject(settings)
-        }
-    }
-
-    @ViewBuilder
-    private var pasteButton: some View {
-        Button(L("Paste", settings: settings)) {
-            PasteManager.shared.pasteItem(item.toClipboardItem())
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-    }
-
-    @ViewBuilder
-    private func favoriteButton(for item: ClipboardItemEntity) -> some View {
-        Button(action: {
-            withAnimation { monitor.toggleFavorite(for: item.id ?? UUID()) }
-        }) {
-            Image(systemName: item.isFavorite ? "star.fill" : "star")
-                .foregroundColor(item.isFavorite ? .yellow : .secondary)
-        }
-        .buttonStyle(.plain)
-        .overlay(alignment: .topTrailing) {
-            if settings.enableSequentialPaste && monitor.isPastingFromQueue, let id = item.id, let queueIndex = monitor.sequentialPasteQueueIDs.firstIndex(of: id) {
-                let isNext = (queueIndex == monitor.sequentialPasteIndex % monitor.sequentialPasteQueueIDs.count)
-
-                Text("\(queueIndex + 1)")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(4)
-                    .background(Circle().fill(isNext ? .green : .orange))
-                    .offset(x: 8, y: -8)
-                    .help(isNext ? L("Next to Paste", settings: settings) : "")
-            }
-            else if !monitor.selectedItemIDs.isEmpty, let id = item.id, let selectionIndex = monitor.selectedItemIDs.firstIndex(of: id) {
-                Text("\(selectionIndex + 1)")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(4)
-                    .background(Circle().fill(Color.accentColor))
-                    .offset(x: 8, y: -8)
-            }
-        }
-    }
-
-    private func loadImage(from path: String) -> NSImage? {
-        return monitor.loadImage(from: path)
-    }
-
-    private func imageURL(from path: String) -> URL? {
-        return monitor.getImagesDirectory()?.appendingPathComponent(path)
-    }
-
-    @ViewBuilder
-    private func contentView(for item: ClipboardItemEntity) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            if let title = item.title, !title.isEmpty {
-                Text(title)
-                    .font(.headline)
-                    .lineLimit(1)
-            }
-
-            if item.isEncrypted {
-                HStack(spacing: 4) {
-                    Image(systemName: "lock.fill").foregroundColor(.secondary)
-                    Text(L("Encrypted Content", settings: settings)).foregroundColor(.secondary)
-                }.font(.body)
-            } else if item.contentType == "text" {
-                HStack(alignment: .center) {
-                    Text(String((item.content ?? "").trimmingCharacters(in: .whitespacesAndNewlines).prefix(500)))
-                        .lineLimit(3)
-                        .font(.body)
-
-                    // Only attempt color detection for short content (likely a color value)
-                    if let content = item.content, content.count <= 50 {
-                        if let color = item.toClipboardItem().color {
-                            SwiftUI.Rectangle()
-                                .fill(color)
-                                .frame(width: 18, height: 18)
-                                .cornerRadius(4)
-                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary, lineWidth: 0.5))
-                        }
-                    }
-                }
-            } else if item.contentType == "image" {
-                if let path = item.content, let image = loadImage(from: path) {
-                    Image(nsImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 40, height: 40)
-                        .clipped()
-                        .cornerRadius(4)
-                }
-            }
-
-            HStack(spacing: 4) {
-                if let bundleId = item.sourceAppBundleIdentifier {
-                    IconView(bundleIdentifier: bundleId, monitor: monitor, size: 14)
-                }
-
-                Text(item.date ?? Date(), style: .time)
-                    .font(.caption).foregroundColor(.secondary)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var contextMenuItems: some View {
-        Button { monitor.copyToClipboard(item: item.toClipboardItem()) } label: {
-            Label(L("Copy", settings: settings), systemImage: "doc.on.doc")
-        }
-
-        Button { shareClipboardItem() } label: {
-            Label(L("Share", settings: settings), systemImage: "square.and.arrow.up")
-        }
-
-        // Color converter menu
-        if item.contentType == "text",
-           let content = item.content,
-           ColorConverter.detectFormat(content) != nil,
-           let color = ColorConverter.parseColor(content) {
-
-            Menu {
-                let converted = ColorConverter.convertToAllFormats(color)
-
-                Button {
-                    copyToClipboard(converted.hex)
-                } label: {
-                    HStack {
-                        Text("HEX")
-                        Spacer()
-                        Text(converted.hex)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                Button {
-                    copyToClipboard(converted.hexWithAlpha)
-                } label: {
-                    HStack {
-                        Text("HEX+Alpha")
-                        Spacer()
-                        Text(converted.hexWithAlpha)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                Divider()
-
-                Button {
-                    copyToClipboard(converted.rgb)
-                } label: {
-                    HStack {
-                        Text("RGB")
-                        Spacer()
-                        Text(converted.rgb)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                Button {
-                    copyToClipboard(converted.rgba)
-                } label: {
-                    HStack {
-                        Text("RGBA")
-                        Spacer()
-                        Text(converted.rgba)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                Divider()
-
-                Button {
-                    copyToClipboard(converted.hsl)
-                } label: {
-                    HStack {
-                        Text("HSL")
-                        Spacer()
-                        Text(converted.hsl)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                Button {
-                    copyToClipboard(converted.hsla)
-                } label: {
-                    HStack {
-                        Text("HSLA")
-                        Spacer()
-                        Text(converted.hsla)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                }
-            } label: {
-                Label(L("Convert Color", settings: settings), systemImage: "paintpalette")
-            }
-
-            Divider()
-        }
-
-        if let compareItems = getItemsToCompare() {
-            Button {
-                monitor.appDelegate?.showDiffWindow(oldText: compareItems.0.content ?? "", newText: compareItems.1.content ?? "")
-                monitor.clearSelection()
-            } label: {
-                Label(L("Compare...", settings: settings), systemImage: "square.split.2x1")
-            }
-        } else if monitor.selectedItemIDs.count > 0 {
-            Label(L("Compare (select 2 text items)", settings: settings), systemImage: "square.split.2x1").disabled(true)
-        }
-
-        Divider()
-
-        if selectedTab == .snippets {
-            if let keyword = item.keyword, !keyword.isEmpty {
-                Button {
-                    exportSelectedSnippet(item: item)
-                } label: {
-                    Label(L("Export Selected Snippet", settings: settings), systemImage: "square.and.arrow.up")
-                }
-            }
-
-            Button {
-                exportAllSnippets()
-            } label: {
-                Label(L("Export All Snippets", settings: settings), systemImage: "square.and.arrow.up.on.square")
-            }
-
-            Divider()
-        }
-
-        Button { monitor.toggleEncryption(for: item.id ?? UUID()) } label: {
-            Label(item.isEncrypted ? L("Decrypt Item", settings: settings) : L("Encrypt Item", settings: settings),
-                  systemImage: item.isEncrypted ? "lock.open" : "lock")
-        }
-
-        Divider()
-        Menu(L("Combine Images", settings: settings)) {
-            Button {
-                monitor.combineSelectedImagesAsNewItem(orientation: .vertical)
-                monitor.clearSelection()
-            } label: { Label(L("Combine Vertically", settings: settings), systemImage: "arrow.down.to.line.compact") }
-
-            Button {
-                monitor.combineSelectedImagesAsNewItem(orientation: .horizontal)
-                monitor.clearSelection()
-            } label: { Label(L("Combine Horizontally", settings: settings), systemImage: "arrow.right.to.line.compact") }
-        }
-        .disabled(!hasMultipleImagesSelected())
-
-        Divider()
-
-        Button(role: .destructive) {
-            if monitor.selectedItemIDs.count > 1 && monitor.selectedItemIDs.contains(item.id ?? UUID()) {
-                monitor.deleteSelectedItems()
-            } else {
-                monitor.delete(item: item)
-            }
-        } label: {
-            let isMultiDelete = monitor.selectedItemIDs.count > 1 && monitor.selectedItemIDs.contains(item.id ?? UUID())
-            let labelText = isMultiDelete ? String(format: L("Delete %d Items", settings: settings), monitor.selectedItemIDs.count) : L("Delete", settings: settings)
-            Label(labelText, systemImage: "trash")
-        }
-    }
-
-    private func copyToClipboard(_ text: String) {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
-    }
-
-    private func shareClipboardItem() {
-        var items: [Any] = []
-
-        if item.contentType == "image", let path = item.content {
-            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            let imageURL = appSupport.appendingPathComponent("Clippy").appendingPathComponent("Images").appendingPathComponent(path)
-            if FileManager.default.fileExists(atPath: imageURL.path) {
-                // Share as file URL so AirDrop appears in picker
-                items.append(imageURL)
-            }
-        } else if let content = item.content, !content.isEmpty {
-            // Write text to temp file for AirDrop support
-            let tempURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("clippy-share-\(Int(Date().timeIntervalSince1970)).txt")
-            try? content.write(to: tempURL, atomically: true, encoding: .utf8)
-            items.append(tempURL)
-        }
-
-        guard !items.isEmpty, let window = NSApp.keyWindow, let contentView = window.contentView else { return }
-        let picker = NSSharingServicePicker(items: items)
-        picker.show(relativeTo: .zero, of: contentView, preferredEdge: .minY)
-    }
-
-    private func exportSelectedSnippet(item: ClipboardItemEntity) {
-        guard let keyword = item.keyword, !keyword.isEmpty else { return }
-
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "\(keyword)_snippet.json"
-        panel.message = L("Export snippet to JSON file", settings: settings)
-
-        panel.begin { response in
-            if response == .OK, let url = panel.url {
-                do {
-                    try SnippetExportManager.shared.exportSnippet(item: item, to: url)
-
-                    let alert = NSAlert()
-                    alert.messageText = L("Export Successful", settings: settings)
-                    alert.informativeText = L("1 snippet was exported successfully.", settings: settings)
-                    alert.alertStyle = .informational
-                    alert.addButton(withTitle: L("Ok", settings: settings))
-                    alert.runModal()
-                } catch {
-
-                    let alert = NSAlert()
-                    alert.messageText = L("Export Failed", settings: settings)
-                    alert.informativeText = String(format: L("Failed to export snippet: %@", settings: settings), error.localizedDescription)
-                    alert.alertStyle = .critical
-                    alert.addButton(withTitle: L("Ok", settings: settings))
-                    alert.runModal()
-                }
-            }
-        }
-    }
-
-    private func exportAllSnippets() {
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "snippets_export.json"
-        panel.message = L("Export snippets to JSON file", settings: settings)
-
-        panel.begin { response in
-            if response == .OK, let url = panel.url {
-                do {
-                    try SnippetExportManager.shared.exportSnippets(to: url)
-
-                    let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
-                    fetchRequest.predicate = NSPredicate(format: "keyword != nil AND keyword != ''")
-                    let count = (try? item.managedObjectContext?.count(for: fetchRequest)) ?? 0
-
-                    let alert = NSAlert()
-                    alert.messageText = L("Export Successful", settings: settings)
-                    let messageKey = count == 1 ? "1 snippet was exported successfully." : "%d snippets were exported successfully."
-                    alert.informativeText = String(format: L(messageKey, settings: settings), count)
-                    alert.alertStyle = .informational
-                    alert.addButton(withTitle: L("Ok", settings: settings))
-                    alert.runModal()
-                } catch {
-
-                    let alert = NSAlert()
-                    alert.messageText = L("Export Failed", settings: settings)
-                    alert.informativeText = String(format: L("Failed to export snippets: %@", settings: settings), error.localizedDescription)
-                    alert.alertStyle = .critical
-                    alert.addButton(withTitle: L("Ok", settings: settings))
-                    alert.runModal()
-                }
-            }
-        }
-    }
-
-    private func hasMultipleImagesSelected() -> Bool {
-        guard monitor.selectedItemIDs.count > 1 else { return false }
-
-        let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "id IN %@ AND contentType == 'image'", monitor.selectedItemIDs)
-
-        do {
-            let count = try item.managedObjectContext?.count(for: fetchRequest) ?? 0
-            return count > 1
-        } catch {
-            return false
-        }
-    }
-
-    private func transformationMenu(for item: ClipboardItemEntity) -> some View {
-        let locale: Locale?
-        if settings.appLanguage == "system" {
-            if let langCode = Locale.preferredLanguages.first?.prefix(2) {
-                locale = Locale(identifier: String(langCode))
-            } else {
-                locale = .current
-            }
-        } else {
-            locale = Locale(identifier: String(settings.appLanguage.prefix(2)))
-        }
-
-        return Menu {
-            if let itemID = item.id {
-                Group {
-                    Section(header: Text(L("Transform Text", settings: settings))) {
-                        Button(L("All Uppercase", settings: settings)) { monitor.updateText(for: itemID, transformation: { $0.uppercased(with: locale) }) }
-                        Button(L("All Lowercase", settings: settings)) { monitor.updateText(for: itemID, transformation: { $0.lowercased(with: locale) }) }
-                        Button(L("Title Case", settings: settings)) { monitor.updateText(for: itemID, transformation: { $0.capitalized(with: locale) }) }
-                        Button(L("Trim Whitespace", settings: settings)) { monitor.updateText(for: itemID, transformation: { $0.trimmingCharacters(in: .whitespacesAndNewlines) }) }
-                    }
-
-                    Section(header: Text(L("Line Operations", settings: settings))) {
-                        Button(L("Remove Duplicate Lines", settings: settings)) { monitor.removeDuplicateLines(for: itemID) }
-                        Button(L("Join All Lines", settings: settings)) { monitor.joinLines(for: itemID) }
-                    }
-
-                    Section(header: Text(L("Coding", settings: settings))) {
-                        Button(L("Base64 Encode", settings: settings)) {
-                            monitor.updateText(for: itemID, transformation: { $0.data(using: .utf8)?.base64EncodedString() ?? $0 })
-                        }
-                        Button(L("Base64 Decode", settings: settings)) {
-                            monitor.updateText(for: itemID, transformation: { Data(base64Encoded: $0).flatMap { String(data: $0, encoding: .utf8) } ?? $0 })
-                        }
-                        Button(L("Encode as JSON String", settings: settings)) { monitor.encodeAsJSONString(for: itemID) }
-                        Button(L("Decode from JSON String", settings: settings)) { monitor.decodeFromJSONString(for: itemID) }
-                    }
-
-                    // Only check JSON for reasonably sized text to prevent freezes
-                    if let content = item.content, content.count <= 50_000, item.toClipboardItem().isJSON {
-                        Section(header: Text(L("JSON", settings: settings))) {
-                            Button(L("Format JSON", settings: settings)) { monitor.formatJSON(for: itemID) }
-                            Button(L("Minify JSON", settings: settings)) { monitor.minifyJSON(for: itemID) }
-                        }
-                    }
-
-                    // AI Transformations
-                    if settings.enableAI, AIService.shared.isConfigured, let content = item.content, !content.isEmpty {
-                        Divider()
-                        Section(header: Text(L("AI", settings: settings))) {
-                            Button(L("Summarize", settings: settings)) { runAIAction(.summarize, text: content) }
-                            Button(L("Expand", settings: settings)) { runAIAction(.expand, text: content) }
-                            Button(L("Fix Grammar", settings: settings)) { runAIAction(.fixGrammar, text: content) }
-                            Button(L("Convert to Bullet Points", settings: settings)) { runAIAction(.bulletPoints, text: content) }
-                            Button(L("Draft Email", settings: settings)) { runAIAction(.draftEmail, text: content) }
-
-                            Menu(L("Translate to...", settings: settings)) {
-                                ForEach(commonLanguages, id: \.self) { lang in
-                                    Button(lang) { runAIAction(.translate, text: content, targetLanguage: lang) }
-                                }
-                            }
-
-                            if item.isCode {
-                                Divider()
-                                Button(L("Explain Code", settings: settings)) { runAIAction(.explainCode, text: content) }
-                                Button(L("Add Comments", settings: settings)) { runAIAction(.addComments, text: content) }
-                                Button(L("Find Bugs", settings: settings)) { runAIAction(.findBugs, text: content) }
-                                Button(L("Optimize Code", settings: settings)) { runAIAction(.optimizeCode, text: content) }
-                            }
-                        }
-                    }
-                }
-            } else {
-                EmptyView()
-            }
-
-        } label: {
-            Image(systemName: "wand.and.stars")
-        }
-        .menuStyle(.borderlessButton)
-        .help(L("Transform Text", settings: settings))
-        .menuIndicator(.hidden)
-        .frame(width: 30)
-    }
-
-    private func itemProvider(for item: ClipboardItemEntity) -> NSItemProvider {
-        if item.contentType == "text", let text = item.content {
-            return NSItemProvider(object: text as NSString)
-        } else if item.contentType == "image", let path = item.content {
-            if let imageURL = imageURL(from: path) {
-                return NSItemProvider(object: imageURL as NSURL)
-            }
-        }
-        return NSItemProvider()
-    }
-
-    private func runAIAction(_ action: AIAction, text: String, targetLanguage: String? = nil, customPrompt: String? = nil) {
-        aiTransformState = AITransformState(text: text, action: action, targetLanguage: targetLanguage, customPrompt: customPrompt)
-    }
-
-    private func getItemsToCompare() -> (ClipboardItemEntity, ClipboardItemEntity)? {
-        guard monitor.selectedItemIDs.count == 2 else { return nil }
-
-        let selectedItems = monitor.selectedItemIDs.compactMap { id in
-            items.first { $0.id == id && $0.contentType == "text" }
-        }
-
-        guard selectedItems.count == 2 else { return nil }
-
-        if (selectedItems[0].date ?? .distantPast) < (selectedItems[1].date ?? .distantPast) {
-            return (selectedItems[0], selectedItems[1])
-        } else {
-            return (selectedItems[1], selectedItems[0])
-        }
     }
 }

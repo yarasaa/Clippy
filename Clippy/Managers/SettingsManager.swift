@@ -96,6 +96,23 @@ class SettingsManager: ObservableObject {
     @Published var screenshotHotkeyModifiers: UInt {
         didSet { UserDefaults.standard.set(screenshotHotkeyModifiers, forKey: "screenshotHotkeyModifiers") }
     }
+    /// Screen Text Grab (⇧⌘2 by default): select any screen region,
+    /// the text inside lands on the pasteboard ready to ⌘V.
+    @Published var enableScreenTextGrab: Bool {
+        didSet { UserDefaults.standard.set(enableScreenTextGrab, forKey: "enableScreenTextGrab") }
+    }
+    @Published var screenTextGrabHotkeyKey: String {
+        didSet { UserDefaults.standard.set(screenTextGrabHotkeyKey, forKey: "screenTextGrabHotkeyKey") }
+    }
+    @Published var screenTextGrabHotkeyModifiers: UInt {
+        didSet { UserDefaults.standard.set(screenTextGrabHotkeyModifiers, forKey: "screenTextGrabHotkeyModifiers") }
+    }
+    /// Show the little "✓ copied" confirmation pill after a grab.
+    /// Errors ("No text found") always show regardless — silent
+    /// failure would leave the user pasting stale clipboard content.
+    @Published var showScreenGrabHUD: Bool {
+        didSet { UserDefaults.standard.set(showScreenGrabHUD, forKey: "showScreenGrabHUD") }
+    }
     @Published var snippetVariables: [SnippetVariable] = [] {
         didSet { saveSnippetVariables() }
     }
@@ -241,6 +258,18 @@ class SettingsManager: ObservableObject {
     @Published var enableAutoOCR: Bool {
         didSet { UserDefaults.standard.set(enableAutoOCR, forKey: "enableAutoOCR") }
     }
+    /// AI-generated titles for long items. Only runs with local
+    /// providers (Apple Intelligence / Ollama) — never burns cloud
+    /// API credits automatically. See AutoTitleService.
+    @Published var enableAutoTitle: Bool {
+        didSet { UserDefaults.standard.set(enableAutoTitle, forKey: "enableAutoTitle") }
+    }
+    /// Watch for repeatedly-copied text that varies only in its details
+    /// (invoice numbers, dates, amounts) and offer to turn it into a
+    /// reusable template. Local-only AI, opt-out. See TemplateDetector.
+    @Published var enableTemplateDetection: Bool {
+        didSet { UserDefaults.standard.set(enableTemplateDetection, forKey: "enableTemplateDetection") }
+    }
     @Published var enableDuplicateDetection: Bool {
         didSet { UserDefaults.standard.set(enableDuplicateDetection, forKey: "enableDuplicateDetection") }
     }
@@ -321,6 +350,12 @@ class SettingsManager: ObservableObject {
         self.snippetTimeoutDuration = UserDefaults.standard.object(forKey: "snippetTimeoutDuration") as? Double ?? 3.0
         self.screenshotHotkeyKey = UserDefaults.standard.string(forKey: "screenshotHotkeyKey") ?? "1"
         self.screenshotHotkeyModifiers = UserDefaults.standard.object(forKey: "screenshotHotkeyModifiers") as? UInt ?? 1179648
+        // Screen Text Grab — default ⇧⌘2 (free slot next to macOS's
+        // ⇧⌘3/4/5; the same combo TextSniper users already know).
+        self.enableScreenTextGrab = UserDefaults.standard.object(forKey: "enableScreenTextGrab") as? Bool ?? true
+        self.screenTextGrabHotkeyKey = UserDefaults.standard.string(forKey: "screenTextGrabHotkeyKey") ?? "2"
+        self.screenTextGrabHotkeyModifiers = UserDefaults.standard.object(forKey: "screenTextGrabHotkeyModifiers") as? UInt ?? 1179648
+        self.showScreenGrabHUD = UserDefaults.standard.object(forKey: "showScreenGrabHUD") as? Bool ?? true
         self.isCategorySystemEnabled = UserDefaults.standard.object(forKey: "isCategorySystemEnabled") as? Bool ?? true
         self.enableDockPreview = UserDefaults.standard.object(forKey: "enableDockPreview") as? Bool ?? false
         self.switcherHotkeyKey = UserDefaults.standard.string(forKey: "switcherHotkeyKey") ?? "tab" // Varsayılan: Tab
@@ -411,6 +446,8 @@ class SettingsManager: ObservableObject {
         // moment of the app. Intel-Mac users who notice battery drain
         // can turn it off in Settings → Features.
         self.enableAutoOCR = UserDefaults.standard.object(forKey: "enableAutoOCR") as? Bool ?? true
+        self.enableAutoTitle = UserDefaults.standard.object(forKey: "enableAutoTitle") as? Bool ?? true
+        self.enableTemplateDetection = UserDefaults.standard.object(forKey: "enableTemplateDetection") as? Bool ?? true
         self.enableDuplicateDetection = UserDefaults.standard.object(forKey: "enableDuplicateDetection") as? Bool ?? true
         self.enableSourceAppTracking = UserDefaults.standard.object(forKey: "enableSourceAppTracking") as? Bool ?? true
         self.enableFileConverter = UserDefaults.standard.object(forKey: "enableFileConverter") as? Bool ?? true

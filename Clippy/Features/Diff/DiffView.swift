@@ -2,392 +2,329 @@
 //  DiffView.swift
 //  Clippy
 //
-//  Created by Mehmet Akbaba on 21.09.2025.
+//  Side-by-side / unified comparison of two clipboard texts.
 //
-
+//  The diff itself lives in DiffEngine (pure, no view state). This file
+//  only renders it — computed once when the view appears rather than on
+//  every body evaluation, which is what the old implementation did.
+//
+//  Closing is driven by an `onClose` closure, not `@Environment(\.dismiss)`:
+//  the window is a plain AppKit NSWindow hosting this view, and in that
+//  context `dismiss()` silently does nothing — which is why the Close
+//  button, Save-and-close and Esc all used to appear dead.
+//
 
 import SwiftUI
 
 struct DiffView: View {
-    @State var oldText: String
-    @State var newText: String
-    @Environment(\.dismiss) private var dismiss
+    let oldText: String
+    let newText: String
+    /// Labels for the two sides (e.g. "Older · 14:02"). Optional.
+    var oldLabel: String = "Old"
+    var newLabel: String = "New"
+    /// Closes the hosting window. See the note in the file header.
+    var onClose: () -> Void = {}
+
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var settings: SettingsManager
     @EnvironmentObject var monitor: ClipboardMonitor
 
+    @State private var result: DiffEngine.Result?
+    @State private var layout: Layout = .split
     @State private var copiedSide: Side?
-    @State private var cachedDiffLines: [SplitDiffLine] = []
-    @State private var lastOldText: String = ""
-    @State private var lastNewText: String = ""
-    @State private var scrollOffset: CGFloat = 0
 
-    struct SplitDiffLine: Identifiable {
-        let id = UUID()
-        let leftContent: String?
-        let rightContent: String?
-        let leftLineNumber: Int?
-        let rightLineNumber: Int?
-        enum ChangeType { case added, removed, unchanged, modified }
-        var type: ChangeType
-        var charDiffs: [CharDiff]?
-    }
+    private enum Layout: String, CaseIterable { case split, unified }
+    private enum Side { case left, right }
 
-    struct CharDiff {
-        let text: String
-        let isChanged: Bool
-    }
-
-    private var diffLines: [SplitDiffLine] {
-        // Cache expensive diff calculation
-        if cachedDiffLines.isEmpty || oldText != lastOldText || newText != lastNewText {
-            let lines = computeDiffLines()
-            // Note: Cannot update @State in computed property, would need onChange modifier
-            return lines
-        }
-        return cachedDiffLines
-    }
-
-    private func computeDiffLines() -> [SplitDiffLine] {
-        let oldLines = oldText.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        let newLines = newText.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-
-        var matrix = Array(repeating: Array(repeating: 0, count: newLines.count + 1), count: oldLines.count + 1)
-
-        for i in 1...oldLines.count {
-            for j in 1...newLines.count {
-                if oldLines[i-1] == newLines[j-1] {
-                    matrix[i][j] = matrix[i-1][j-1] + 1
-                } else {
-                    matrix[i][j] = max(matrix[i-1][j], matrix[i][j-1])
-                }
-            }
-        }
-
-        var i = oldLines.count
-        var j = newLines.count
-        var finalLines: [SplitDiffLine] = []
-        var leftLineNum = oldLines.count
-        var rightLineNum = newLines.count
-
-        while i > 0 || j > 0 {
-            if i > 0 && j > 0 && oldLines[i-1] == newLines[j-1] {
-                finalLines.insert(SplitDiffLine(leftContent: oldLines[i-1], rightContent: newLines[j-1], leftLineNumber: leftLineNum, rightLineNumber: rightLineNum, type: .unchanged, charDiffs: nil), at: 0)
-                i -= 1
-                j -= 1
-                leftLineNum -= 1
-                rightLineNum -= 1
-            } else if j > 0 && (i == 0 || matrix[i][j-1] >= matrix[i-1][j]) {
-                finalLines.insert(SplitDiffLine(leftContent: nil, rightContent: newLines[j-1], leftLineNumber: nil, rightLineNumber: rightLineNum, type: .added, charDiffs: nil), at: 0)
-                j -= 1
-                rightLineNum -= 1
-            } else if i > 0 && (j == 0 || matrix[i][j-1] < matrix[i-1][j]) {
-                finalLines.insert(SplitDiffLine(leftContent: oldLines[i-1], rightContent: nil, leftLineNumber: leftLineNum, rightLineNumber: nil, type: .removed, charDiffs: nil), at: 0)
-                i -= 1
-                leftLineNum -= 1
-            } else {
-                break
-            }
-        }
-
-        var processedLines: [SplitDiffLine] = []
-        var index = 0
-        while index < finalLines.count {
-            if index + 1 < finalLines.count,
-               finalLines[index].type == .removed,
-               finalLines[index+1].type == .added,
-               let oldLine = finalLines[index].leftContent,
-               let newLine = finalLines[index+1].rightContent {
-
-                let charDiffs = computeCharDiffs(old: oldLine, new: newLine)
-                processedLines.append(SplitDiffLine(
-                    leftContent: oldLine,
-                    rightContent: newLine,
-                    leftLineNumber: finalLines[index].leftLineNumber,
-                    rightLineNumber: finalLines[index+1].rightLineNumber,
-                    type: .modified,
-                    charDiffs: charDiffs
-                ))
-                index += 2
-            } else {
-                processedLines.append(finalLines[index])
-                index += 1
-            }
-        }
-
-        return processedLines
-    }
-
-    private func computeCharDiffs(old: String, new: String) -> [CharDiff] {
-        // Simple approach: highlight entire new string if different
-        // This gives consistent visual feedback
-        if old == new {
-            return [CharDiff(text: new, isChanged: false)]
-        }
-
-        let oldChars = Array(old)
-        let newChars = Array(new)
-
-        // Find common prefix
-        var commonPrefix = 0
-        while commonPrefix < min(oldChars.count, newChars.count) &&
-              oldChars[commonPrefix] == newChars[commonPrefix] {
-            commonPrefix += 1
-        }
-
-        // Find common suffix
-        var commonSuffix = 0
-        while commonSuffix < min(oldChars.count - commonPrefix, newChars.count - commonPrefix) &&
-              oldChars[oldChars.count - 1 - commonSuffix] == newChars[newChars.count - 1 - commonSuffix] {
-            commonSuffix += 1
-        }
-
-        var result: [CharDiff] = []
-
-        // Add common prefix
-        if commonPrefix > 0 {
-            let prefixStr = String(newChars[0..<commonPrefix])
-            result.append(CharDiff(text: prefixStr, isChanged: false))
-        }
-
-        // Add changed middle part
-        let changedStart = commonPrefix
-        let changedEnd = newChars.count - commonSuffix
-        if changedStart < changedEnd {
-            let changedStr = String(newChars[changedStart..<changedEnd])
-            result.append(CharDiff(text: changedStr, isChanged: true))
-        }
-
-        // Add common suffix
-        if commonSuffix > 0 {
-            let suffixStart = newChars.count - commonSuffix
-            let suffixStr = String(newChars[suffixStart..<newChars.count])
-            result.append(CharDiff(text: suffixStr, isChanged: false))
-        }
-
-        return result
-    }
-
-    private func updateDiffCache() {
-        cachedDiffLines = computeDiffLines()
-        lastOldText = oldText
-        lastNewText = newText
-    }
+    // MARK: Body
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: Ember.Space.sm) {
-                Image(systemName: "square.split.2x1")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Ember.Palette.amber)
-                Text("Compare")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                Spacer()
-
-                HStack(spacing: Ember.Space.md) {
-                    diffLegend(color: Ember.Palette.rust, label: "Removed")
-                    diffLegend(color: Ember.Palette.moss, label: "Added")
-                }
-            }
-            .padding(.horizontal, Ember.Space.lg)
-            .padding(.vertical, Ember.Space.md)
-
+            header
             Divider().opacity(0.3)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(diffLines) { line in
-                        unifiedDiffLineView(for: line)
-                    }
+            if let result {
+                if result.stats.isIdentical {
+                    identicalState
+                } else {
+                    diffBody(result)
                 }
+            } else {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
             Divider().opacity(0.3)
-
             bottomToolbar
                 .padding(.horizontal, Ember.Space.lg)
                 .padding(.vertical, Ember.Space.md)
         }
         .background(Ember.surface(colorScheme))
         .preferredColorScheme(preferredColorScheme)
-        .frame(minWidth: 800, idealWidth: 1000, minHeight: 500, idealHeight: 700)
-        .keyboardShortcut(.escape, modifiers: [])
-        .onAppear {
-            updateDiffCache()
+        .frame(minWidth: 820, idealWidth: 1040, minHeight: 520, idealHeight: 700)
+        .task {
+            // Off the render path: the old version recomputed an O(n·m)
+            // diff on every body evaluation.
+            result = DiffEngine.diff(old: oldText, new: newText)
         }
-        .onChange(of: oldText) { _ in
-            updateDiffCache()
-        }
-        .onChange(of: newText) { _ in
-            updateDiffCache()
-        }
+        .background(EscapeKeyCatcher(action: onClose))
     }
 
-    @ViewBuilder
-    private func unifiedDiffLineView(for line: SplitDiffLine) -> some View {
-        switch line.type {
-        case .unchanged:
-            // Show unchanged line once
-            if let content = line.leftContent {
-                unifiedLineContent(
-                    prefix: " ",
-                    content: content,
-                    lineNumber: line.leftLineNumber,
-                    backgroundColor: .clear
-                )
-            }
+    // MARK: Header
 
-        case .removed:
-            // Show removed line with "-" prefix
-            if let content = line.leftContent {
-                unifiedLineContent(
-                    prefix: "-",
-                    content: content,
-                    lineNumber: line.leftLineNumber,
-                    backgroundColor: diffBackgroundColor(for: .removed)
-                )
-            }
+    private var header: some View {
+        HStack(spacing: Ember.Space.md) {
+            Image(systemName: "square.split.2x1")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Ember.Palette.amber)
+            Text("Compare")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundColor(Ember.primaryText(colorScheme))
 
-        case .added:
-            // Show added line with "+" prefix
-            if let content = line.rightContent {
-                unifiedLineContent(
-                    prefix: "+",
-                    content: content,
-                    lineNumber: line.rightLineNumber,
-                    backgroundColor: diffBackgroundColor(for: .added)
-                )
-            }
-
-        case .modified:
-            // Show both old and new versions
-            if let oldContent = line.leftContent {
-                unifiedLineContent(
-                    prefix: "-",
-                    content: oldContent,
-                    lineNumber: line.leftLineNumber,
-                    backgroundColor: diffBackgroundColor(for: .removed)
-                )
-            }
-            if let newContent = line.rightContent, let charDiffs = line.charDiffs {
-                unifiedModifiedLineContent(
-                    prefix: "+",
-                    charDiffs: charDiffs,
-                    lineNumber: line.rightLineNumber,
-                    backgroundColor: diffBackgroundColor(for: .added)
-                )
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func unifiedLineContent(prefix: String, content: String, lineNumber: Int?, backgroundColor: Color) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            // Prefix (-, +, or space)
-            Text(prefix)
-                .font(.system(.body, design: .monospaced))
-                .foregroundColor(prefix == "-" ? .red : (prefix == "+" ? .green : .secondary))
-                .frame(width: 20, alignment: .center)
-
-            // Line number
-            Text(lineNumber.map { String($0) } ?? "")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.secondary)
-                .frame(width: 40, alignment: .trailing)
-
-            // Content
-            Text(content)
-                .font(.system(.body, design: .monospaced))
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 4)
-        .background(backgroundColor)
-    }
-
-    @ViewBuilder
-    private func unifiedModifiedLineContent(prefix: String, charDiffs: [CharDiff], lineNumber: Int?, backgroundColor: Color) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            // Prefix
-            Text(prefix)
-                .font(.system(.body, design: .monospaced))
-                .foregroundColor(.green)
-                .frame(width: 20, alignment: .center)
-
-            // Line number
-            Text(lineNumber.map { String($0) } ?? "")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.secondary)
-                .frame(width: 40, alignment: .trailing)
-
-            // Content with character-level highlighting
-            HStack(spacing: 0) {
-                ForEach(Array(charDiffs.enumerated()), id: \.offset) { _, charDiff in
-                    Text(charDiff.text)
-                        .background(charDiff.isChanged ? Color.green.opacity(0.3) : Color.clear)
+            if let stats = result?.stats, !stats.isIdentical {
+                HStack(spacing: 6) {
+                    if stats.added > 0 { statPill("+\(stats.added)", Ember.Palette.moss) }
+                    if stats.removed > 0 { statPill("−\(stats.removed)", Ember.Palette.rust) }
+                    if stats.modified > 0 { statPill("~\(stats.modified)", Ember.Palette.amber) }
                 }
             }
-            .font(.system(.body, design: .monospaced))
-            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 0)
+            if result?.truncated == true {
+                Label("Large input — approximate", systemImage: "exclamationmark.triangle.fill")
+                    .font(Ember.Font.caption)
+                    .foregroundColor(.orange)
+            }
+
+            Spacer()
+
+            Picker("", selection: $layout) {
+                Image(systemName: "rectangle.split.2x1").tag(Layout.split)
+                Image(systemName: "list.bullet").tag(Layout.unified)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 90)
+        }
+        .padding(.horizontal, Ember.Space.lg)
+        .padding(.vertical, Ember.Space.md)
+    }
+
+    private func statPill(_ text: String, _ color: Color) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .foregroundColor(color)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(color.opacity(0.15)))
+    }
+
+    // MARK: States
+
+    private var identicalState: some View {
+        VStack(spacing: Ember.Space.sm) {
+            Spacer()
+            Image(systemName: "equal.circle.fill")
+                .font(.system(size: 34))
+                .foregroundColor(Ember.Palette.moss)
+            Text("These two are identical")
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundColor(Ember.primaryText(colorScheme))
+            Text("No differences to show.")
+                .font(Ember.Font.caption)
+                .foregroundColor(Ember.secondaryText(colorScheme))
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func diffBody(_ result: DiffEngine.Result) -> some View {
+        VStack(spacing: 0) {
+            if layout == .split { columnHeaders }
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(result.lines) { line in
+                        if layout == .split {
+                            splitRow(line)
+                        } else {
+                            unifiedRow(line)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var columnHeaders: some View {
+        HStack(spacing: 0) {
+            columnHeader(oldLabel, Ember.Palette.rust)
+            Rectangle().fill(Color.primary.opacity(0.12)).frame(width: 1)
+            columnHeader(newLabel, Ember.Palette.moss)
+        }
+        .background(Ember.Palette.smoke.opacity(colorScheme == .dark ? 0.10 : 0.05))
+        .overlay(alignment: .bottom) { Divider().opacity(0.3) }
+    }
+
+    private func columnHeader(_ text: String, _ accent: Color) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(accent).frame(width: 6, height: 6)
+            Text(text)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(Ember.secondaryText(colorScheme))
+                .textCase(.uppercase)
+                .lineLimit(1)
+            Spacer()
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 4)
-        .background(backgroundColor)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity)
     }
 
-    private func diffBackgroundColor(for type: SplitDiffLine.ChangeType) -> Color {
-        let isDark = (preferredColorScheme ?? colorScheme) == .dark
+    // MARK: Rows — split
 
-        switch type {
-        case .added:
-            return isDark ? Ember.Palette.moss.opacity(0.18) : Ember.Palette.moss.opacity(0.12)
-        case .removed:
-            return isDark ? Ember.Palette.rust.opacity(0.18) : Ember.Palette.rust.opacity(0.12)
-        case .modified:
-            return isDark ? Ember.Palette.amber.opacity(0.15) : Ember.Palette.amber.opacity(0.1)
-        case .unchanged:
-            return Color.clear
+    private func splitRow(_ line: DiffEngine.Line) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            cell(number: line.leftLineNumber,
+                 text: line.leftContent,
+                 segments: line.leftSegments,
+                 background: background(for: line.type, side: .left),
+                 changeTint: Ember.Palette.rust)
+
+            Rectangle().fill(Color.primary.opacity(0.12)).frame(width: 1)
+
+            cell(number: line.rightLineNumber,
+                 text: line.rightContent,
+                 segments: line.rightSegments,
+                 background: background(for: line.type, side: .right),
+                 changeTint: Ember.Palette.moss)
         }
     }
+
+    /// One side of a split row. A nil `text` means the line doesn't exist
+    /// on this side — rendered as an inert filler so the two columns stay
+    /// aligned row-for-row.
+    private func cell(number: Int?, text: String?, segments: [DiffEngine.Segment]?,
+                      background: Color, changeTint: Color) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(number.map(String.init) ?? "")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(Ember.tertiaryText(colorScheme))
+                .frame(width: 34, alignment: .trailing)
+
+            Group {
+                if let segments {
+                    segmentedText(segments, tint: changeTint)
+                } else if let text {
+                    Text(text.isEmpty ? " " : text)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(Ember.primaryText(colorScheme))
+                        .textSelection(.enabled)
+                } else {
+                    Text(" ").font(.system(size: 12, design: .monospaced))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 3)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(background)
+    }
+
+    // MARK: Rows — unified
+
+    @ViewBuilder
+    private func unifiedRow(_ line: DiffEngine.Line) -> some View {
+        switch line.type {
+        case .unchanged:
+            unifiedLine(" ", line.leftContent, line.leftLineNumber, nil, .clear, Ember.tertiaryText(colorScheme))
+        case .removed:
+            unifiedLine("−", line.leftContent, line.leftLineNumber, nil,
+                        background(for: .removed, side: .left), Ember.Palette.rust)
+        case .added:
+            unifiedLine("+", line.rightContent, line.rightLineNumber, nil,
+                        background(for: .added, side: .right), Ember.Palette.moss)
+        case .modified:
+            unifiedLine("−", line.leftContent, line.leftLineNumber, line.leftSegments,
+                        background(for: .removed, side: .left), Ember.Palette.rust)
+            unifiedLine("+", line.rightContent, line.rightLineNumber, line.rightSegments,
+                        background(for: .added, side: .right), Ember.Palette.moss)
+        }
+    }
+
+    private func unifiedLine(_ prefix: String, _ text: String?, _ number: Int?,
+                             _ segments: [DiffEngine.Segment]?,
+                             _ background: Color, _ accent: Color) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(prefix)
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .foregroundColor(accent)
+                .frame(width: 14)
+
+            Text(number.map(String.init) ?? "")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(Ember.tertiaryText(colorScheme))
+                .frame(width: 34, alignment: .trailing)
+
+            Group {
+                if let segments {
+                    segmentedText(segments, tint: accent)
+                } else {
+                    Text((text?.isEmpty ?? true) ? " " : text!)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(Ember.primaryText(colorScheme))
+                        .textSelection(.enabled)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 3)
+        .background(background)
+    }
+
+    /// Character-level highlighting. Concatenating Text keeps it one
+    /// wrapping paragraph instead of an HStack that can't wrap.
+    private func segmentedText(_ segments: [DiffEngine.Segment], tint: Color) -> Text {
+        segments.reduce(Text("")) { acc, segment in
+            acc + Text(segment.text)
+                .foregroundColor(Ember.primaryText(colorScheme))
+                .font(.system(size: 12, weight: segment.isChanged ? .semibold : .regular, design: .monospaced))
+        }
+    }
+
+    // MARK: Colors
+
+    private func background(for type: DiffEngine.ChangeType, side: Side) -> Color {
+        let isDark = (preferredColorScheme ?? colorScheme) == .dark
+        let strong = isDark ? 0.18 : 0.12
+
+        switch type {
+        case .unchanged:
+            return .clear
+        case .added:
+            return side == .right ? Ember.Palette.moss.opacity(strong) : .clear
+        case .removed:
+            return side == .left ? Ember.Palette.rust.opacity(strong) : .clear
+        case .modified:
+            return side == .left
+                ? Ember.Palette.rust.opacity(strong)
+                : Ember.Palette.moss.opacity(strong)
+        }
+    }
+
+    // MARK: Toolbar
 
     private var bottomToolbar: some View {
         HStack(spacing: Ember.Space.sm) {
-            Button("Close") { dismiss() }
+            Button("Close") { onClose() }
                 .buttonStyle(SecondaryActionButtonStyle())
 
             Spacer()
 
-            Button {
-                copyToClipboard(oldText)
-                withAnimation { copiedSide = .left }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    withAnimation { copiedSide = nil }
-                }
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: copiedSide == .left ? "checkmark" : "doc.on.doc")
-                    Text("Copy Old")
-                }
-            }
-            .buttonStyle(SecondaryActionButtonStyle(success: copiedSide == .left))
-
-            Button {
-                copyToClipboard(newText)
-                withAnimation { copiedSide = .right }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    withAnimation { copiedSide = nil }
-                }
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: copiedSide == .right ? "checkmark" : "doc.on.doc")
-                    Text("Copy New")
-                }
-            }
-            .buttonStyle(SecondaryActionButtonStyle(success: copiedSide == .right))
+            copyButton(label: "Copy \(oldLabel)", text: oldText, side: .left)
+            copyButton(label: "Copy \(newLabel)", text: newText, side: .right)
 
             Spacer()
 
@@ -403,21 +340,33 @@ struct DiffView: View {
         }
     }
 
-    private func diffLegend(color: Color, label: String) -> some View {
-        HStack(spacing: 5) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(color.opacity(0.7))
-                .frame(width: 8, height: 8)
-            Text(label)
-                .font(Ember.Font.caption)
-                .foregroundColor(.secondary)
+    private func copyButton(label: String, text: String, side: Side) -> some View {
+        Button {
+            copyToClipboard(text)
+            withAnimation { copiedSide = side }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                withAnimation { if copiedSide == side { copiedSide = nil } }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: copiedSide == side ? "checkmark" : "doc.on.doc")
+                Text(label).lineLimit(1)
+            }
         }
+        .buttonStyle(SecondaryActionButtonStyle(success: copiedSide == side))
     }
 
+    // MARK: Actions
+
     private func saveAndClose() {
-        let newItem = ClipboardItem(contentType: .text(newText), date: Date(), isCode: monitor.isLikelyCode(newText), sourceAppName: L("Clippy Diff", settings: settings))
+        let newItem = ClipboardItem(
+            contentType: .text(newText),
+            date: Date(),
+            isCode: monitor.isLikelyCode(newText),
+            sourceAppName: L("Clippy Diff", settings: settings)
+        )
         monitor.addNewItem(newItem)
-        dismiss()
+        onClose()
     }
 
     private func copyToClipboard(_ text: String) {
@@ -429,14 +378,35 @@ struct DiffView: View {
 
     private var preferredColorScheme: ColorScheme? {
         switch settings.appTheme {
-        case "light":
-            return .light
-        case "dark":
-            return .dark
-        default:
-            return nil
+        case "light": return .light
+        case "dark":  return .dark
+        default:      return nil
         }
     }
+}
 
-    enum Side { case left, right }
+/// Invisible NSView that closes the window on Esc.
+///
+/// `.keyboardShortcut(.escape)` only binds to buttons/controls — the old
+/// code attached it to a VStack, where it did nothing. A tiny AppKit
+/// responder is the reliable way to get Esc in an NSWindow-hosted view.
+private struct EscapeKeyCatcher: NSViewRepresentable {
+    let action: () -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = CatcherView()
+        view.action = action
+        DispatchQueue.main.async { view.window?.makeFirstResponder(view) }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        (nsView as? CatcherView)?.action = action
+    }
+
+    final class CatcherView: NSView {
+        var action: () -> Void = {}
+        override var acceptsFirstResponder: Bool { true }
+        override func cancelOperation(_ sender: Any?) { action() }
+    }
 }

@@ -4,15 +4,17 @@ import CoreData
 import UniformTypeIdentifiers
 
 // MARK: - ClippyCard
-// Drop-in replacement for ClipboardRowView: same full functionality,
-// restyled in the Ember design language with hover-revealed actions.
+// The row renderer for the clipboard list, in the Ember design language
+// with hover-revealed actions. Built by ClipboardListView.
 
 struct ClippyCard: View {
     @ObservedObject var item: ClipboardItemEntity
     let items: FetchedResults<ClipboardItemEntity>
-    @Binding var comparisonData: ComparisonData?
     @ObservedObject var monitor: ClipboardMonitor
     let selectedTab: ContentView.Tab
+    /// True when this card is the keyboard cursor (↑↓ navigation). This is
+    /// distinct from `isSelected`, which is the ⌘-click multi-selection.
+    var isKeyboardFocused: Bool = false
 
     @EnvironmentObject var settings: SettingsManager
     @Environment(\.colorScheme) var scheme
@@ -65,12 +67,20 @@ struct ClippyCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .emberCard(scheme, highlighted: isSelected)
+        // Keyboard cursor ring. Sits above the card's own border so it
+        // reads clearly whether or not the card is also multi-selected.
+        .overlay(
+            RoundedRectangle(cornerRadius: Ember.Radius.lg, style: .continuous)
+                .strokeBorder(Ember.Palette.amber, lineWidth: 2)
+                .opacity(isKeyboardFocused ? 1 : 0)
+        )
         .overlay(selectionBadge, alignment: .topLeading)
         .overlay(sequentialQueueBadge, alignment: .topTrailing)
         .overlay(pasteFlashOverlay)
         // No scaleEffect on hover — it forces the whole card into a Metal layer
         // re-composite on every hover, which is the main cause of jumpy hover.
         .animation(Ember.Motion.snap, value: isSelected)
+        .animation(Ember.Motion.snap, value: isKeyboardFocused)
         .animation(Ember.Motion.snap, value: item.isPinned)
         .onHover { hovering in
             // Snap hover state without animation — animating background colors on
@@ -376,9 +386,28 @@ struct ClippyCard: View {
 
     // MARK: Content body
 
+    /// User-set title wins; AI-generated autoTitle fills in when the
+    /// user hasn't named the item. Hidden for encrypted items — the
+    /// autoTitle was derived from the content, so showing it would
+    /// leak what a locked card contains.
+    private var displayCardTitle: String? {
+        guard !item.isEncrypted else { return nil }
+        if let t = item.title, !t.isEmpty { return t }
+        if let t = item.autoTitle, !t.isEmpty { return t }
+        return nil
+    }
+
     @ViewBuilder
     private var contentBody: some View {
         VStack(alignment: .leading, spacing: Ember.Space.sm) {
+            if let cardTitle = displayCardTitle {
+                Text(cardTitle)
+                    .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                    .foregroundColor(Ember.primaryText(scheme))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+
             if item.isEncrypted {
                 encryptedView
             } else if item.contentType == "image" {
@@ -532,7 +561,11 @@ struct ClippyCard: View {
 
     @ViewBuilder
     private var imageContent: some View {
-        if let path = item.content, let image = monitor.loadImage(from: path) {
+        // Thumbnail, not the full image: this row is at most 160pt tall, so
+        // decoding a full-resolution screenshot here would spend tens of MB
+        // to draw something small — on every visible card.
+        if let path = item.content, let image = monitor.loadThumbnail(from: path) {
+            let pixelSize = monitor.imagePixelSize(from: path)
             VStack(alignment: .leading, spacing: Ember.Space.sm) {
                 Image(nsImage: image)
                     .resizable()
@@ -546,7 +579,9 @@ struct ClippyCard: View {
                     }
 
                 HStack(spacing: Ember.Space.xs) {
-                    Text("\(Int(image.size.width)) × \(Int(image.size.height))")
+                    // Real pixel dimensions from the file header, so the
+                    // label doesn't report the thumbnail's size.
+                    Text("\(Int(pixelSize?.width ?? image.size.width)) × \(Int(pixelSize?.height ?? image.size.height))")
                     Text("·")
                     Text("PNG")
                     if let lang = item.detectedLanguage,
@@ -614,8 +649,9 @@ struct ClippyCard: View {
         // Cap input — the first 2K reliably catches a card / IBAN /
         // phone / URL near the top and keeps the pass fast.
         let capped = text.count > 2000 ? String(text.prefix(2000)) : text
+        let treatAsCode = item.isCode
         let result = await Task.detached(priority: .utility) {
-            OCRLinkDetector.detect(in: capped)
+            OCRLinkDetector.detect(in: capped, isCode: treatAsCode)
         }.value
         detectedLinks = result
     }
@@ -913,6 +949,29 @@ struct ClippyCard: View {
             Label("Share…", systemImage: "square.and.arrow.up")
         }
 
+        // Send to Phone. QR is only genuinely good for URLs (the
+        // phone opens them directly). For plain text a raw-text QR is
+        // clunky on iOS and a local server would need HTTPS to offer a
+        // real "copy" button — so instead we point users at the
+        // native paths (AirDrop / Universal Clipboard) that already
+        // do this cleanly.
+        // Plain text has no entry here on purpose: a raw-text QR is clunky
+        // on iOS, and the native path (Share → AirDrop, above) already does
+        // it well. An inert "hint" row was here before; a menu item you
+        // can't click is noise, so it's gone.
+        if item.contentType == "text",
+           let content = item.content,
+           let url = phoneQRURL(from: content) {
+            Button {
+                QRSharePanelController.shared.show(
+                    text: url.absoluteString,
+                    near: monitor.appDelegate?.statusBarController?.popover.contentViewController?.view.window
+                )
+            } label: {
+                Label("Send link to Phone (QR)", systemImage: "qrcode")
+            }
+        }
+
         // Web search (P3.31). Text items only — running a search on
         // a screenshot's filename is meaningless and OCR'd text has
         // less consistent value for direct web search.
@@ -988,16 +1047,22 @@ struct ClippyCard: View {
             Divider()
         }
 
-        // Compare
-        if let compareItems = getItemsToCompare() {
+        // Compare. Only offered when it can actually run — the "select 2
+        // items" hint that used to sit here was a bare Label, which renders
+        // as an inert row in a menu. The selection bar now carries that
+        // affordance instead, where the selection is already visible.
+        if let compareItems = monitor.comparablePair() {
             Button {
-                monitor.appDelegate?.showDiffWindow(oldText: compareItems.0.content ?? "", newText: compareItems.1.content ?? "")
+                monitor.appDelegate?.showDiffWindow(
+                    oldText: compareItems.0.content ?? "",
+                    newText: compareItems.1.content ?? "",
+                    oldLabel: ClipboardMonitor.diffLabel(for: compareItems.0),
+                    newLabel: ClipboardMonitor.diffLabel(for: compareItems.1)
+                )
                 monitor.clearSelection()
             } label: {
                 Label("Compare…", systemImage: "square.split.2x1")
             }
-        } else if monitor.selectedItemIDs.count > 0 {
-            Label("Compare (select 2 text items)", systemImage: "square.split.2x1").disabled(true)
         }
 
         Divider()
@@ -1149,15 +1214,59 @@ struct ClippyCard: View {
             return url
         }
 
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+        if let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) {
+            let range = NSRange(trimmed.startIndex..., in: trimmed)
+            if let match = detector.firstMatch(in: trimmed, options: [], range: range),
+               match.range == range,           // entire string is the URL
+               let url = match.url,
+               url.scheme != "mailto" {        // email handled separately
+                return url
+            }
+        }
+
+        // NSDataDetector's built-in TLD list lags newer gTLDs, so it
+        // misses bare domains like `vercel.dev` or `clippy.app`. Catch
+        // those with a curated fallback: the whole string must look
+        // like `host.tld[/path]` (single token, no spaces) AND end in
+        // a TLD we recognize as a website. Requiring an allowlisted
+        // TLD is what keeps `readme.md`, `photo.png`, and `v1.2.3` from
+        // being mistaken for URLs.
+        return curatedBareDomainURL(trimmed)
+    }
+
+    private static let websiteTLDs: Set<String> = [
+        "dev", "app", "io", "sh", "xyz", "co", "me", "ai", "gg",
+        "tv", "ly", "so", "to", "cc", "id", "page", "site", "tech",
+        "dev", "build", "run", "fyi", "wtf"
+    ]
+
+    private func curatedBareDomainURL(_ s: String) -> URL? {
+        guard !s.contains(" ") else { return nil }
+        // host = everything before the first slash.
+        let host = s.split(separator: "/", maxSplits: 1).first.map(String.init) ?? s
+        let labels = host.split(separator: ".")
+        guard labels.count >= 2,
+              let tld = labels.last?.lowercased(),
+              Self.websiteTLDs.contains(tld) else { return nil }
+        // Each label must be a plausible DNS label (letters/digits/-).
+        for label in labels {
+            guard label.range(of: "^[A-Za-z0-9-]+$", options: .regularExpression) != nil else {
+                return nil
+            }
+        }
+        return URL(string: "https://\(s)")
+    }
+
+    /// Returns a QR-encodable URL when the item's content is (or is a
+    /// bare domain like `github.com` that resolves to) a link. Reuses
+    /// `quickURL`, which already normalizes naked domains and caps
+    /// length — well under the QR payload limit. Non-URL text returns
+    /// nil so the "Send link to Phone" action stays hidden.
+    private func phoneQRURL(from text: String) -> URL? {
+        guard let url = quickURL(from: text),
+              url.absoluteString.count <= QRCodeGenerator.maxPayloadLength else {
             return nil
         }
-        let range = NSRange(trimmed.startIndex..., in: trimmed)
-        guard let match = detector.firstMatch(in: trimmed, options: [], range: range),
-              match.range == range,           // entire string is the URL
-              let url = match.url,
-              url.scheme != "mailto"          // email handled separately
-        else { return nil }
         return url
     }
 
@@ -1290,19 +1399,4 @@ struct ClippyCard: View {
         }
     }
 
-    private func getItemsToCompare() -> (ClipboardItemEntity, ClipboardItemEntity)? {
-        guard monitor.selectedItemIDs.count == 2 else { return nil }
-
-        let selectedItems = monitor.selectedItemIDs.compactMap { id in
-            items.first { $0.id == id && $0.contentType == "text" }
-        }
-
-        guard selectedItems.count == 2 else { return nil }
-
-        if (selectedItems[0].date ?? .distantPast) < (selectedItems[1].date ?? .distantPast) {
-            return (selectedItems[0], selectedItems[1])
-        } else {
-            return (selectedItems[1], selectedItems[0])
-        }
-    }
 }
