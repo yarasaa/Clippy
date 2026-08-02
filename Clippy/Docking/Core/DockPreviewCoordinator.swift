@@ -150,6 +150,15 @@ final class DockPreviewCoordinator {
     /// moment the cursor left the icon.
     @MainActor
     private func handleDockExit() {
+        // `cancel()` first — dropping the reference does NOT stop the task.
+        //
+        // Without this, leaving the dock left an in-flight hover running:
+        // it finished capturing windows and called `show()` a moment later,
+        // so a preview popped up for an icon the cursor had already left,
+        // with the dismiss watchers already torn down. That is the panel
+        // users see appear and vanish on its own. Every other site here
+        // already cancels; this one only nil'd the field.
+        currentHoverTask?.cancel()
         currentHoverTask = nil
 
         if panelController.isVisible, currentSafeZone().contains(NSEvent.mouseLocation) {
@@ -296,6 +305,26 @@ final class DockPreviewCoordinator {
             return
         }
 
+        // Re-confirm the cursor before putting anything on screen.
+        //
+        // The hit-region check above runs BEFORE window capture, and capture
+        // plus downsampling takes long enough for the cursor to be somewhere
+        // else entirely by the time we get here. The only guard in between
+        // was `Task.isCancelled`, which depends on the Dock emitting a
+        // deselect — and per the note at the top of this method, it does not
+        // reliably do that when the cursor leaves the dock area outright.
+        //
+        // So merely sweeping the cursor across the dock on the way somewhere
+        // else was enough: the check passed in passing, capture ran, and a
+        // preview appeared a moment later for an icon nobody was pointing at,
+        // then vanished when the watchdog's grace period expired.
+        //
+        // Still-on-panel counts as valid: moving from an icon onto the open
+        // preview, or along the dock while it's up, must keep working.
+        let onIcon = hitRegion.contains(Self.mouseInAXCoords())
+        let onPanel = panelController.isVisible
+            && panelController.frame.insetBy(dx: -6, dy: -6).contains(NSEvent.mouseLocation)
+        guard onIcon || onPanel else { return }
 
         if !previewItems.isEmpty {
             let positionPoint = dockItem.frame == .zero ? NSEvent.mouseLocation : CGPoint(x: dockItem.frame.midX, y: dockItem.frame.midY)
@@ -351,6 +380,14 @@ final class DockPreviewCoordinator {
                 }
                 return results.sorted { $0.id < $1.id }
             }
+
+            // This is a REFRESH of a panel that is on screen, so it must not
+            // put one back on screen. Closing a window and then moving away
+            // let the panel hide, and this task — untracked, so nothing can
+            // cancel it — finished afterwards and re-presented it with
+            // `forceUpdate: true`, which skips the "same app already showing"
+            // early-out. Another preview appearing on its own.
+            guard self.panelController.isVisible else { return }
 
             if !previewItems.isEmpty {
                 let positionPoint = lastHoveredItem.frame == .zero ? NSEvent.mouseLocation : CGPoint(x: lastHoveredItem.frame.midX, y: lastHoveredItem.frame.midY)
@@ -461,64 +498,4 @@ final class DockPreviewCoordinator {
         stopMouseMoveMonitor()
     }
 
-    private func refreshPreview(for dockItem: DockItem) async {
-        // Note: With live preview, this manual refresh is rarely needed
-        // as ScreenCaptureKit streams updates automatically
-        await performRefresh(for: dockItem)
-    }
-
-    private func performRefresh(for dockItem: DockItem) async {
-        guard let app = NSRunningApplication(processIdentifier: dockItem.pid) else {
-            return
-        }
-
-        WindowCacheManager.shared.invalidateCache(for: dockItem.pid)
-
-        let capturedWindows = await windowCaptureService.captureWindows(for: dockItem.pid)
-
-        guard !capturedWindows.isEmpty else {
-            return
-        }
-
-        // Cache the new windows
-        WindowCacheManager.shared.cacheWindows(capturedWindows, for: dockItem.pid)
-
-        // Process images with dynamic downsample
-        let downsampleDimension = self.getOptimalDownsampleSize()
-
-        let previewItems: [PreviewItem] = await withTaskGroup(of: PreviewItem?.self, returning: [PreviewItem].self) { group in
-            for window in capturedWindows {
-                group.addTask {
-                    guard let downsampledCGImage = await self.imageProcessingService.downsample(image: window.image, maxDimension: downsampleDimension) else {
-                        return nil
-                    }
-                    let nsImage = NSImage(cgImage: downsampledCGImage, size: .zero)
-                    return PreviewItem(id: window.windowID, image: nsImage, title: window.title)
-                }
-            }
-
-            var results: [PreviewItem] = []
-            for await item in group {
-                if let item = item {
-                    results.append(item)
-                }
-            }
-            return results.sorted { $0.id < $1.id }
-        }
-
-        guard !previewItems.isEmpty else {
-            return
-        }
-
-        // Update the panel
-        let positionPoint = dockItem.frame == .zero ? NSEvent.mouseLocation : CGPoint(x: dockItem.frame.midX, y: dockItem.frame.midY)
-
-        panelController.show(
-            appName: app.localizedName ?? "Bilinmeyen Uygulama",
-            appIcon: app.icon,
-            items: previewItems,
-            at: positionPoint,
-            dockIconFrame: dockItem.frame
-        )
-    }
 }

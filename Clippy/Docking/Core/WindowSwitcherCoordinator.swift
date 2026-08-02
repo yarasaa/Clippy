@@ -58,6 +58,13 @@ final class WindowSwitcherCoordinator {
                     state = .hidden
                     return
                 }
+                // Re-check the state we were started in. Preparing the items
+                // is async, and releasing the modifier meanwhile flips the
+                // state to `.hidden` — but this task kept going and put the
+                // switcher on screen anyway, after the user had let go, then
+                // marked it `.visible` with nothing left to dismiss it.
+                guard state == .preparing else { return }
+
                 self.items = items
                 selectionIndex = 0
                 panelController.selectedItemID = items.first?.id

@@ -65,6 +65,36 @@ final class CmdTabMonitor {
     }
 
     private func pollSelection() {
+        // The Command key must actually be held.
+        //
+        // Polling starts whenever `com.apple.dock` becomes the active
+        // application, and that is far broader than "the user is ⌘-Tabbing":
+        // Mission Control, Launchpad, switching Spaces and plain clicks on
+        // the Dock all activate the same process. Every focus change during
+        // those was being treated as an app-switch intent, and since the
+        // DockItem below carries the whole screen as its frame, none of the
+        // cursor checks downstream could reject it — a preview appeared for
+        // an app nobody was pointing at, then vanished as soon as focus
+        // settled and `stopPolling()` yielded nil.
+        //
+        // A real ⌘-Tab holds Command for the whole interaction; none of the
+        // others do. That single bit separates them.
+        //
+        // Releasing Command also *ends* the interaction, so emit the dismiss
+        // from here rather than relying on `stopPolling()` — that only fires
+        // when some other application activates, which may be much later or
+        // never. Downstream this is the only signal that can take the panel
+        // down on the ⌘-Tab path: the DockItem below carries the whole screen
+        // as its frame, so the cursor-based safe zone can never fall outside
+        // it and the dismiss watchdog will not act on its own.
+        guard NSEvent.modifierFlags.contains(.command) else {
+            if lastPolledPID != nil {
+                lastPolledPID = nil
+                continuation.yield(nil)
+            }
+            return
+        }
+
         var focusedElement: CFTypeRef?
         guard AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focusedElement) == .success,
               let element = focusedElement as! AXUIElement? else { return }
