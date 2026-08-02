@@ -202,6 +202,20 @@ final class DockPreviewCoordinator {
         return CGPoint(x: ns.x, y: primary.frame.maxY - ns.y)
     }
 
+    /// Screen Recording is asked for at most once per launch.
+    ///
+    /// Hover fires constantly, and after macOS has shown its dialog once
+    /// `PermissionManager.request` falls back to opening System Settings —
+    /// which, unthrottled, would mean a settings window every time the
+    /// cursor crossed the dock.
+    private var hasRequestedScreenRecordingThisLaunch = false
+
+    private func requestScreenRecordingOnce() {
+        guard !hasRequestedScreenRecordingThisLaunch else { return }
+        hasRequestedScreenRecordingThisLaunch = true
+        PermissionManager.shared.request(.screenRecording)
+    }
+
     private func getOptimalDownsampleSize() -> CGFloat {
         let sizeStyle = SettingsManager.shared.dockPreviewSize
         switch sizeStyle {
@@ -253,6 +267,17 @@ final class DockPreviewCoordinator {
 
         guard let app = NSRunningApplication(processIdentifier: dockItem.pid) else {
             panelController.hide()
+            return
+        }
+
+        // Dock previews are screenshots of other apps' windows, so the whole
+        // feature rests on Screen Recording — and nothing in this path ever
+        // checked for it. Without the permission `CGWindowListCreateImage`
+        // hands back desktop wallpaper instead of the window and titles come
+        // through empty, so capture yields nothing and the preview simply
+        // never opens, with no prompt and no explanation.
+        guard PermissionManager.shared.isGranted(.screenRecording) else {
+            requestScreenRecordingOnce()
             return
         }
 

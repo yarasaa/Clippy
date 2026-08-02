@@ -141,13 +141,20 @@ final class PermissionManager: ObservableObject {
     func request(_ permission: ClippyPermission) {
         guard !isGranted(permission) else { return }
 
-        if hasPrompted(permission) || permission == .automation {
-            openSystemSettings(for: permission)
-            startWatching(permission)
-            return
-        }
-
-        markPrompted(permission)
+        // Make the platform call EVERY time, not only the first.
+        //
+        // `AXIsProcessTrustedWithOptions(prompt:)` does more than show a
+        // dialog: it registers the app in the Accessibility list, so all the
+        // user has to do is flip its switch. Gating it behind `hasPrompted`
+        // sent anyone who had been asked before to a System Settings pane
+        // where Clippy wasn't listed at all, leaving them to add it by hand
+        // with the + button.
+        //
+        // The flag lives in UserDefaults, which is keyed by bundle id, while
+        // TCC tracks the actual binary. A rebuilt or reinstalled copy
+        // therefore inherits "already prompted" while being unknown to the
+        // system — and could never register itself again. Both calls below
+        // are idempotent, so making them unconditionally costs nothing.
         switch permission {
         case .accessibility:
             let options: [String: Bool] = [
@@ -159,8 +166,16 @@ final class PermissionManager: ObservableObject {
                 _ = CGRequestScreenCaptureAccess()
             }
         case .automation:
-            openSystemSettings(for: .automation)
+            break  // No request API exists; System Settings is the only route.
         }
+
+        // macOS shows its own dialog at most once per app, so from the second
+        // attempt onwards the pane is the only thing that actually helps.
+        if hasPrompted(permission) || permission == .automation {
+            openSystemSettings(for: permission)
+        }
+
+        markPrompted(permission)
         startWatching(permission)
     }
 

@@ -46,6 +46,15 @@ final class LivePreviewService: NSObject {
         do {
             availableContent = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         } catch {
+            // An empty `catch` here meant a missing Screen Recording
+            // permission — by far the most common failure — left
+            // `availableContent` nil forever with nothing recorded anywhere:
+            // live preview just never worked and there was no way to find out
+            // why. Clearing it keeps callers honest (they already treat nil
+            // as "no live preview"), and the log line makes the cause
+            // visible in Console instead of vanishing.
+            availableContent = nil
+            NSLog("[Clippy] SCShareableContent failed — Screen Recording permission is the usual cause: \(error.localizedDescription)")
         }
     }
 
@@ -107,12 +116,23 @@ final class LivePreviewService: NSObject {
     func stopLivePreview(for windowID: CGWindowID) async {
         guard let stream = activeStreams[windowID] else { return }
 
-        do {
-            try await stream.stopCapture()
+        // Drop our references whatever `stopCapture` does.
+        //
+        // The three `removeValue` calls used to sit after the throwing call
+        // inside `do`, so a failed stop skipped all of them and left the
+        // stream in `activeStreams` forever — a leaked ScreenCaptureKit
+        // stream per failure, and `startLivePreview` would keep handing back
+        // the dead subject for that window because it looked still active.
+        defer {
             activeStreams.removeValue(forKey: windowID)
             streamOutputs.removeValue(forKey: windowID)
             frameSubjects.removeValue(forKey: windowID)
+        }
+
+        do {
+            try await stream.stopCapture()
         } catch {
+            NSLog("[Clippy] stopCapture failed for window \(windowID): \(error.localizedDescription)")
         }
     }
 

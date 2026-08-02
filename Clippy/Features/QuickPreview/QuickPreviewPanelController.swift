@@ -218,7 +218,19 @@ class QuickPreviewPanelController {
                 targetApp?.activate(options: .activateIgnoringOtherApps)
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    guard AXIsProcessTrusted() else { return }
+                    // Ask, don't just give up. The other three accessibility
+                    // gates in the app route to the permission request; this
+                    // one returned silently.
+                    //
+                    // The item does reach the pasteboard either way — that
+                    // happens before the panel hides — so the failure is
+                    // narrow: the automatic ⌘V is skipped and the user is
+                    // left pressing it themselves, with nothing explaining
+                    // why the paste they asked for didn't land.
+                    guard AXIsProcessTrusted() else {
+                        (NSApp.delegate as? AppDelegate)?.requestAccessibilityPermissions()
+                        return
+                    }
                     let source = CGEventSource(stateID: .hidSystemState)
                     let vKeyCode: CGKeyCode = 9
                     let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: 0x37, keyDown: true)

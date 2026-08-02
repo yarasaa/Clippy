@@ -159,6 +159,7 @@ class KeywordExpansionManager {
                 try viewContext.save()
             }
         } catch {
+            NSLog("[Clippy] Snippet usage stats not updated: \(error.localizedDescription)")
         }
     }
 
@@ -433,6 +434,9 @@ class KeywordExpansionManager {
             self.contextualRulesCache = newRulesCache
             self.categoriesCache = newCategoriesCache
         } catch {
+            // Losing this cache silently disables snippet expansion
+            // outright, with nothing anywhere to say why.
+            NSLog("[Clippy] Snippet keyword cache could not be built: \(error.localizedDescription)")
         }
     }
 

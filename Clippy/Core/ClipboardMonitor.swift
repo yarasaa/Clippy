@@ -178,6 +178,10 @@ class ClipboardMonitor: ObservableObject {
             let item = ClipboardItem(contentType: .image(imagePath: fileName), date: Date(), sourceAppName: sourceAppName, sourceAppBundleIdentifier: sourceAppBundleIdentifier)
             self.addNewItem(item)
         } catch {
+            // A failed write means the copied image never reaches the
+            // history at all — it just disappears. Silently was the worst
+            // way to do that; disk-full and sandbox denials are real.
+            NSLog("[Clippy] Could not store copied image: \(error.localizedDescription)")
         }
     }
 
@@ -203,6 +207,7 @@ class ClipboardMonitor: ObservableObject {
             let newItem = ClipboardItem(contentType: .image(imagePath: fileName), date: Date(), sourceAppName: "Clippy Editor", sourceAppBundleIdentifier: "com.yarasa.Clippy.Editor")
             addNewItem(newItem)
         } catch {
+            NSLog("[Clippy] Could not store edited image: \(error.localizedDescription)")
         }
     }
 
@@ -540,6 +545,7 @@ class ClipboardMonitor: ObservableObject {
             let result = try viewContext.fetch(fetchRequest)
             return result.first
         } catch {
+            NSLog("[Clippy] Lookup failed for item \(itemID): \(error.localizedDescription)")
         }
         return nil
     }
@@ -720,6 +726,7 @@ class ClipboardMonitor: ObservableObject {
             clearSelection()
             scheduleSave()
         } catch {
+            NSLog("[Clippy] Bulk delete failed: \(error.localizedDescription)")
         }
     }
 
@@ -799,6 +806,7 @@ class ClipboardMonitor: ObservableObject {
                 viewContext.delete(item)
             }
         } catch {
+            NSLog("[Clippy] Cleanup delete failed: \(error.localizedDescription)")
         }
         scheduleSave()
     }
@@ -834,6 +842,7 @@ class ClipboardMonitor: ObservableObject {
                 }
             }
         } catch {
+            NSLog("[Clippy] Duplicate pruning failed: \(error.localizedDescription)")
         }
         scheduleSave()
     }
@@ -1303,7 +1312,12 @@ class ClipboardMonitor: ObservableObject {
             do {
                 try await Task.sleep(for: .seconds(0.5))
                 saveContext()
-            } catch {}
+            } catch {
+                // Intentionally empty: the only thing that throws here is the
+                // sleep, and it throws precisely because the line above
+                // cancelled it to coalesce a burst of saves. Nothing to
+                // report — this is the debounce working.
+            }
         }
     }
 

@@ -2063,7 +2063,25 @@ struct ScreenshotEditorView: View {
             savePanel.begin { response in
                 if response == .OK, let url = savePanel.url {
                     autoreleasepool {
-                        guard let bitmap = finalImage.storageBitmapRep else { return }
+                        // Every failure below used to return silently: the
+                        // panel closed, no file was written, and nothing said
+                        // so. The user had explicitly asked to save and was
+                        // left believing their annotated screenshot existed.
+                        // Losing work quietly is the worst outcome here, so
+                        // each path now says what went wrong.
+                        func reportFailure(_ reason: String) {
+                            let alert = NSAlert()
+                            alert.alertStyle = .warning
+                            alert.messageText = "Couldn't save the image"
+                            alert.informativeText = reason
+                            alert.addButton(withTitle: "OK")
+                            alert.runModal()
+                        }
+
+                        guard let bitmap = finalImage.storageBitmapRep else {
+                            reportFailure("The edited image couldn't be prepared for export.")
+                            return
+                        }
 
                         let imageData: Data?
                         switch self.exportFormat {
@@ -2075,10 +2093,14 @@ struct ScreenshotEditorView: View {
                             imageData = bitmap.representation(using: .tiff, properties: [:])
                         }
 
-                        guard let data = imageData else { return }
+                        guard let data = imageData else {
+                            reportFailure("The image couldn't be encoded as \(self.exportFormat.fileExtension.uppercased()).")
+                            return
+                        }
                         do {
                             try data.write(to: url)
                         } catch {
+                            reportFailure(error.localizedDescription)
                         }
                     }
                 }
