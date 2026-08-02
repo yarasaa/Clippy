@@ -89,7 +89,17 @@ struct PermissionsSettingsPane: View {
                     .buttonStyle(SecondaryActionButtonStyle())
                 } else {
                     Button {
-                        permissions.request(permission)
+                        // Do what the label says. Once macOS has been asked
+                        // it won't show its dialog again, so at that point
+                        // the pane is the only thing that helps — and the
+                        // request path deliberately doesn't open it, so the
+                        // system dialog and a Settings window can't land on
+                        // top of each other.
+                        if status == .denied {
+                            permissions.openSystemSettings(for: permission)
+                        } else {
+                            permissions.request(permission)
+                        }
                     } label: {
                         Text(status == .denied ? "Open Settings" : "Grant")
                             .font(.system(size: 11, weight: .medium))

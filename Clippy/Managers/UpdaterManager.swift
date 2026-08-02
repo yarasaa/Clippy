@@ -159,6 +159,17 @@ final class UpdaterManager: NSObject, ObservableObject {
     /// reason the updater isn't ready yet — so the user sees *something*
     /// on the first click.
     func checkForUpdates() {
+        // Come forward first. Clippy is an LSUIElement agent, so when it
+        // isn't the active app Sparkle's window opens behind whatever the
+        // user is looking at and the check appears to do nothing at all.
+        //
+        // Settings' "Check Now" happened to work only because opening that
+        // window activates the app already, and the notification handler had
+        // its own `activate` call — the status-bar menu item was the one path
+        // with neither, which is exactly where it looked broken. Doing it
+        // here covers every caller instead of patching them one at a time.
+        NSApp.activate(ignoringOtherApps: true)
+
         let updater = controller.updater
 
         if updater.canCheckForUpdates {
@@ -179,6 +190,30 @@ final class UpdaterManager: NSObject, ObservableObject {
         // Refresh the cached check date on next run loop cycle.
         DispatchQueue.main.async {
             self.lastCheckDate = self.controller.updater.lastUpdateCheckDate
+        }
+    }
+
+    /// Silent check shortly after launch.
+    ///
+    /// Sparkle's scheduled check only fires once `SUScheduledCheckInterval`
+    /// (24h) has elapsed since the last one, and nothing else looked for an
+    /// update at startup — so launching Clippy did not check at all, and a
+    /// release could sit unnoticed for a day or more no matter how often the
+    /// user restarted the app.
+    ///
+    /// `checkForUpdatesInBackground()` runs through the same path a scheduled
+    /// check does, which means `userInitiated` is false and the gentle
+    /// reminder above handles it: a quiet notification and the menu-bar dot,
+    /// never a modal sheet over whatever the user is doing.
+    ///
+    /// The delay keeps launch cheap and gives the network a moment to be
+    /// there; "Never" is honoured, since that setting is the user saying they
+    /// don't want background checks at all.
+    func checkForUpdatesAtLaunch() {
+        guard checkFrequency != .off else { return }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            self?.controller.updater.checkForUpdatesInBackground()
         }
     }
 
@@ -285,8 +320,11 @@ extension UpdaterManager: UNUserNotificationCenterDelegate {
     ) {
         if response.notification.request.identifier == updateNotificationID {
             Task { @MainActor in
-                NSApp.activate(ignoringOtherApps: true)
-                self.controller.checkForUpdates(NSApp)
+                // Route through our own method rather than the controller
+                // directly: it activates the app and carries the
+                // not-ready-yet retry, so tapping the notification behaves
+                // like every other way in.
+                self.checkForUpdates()
             }
         }
         completionHandler()

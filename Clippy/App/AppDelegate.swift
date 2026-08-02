@@ -64,6 +64,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         createMenu()
 
+        // Look for a new version on launch. Sparkle's own schedule only
+        // fires 24h after the previous check, so without this a restart
+        // never looked at all.
+        UpdaterManager.shared.checkForUpdatesAtLaunch()
+
         setupHotkey()
 
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(systemDidWake), name: NSWorkspace.didWakeNotification, object: nil)

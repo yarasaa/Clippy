@@ -166,14 +166,18 @@ final class PermissionManager: ObservableObject {
                 _ = CGRequestScreenCaptureAccess()
             }
         case .automation:
-            break  // No request API exists; System Settings is the only route.
-        }
-
-        // macOS shows its own dialog at most once per app, so from the second
-        // attempt onwards the pane is the only thing that actually helps.
-        if hasPrompted(permission) || permission == .automation {
+            // No request API exists for this one, so System Settings is the
+            // only route — and it's the only case where we open it ourselves.
             openSystemSettings(for: permission)
         }
+
+        // Deliberately NOT opening System Settings for the other two.
+        //
+        // macOS's own dialog already carries an "Open System Settings"
+        // button, so doing it here too meant the dialog and the Settings
+        // window arrived on top of each other — two prompts for one action.
+        // Where the system stays silent, the Permissions pane still offers an
+        // explicit way through.
 
         markPrompted(permission)
         startWatching(permission)
