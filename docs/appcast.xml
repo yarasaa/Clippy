@@ -10,15 +10,15 @@
 
 <item>
             <title>Clippy 1.0.17</title>
-            <pubDate>Tue, 08 Sep 2026 06:13:39 +0000</pubDate>
+            <pubDate>Tue, 08 Sep 2026 06:38:07 +0000</pubDate>
             <sparkle:version>1.0.17</sparkle:version>
             <sparkle:shortVersionString>1.0.17</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
             <sparkle:releaseNotesLink>https://github.com/yarasaa/Clippy/releases/tag/v1.0.17</sparkle:releaseNotesLink>
             <enclosure
                 url="https://github.com/yarasaa/Clippy/releases/download/v1.0.17/Clippy-v1.dmg"
-                sparkle:edSignature="SbN3IQ8tLyARe0fEh1up0MGxDAbuJv2RxZiAUQtOpPxDc6G8WBMbsYfMDt7DvhtCCplKuA/2hHo2KQ/WEN8NAw=="
-                length="6378722"
+                sparkle:edSignature="gulF4mBIhe9MvuuPqVED5N2zarGoe0/VVqxMMNH/qKK9Vhz9OG38f+qH7ex3DMAoFrdq5H/kOoNRtqJlVbLjAg=="
+                length="6593592"
                 type="application/x-apple-diskimage" />
         </item>
 
