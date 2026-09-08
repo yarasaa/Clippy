@@ -845,6 +845,33 @@ struct CustomTextEditor: NSViewRepresentable {
             textView.drawsBackground = false
             textView.backgroundColor = .clear
         }
+        // Keep the wrap width in step with the box.
+        //
+        // This was only ever set in `makeNSView`, so the text container held
+        // whatever width the box had the moment editing began. Widening the
+        // box afterwards did nothing to the text inside it: the box grew and
+        // the words stayed broken exactly where they were, with the overflow
+        // scrolled out of sight below the visible frame.
+        let insetW = textView.textContainerInset.width * 2
+        let containerWidth = max(100, maxWidth - insetW)
+        if let container = textView.textContainer,
+           abs(container.containerSize.width - containerWidth) > 0.5 {
+            container.containerSize = NSSize(width: containerWidth,
+                                             height: CGFloat.greatestFiniteMagnitude)
+
+            // Re-measure and report. Nothing else will: the height is
+            // recomputed on `textDidChange`, and resizing a box doesn't
+            // change its text — so without this the box kept the height it
+            // needed at the old width and clipped the re-flowed lines.
+            if let layoutManager = textView.layoutManager {
+                layoutManager.ensureLayout(for: container)
+                let used = layoutManager.usedRect(for: container)
+                let height = max(20, used.height + textView.textContainerInset.height * 2)
+                let report = onHeightChange
+                DispatchQueue.main.async { report?(height) }
+            }
+        }
+
         // Inset stays constant either way — see `contentInset`.
         applyStyle(to: textView)
         applyVerticalAlignment(to: textView)

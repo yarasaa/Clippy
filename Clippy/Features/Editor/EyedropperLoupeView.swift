@@ -11,6 +11,15 @@ class EyedropperLoupeController {
     private var panel: NSPanel?
     private var loupeView: EyedropperLoupeNSView?
     private var cachedBitmap: NSBitmapImageRep?
+    /// The NSImage's size in POINTS, kept separately from the bitmap.
+    ///
+    /// `NSBitmapImageRep(cgImage:)` reports `size` in pixels, so on a Retina
+    /// capture `bitmap.size` equals `pixelsWide` and deriving the scale from
+    /// it yields 1 — while the canvas hands us points. Sampling then lands at
+    /// half the intended offset, drifting further from the cursor the closer
+    /// you get to the bottom-right. The image's own size is the honest
+    /// denominator.
+    private var cachedImageSize: CGSize = .zero
 
     var contrastMode: Bool = false {
         didSet { loupeView?.contrastMode = contrastMode }
@@ -32,6 +41,7 @@ class EyedropperLoupeController {
 
     func show(image: NSImage) {
         cachedBitmap = image.storageBitmapRep
+        cachedImageSize = image.size
 
         if panel == nil {
             let loupeSize = NSSize(width: 160, height: 190)
@@ -46,7 +56,10 @@ class EyedropperLoupeController {
             newPanel.isOpaque = false
             newPanel.backgroundColor = .clear
             newPanel.hasShadow = true
-            newPanel.hidesOnDeactivate = false
+            // Unlike a pin, a loupe is bound to the cursor and to a tool.
+            // Leaving it on screen after you've switched to another app is
+            // just a stuck window with nothing driving it.
+            newPanel.hidesOnDeactivate = true
             newPanel.isReleasedWhenClosed = false
             newPanel.ignoresMouseEvents = true
 
@@ -80,9 +93,16 @@ class EyedropperLoupeController {
         let panelOrigin = NSPoint(x: screenPoint.x + 20, y: screenPoint.y - 10)
         panel.setFrameOrigin(panelOrigin)
 
-        // Convert from image point coords to bitmap pixel coords (Retina 2x etc.)
-        let scaleX = bitmap.size.width > 0 ? CGFloat(bitmap.pixelsWide) / bitmap.size.width : 1
-        let scaleY = bitmap.size.height > 0 ? CGFloat(bitmap.pixelsHigh) / bitmap.size.height : 1
+        // Convert from image point coords to bitmap pixel coords (Retina 2x etc.).
+        //
+        // Measured against `cachedImageSize`, NOT `bitmap.size`: see the
+        // property's note — the bitmap reports its size in pixels, which
+        // silently collapses this scale to 1 and puts the sample nowhere near
+        // the cursor.
+        let refWidth = cachedImageSize.width > 0 ? cachedImageSize.width : bitmap.size.width
+        let refHeight = cachedImageSize.height > 0 ? cachedImageSize.height : bitmap.size.height
+        let scaleX = refWidth > 0 ? CGFloat(bitmap.pixelsWide) / refWidth : 1
+        let scaleY = refHeight > 0 ? CGFloat(bitmap.pixelsHigh) / refHeight : 1
         let pixelX = imagePoint.x * scaleX
         let pixelY = imagePoint.y * scaleY
         // Both SwiftUI Canvas and NSBitmapImageRep use top-left origin — no Y flip needed

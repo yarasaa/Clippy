@@ -35,6 +35,7 @@ enum FillMode: String, CaseIterable {
 enum DrawingTool: String, CaseIterable, Identifiable {
     case select, move, arrow, rectangle, ellipse, line, text, pin, pixelate, eraser, highlighter, spotlight, emoji, pen, crop, blur, eyedropper, callout, magnifier, ruler
 
+
     var icon: String {
         switch self {
         case .select: return "cursorarrow.click"
@@ -83,7 +84,7 @@ enum DrawingTool: String, CaseIterable, Identifiable {
         case .line: return "Line"
         case .text: return "Text"
         case .pin: return "Pin"
-        case .pixelate: return "Redact"
+        case .pixelate: return "Pixelate"
         case .eraser: return "Eraser"
         case .highlighter: return "Highlighter"
         case .spotlight: return "Spotlight"
@@ -291,9 +292,34 @@ struct Annotation: Identifiable {
     // Line styles (replaces dashedStroke for richer options)
     var lineStyle: LineStyle = .solid
     // Gradient fill (shapes)
+    /// Cover what's underneath completely.
+    ///
+    /// A rectangle carrying this draws as flat opaque black and ignores
+    /// colour, opacity, fill mode, gradient and stroke — every property that
+    /// could otherwise let something show through. Blur and pixelate stay as
+    /// they are for the times you want a soft effect, but they are not
+    /// redaction: pixelated text has published attacks that recover it, and
+    /// believing you covered something you didn't is the worst outcome here.
+    ///
+    /// Reusing `.rectangle` rather than adding a tool case is deliberate —
+    /// selection, moving, resizing and hit-testing all keep working with no
+    /// new branches in the twenty-case switches over `AnnotationTool`.
+    var isRedaction: Bool = false
+
+    /// Fill shapes with a two-colour gradient instead of a flat colour.
+    ///
+    /// Deliberately separate from `fillMode` rather than another case on it:
+    /// `fillMode` says *what* gets painted (stroke, fill, both) and this says
+    /// *how* the fill is painted, so a gradient works with `.fill` and
+    /// `.both` alike without every switch over `fillMode` growing a case.
+    ///
+    /// Falls back to `color` for either stop when it hasn't been chosen.
     var gradientFill: Bool = false
     var gradientStartColor: Color?
     var gradientEndColor: Color?
+
+    var gradientStart: Color { gradientStartColor ?? color }
+    var gradientEnd: Color { gradientEndColor ?? color.opacity(0.15) }
     // Per-annotation shadow
     var shadowRadius: CGFloat = 0
     var shadowColor: Color = .black
@@ -339,6 +365,7 @@ struct Annotation: Identifiable {
         dup.magnification = magnification
         dup.blurMode = blurMode
         dup.arrowheadStyle = arrowheadStyle
+        dup.isRedaction = isRedaction
         dup.gradientFill = gradientFill
         dup.gradientStartColor = gradientStartColor
         dup.gradientEndColor = gradientEndColor

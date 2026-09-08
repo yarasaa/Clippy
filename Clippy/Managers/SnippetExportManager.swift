@@ -40,7 +40,7 @@ class SnippetExportManager {
     }
 
     func exportSnippet(item: ClipboardItemEntity, to url: URL) throws {
-        guard let keyword = item.keyword, let content = item.content else {
+        guard let keyword = item.keyword, let content = item.content, !item.isEncrypted else {
             throw NSError(domain: "SnippetExportManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid snippet: missing keyword or content"])
         }
 
@@ -64,7 +64,10 @@ class SnippetExportManager {
 
         let items = try viewContext.fetch(fetchRequest)
         let exportableSnippets = items.compactMap { item -> ExportableSnippet? in
-            guard let keyword = item.keyword, let content = item.content else { return nil }
+            // Locked snippets are skipped: what would land in the file is
+            // ciphertext this Mac's Keychain key can open and no other
+            // can, which is not a snippet anyone could import.
+            guard let keyword = item.keyword, let content = item.content, !item.isEncrypted else { return nil }
             return ExportableSnippet(
                 keyword: keyword,
                 content: content,
@@ -76,6 +79,41 @@ class SnippetExportManager {
         let export = SnippetExport(exportDate: Date(), snippets: exportableSnippets)
         let data = try jsonEncoder.encode(export)
         try data.write(to: url)
+    }
+
+    /// The shell commands a snippet file would install, without
+    /// importing anything.
+    ///
+    /// `{{SHELL:…}}` runs `/bin/sh -c` on this Mac the first time its
+    /// keyword is typed — which makes a shared snippet pack a way to run
+    /// arbitrary code on whoever imports it. The person doing the
+    /// importing thinks they are adding a text shortcut. Nothing checked
+    /// this before; the file went straight into the store.
+    ///
+    /// Empty result means the file is inert and can be imported without
+    /// asking.
+    func pendingShellCommands(from url: URL) throws -> [(keyword: String, command: String)] {
+        let data = try Data(contentsOf: url)
+        let export = try jsonDecoder.decode(SnippetExport.self, from: data)
+        return Self.shellCommands(in: export)
+    }
+
+    static func shellCommands(in export: SnippetExport) -> [(keyword: String, command: String)] {
+        let regex = try! NSRegularExpression(pattern: #"\{\{SHELL:([^}]+)\}\}"#)
+        var found: [(String, String)] = []
+        for snippet in export.snippets {
+            let content = snippet.content
+            let range = NSRange(content.startIndex..., in: content)
+            for match in regex.matches(in: content, range: range) {
+                guard match.numberOfRanges == 2,
+                      let commandRange = Range(match.range(at: 1), in: content) else { continue }
+                found.append((
+                    snippet.keyword,
+                    String(content[commandRange]).trimmingCharacters(in: .whitespaces)
+                ))
+            }
+        }
+        return found
     }
 
     func importSnippets(from url: URL) throws -> Int {
@@ -127,7 +165,10 @@ class SnippetExportManager {
 
         guard let items = try? viewContext.fetch(fetchRequest) else { return nil }
         let exportableSnippets = items.compactMap { item -> ExportableSnippet? in
-            guard let keyword = item.keyword, let content = item.content else { return nil }
+            // Locked snippets are skipped: what would land in the file is
+            // ciphertext this Mac's Keychain key can open and no other
+            // can, which is not a snippet anyone could import.
+            guard let keyword = item.keyword, let content = item.content, !item.isEncrypted else { return nil }
             return ExportableSnippet(
                 keyword: keyword,
                 content: content,

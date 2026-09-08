@@ -11,6 +11,15 @@ name: Update appcast on release
 on:
   release:
     types: [published]
+  # Manual re-run. A failed run can only be retried from the Actions UI with
+  # the workflow file as it was at the time — which is no help when the
+  # workflow itself is what broke. This lets a fixed workflow be pointed at
+  # a release that already exists.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to (re)publish the appcast for, e.g. v1.0.17"
+        required: true
 
 jobs:
   appcast:
@@ -31,7 +40,7 @@ jobs:
       - name: Resolve version from release tag
         id: meta
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
           # Strip leading v/V so "v1.0.5" and "V1.0.5" both yield "1.0.5".
           VERSION="${TAG#v}"
           VERSION="${VERSION#V}"
@@ -59,14 +68,31 @@ jobs:
           gh release download "${{ steps.meta.outputs.tag }}" --pattern "$ASSET_NAME" --clobber
 
       - name: Install Sparkle CLI (for sign_update)
-        run: brew install --cask sparkle
+        # Straight from Sparkle's own release, not Homebrew. The `sparkle`
+        # cask was disabled on 2026-09-01 for failing Homebrew's Gatekeeper
+        # check, which broke every release from that day on — the release and
+        # its assets went up fine, but the appcast was never updated, so
+        # nobody was offered the update. Pinned, so a change upstream can't
+        # break publishing again without us choosing it.
+        env:
+          SPARKLE_VERSION: "2.9.6"
+        run: |
+          curl -fsSL -o sparkle.tar.xz \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          mkdir -p sparkle-tools
+          tar -xJf sparkle.tar.xz -C sparkle-tools
+          SPARKLE_BIN="$PWD/sparkle-tools/bin/sign_update"
+          if [ ! -x "$SPARKLE_BIN" ]; then
+            echo "::error::sign_update not found in the Sparkle archive"
+            exit 1
+          fi
+          echo "SPARKLE_BIN=$SPARKLE_BIN" >> "$GITHUB_ENV"
 
       - name: Sign the asset with EdDSA
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           echo "$SPARKLE_PRIVATE_KEY" | base64 --decode > sparkle_private
-          SPARKLE_BIN=$(find /opt/homebrew/Caskroom/sparkle -type f -name sign_update -perm +111 | head -n 1)
           SIGNED=$("$SPARKLE_BIN" "$ASSET_NAME" -f sparkle_private)
           rm sparkle_private
 

@@ -145,7 +145,7 @@ Clippy spots actionable content — in both **text and screenshots** — and tur
 - **📞 Phone / ✉️ Email / 🔗 URL** — tap to call, mail, or open
 - **📅 Dates** — add straight to Calendar
 - **📍 Addresses** — open in Maps
-- **🔒 Sensitive data** — credit cards, IBANs, API keys, and TC kimlik are detected (with checksum validation) and Clippy offers to encrypt them
+- **🔒 Sensitive data** — credit cards, IBANs, API keys, and TC kimlik are detected (with checksum validation), and text items carrying one can be locked straight from the badge
 
 <p align="center">
   <img src="docs/screenshots/28-ocr-badges.png" alt="Actionable badges on a screenshot, with the encrypt suggestion" width="420">
@@ -567,8 +567,14 @@ Clippy stores everything on your Mac, in CoreData, under your user account.
   - Auto-update checks to `raw.githubusercontent.com/yarasaa/Clippy`
 - **No analytics, telemetry, or account system**
 - **Source app tracking** can be disabled in Settings → Features
-- **Encrypted items** — lock sensitive clipboard entries so they show
-  up as "Encrypted content" until you authenticate
+- **Locked items** — lock a text entry and its content is encrypted on
+  disk with AES-GCM, under a key kept in your Mac's Keychain. Revealing,
+  copying, pasting or sharing one asks for Touch ID (or your login
+  password) first. You can turn that prompt off, or let one unlock stand
+  for up to five minutes, in Settings → Privacy — the encryption stays on
+  either way. Locking an image encrypts the picture file itself, not
+  just the database row — the file on disk becomes unreadable, and no
+  thumbnail of it is kept.
 
 See [PRIVACY.md](PRIVACY.md) (coming soon) for the full breakdown.
 

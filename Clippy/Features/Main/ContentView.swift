@@ -20,6 +20,9 @@ struct ContentView: View {
     /// (the ✨ toggle in the header). Search filtering is suspended while
     /// active — `searchText` is the question, not a filter.
     @State private var askMode: Bool = false
+    /// "Clear Everything" is irreversible and much wider than a tab
+    /// clear, so unlike that one it asks first — and says how many.
+    @State private var confirmClearEverything = false
     @State private var askLoading: Bool = false
     @State private var askResult: AskResult?
     @State private var askError: String?
@@ -116,11 +119,21 @@ struct ContentView: View {
                 focusZone: $focusZone,
                 isEmpty: items.isEmpty,
                 onClear: { monitor.clear(tab: selectedTab) },
+                onClearEverything: { confirmClearEverything = true },
+                clearEverythingCount: monitor.clearEverythingCount,
                 onImportSnippets: { importSnippets() },
                 onGenerateUUID: { monitor.generateUUID() },
                 onGenerateLorem: { monitor.generateLoremIpsum() },
                 onAskSubmit: { runAsk() }
             )
+            .alert("Clear everything?", isPresented: $confirmClearEverything) {
+                Button("Clear \(monitor.clearEverythingCount) Items", role: .destructive) {
+                    monitor.clearEverything()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This deletes every history item — text, code and images — including anything in tabs you've hidden. Snippets, pinned, starred and locked items are kept. This can't be undone.")
+            }
 
             // Answer panel for "Ask your clipboard". Sits directly under
             // the header so the answer reads as a response to the question
@@ -579,9 +592,14 @@ struct ContentView: View {
         highlightedID = orderedItems[next].id
     }
 
+    /// ⏎ on the highlighted row. Locked items authenticate first; the
+    /// popover stays open if the user declines, rather than closing on a
+    /// paste that didn't happen.
     private func paste(_ item: ClipboardItemEntity) {
-        PasteManager.shared.pasteItem(item.toClipboardItem())
-        NotificationCenter.default.post(name: .closeClippyPopover, object: nil)
+        Task {
+            guard await ClipboardSecurity.paste(entity: item) else { return }
+            NotificationCenter.default.post(name: .closeClippyPopover, object: nil)
+        }
     }
 
     /// Submit the current search text as an "ask your clipboard" question
@@ -635,6 +653,13 @@ struct ContentView: View {
             panel.begin { response in
                 if response == .OK, let url = panel.url {
                     do {
+                        // Look before importing. A snippet carrying
+                        // {{SHELL:…}} runs that command on this Mac the
+                        // first time its keyword is typed, so the person
+                        // importing gets to see it first.
+                        let commands = try SnippetExportManager.shared.pendingShellCommands(from: url)
+                        if !commands.isEmpty, !self.confirmShellSnippets(commands) { return }
+
                         let count = try SnippetExportManager.shared.importSnippets(from: url)
 
                         DispatchQueue.main.async {
@@ -660,6 +685,39 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    /// Show what an import would install, and let the user back out.
+    /// Returns whether they chose to continue.
+    /// Called from NSOpenPanel's completion handler, which AppKit runs on
+    /// the main queue — so this runs the alert directly. Wrapping it in
+    /// `DispatchQueue.main.sync` would deadlock the main thread against
+    /// itself.
+    private func confirmShellSnippets(_ commands: [(keyword: String, command: String)]) -> Bool {
+        let listing = commands
+            .prefix(10)
+            .map { "  ;\($0.keyword)  →  \($0.command)" }
+            .joined(separator: "\n")
+        let more = commands.count > 10 ? "\n  …and \(commands.count - 10) more" : ""
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = commands.count == 1
+            ? "This file contains a snippet that runs a command"
+            : "This file contains \(commands.count) snippets that run commands"
+        alert.informativeText = """
+        Typing these shortcuts will run the following on your Mac:
+
+        \(listing)\(more)
+
+        Only import snippet files from a source you trust.
+        """
+        alert.addButton(withTitle: "Import Anyway")
+        alert.addButton(withTitle: "Cancel")
+        // Cancel is the safe answer, so it is the one Return picks.
+        alert.buttons.last?.keyEquivalent = "\r"
+        alert.buttons.first?.keyEquivalent = ""
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     @ViewBuilder

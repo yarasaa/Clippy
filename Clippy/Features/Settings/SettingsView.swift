@@ -335,6 +335,15 @@ struct GeneralSettingsPane: View {
                 SettingsRow("Images") {
                     Toggle("", isOn: $settings.showImagesTab).labelsHidden()
                 }
+                // Hiding the tab stops new screenshots being saved but
+                // leaves the old ones stored and unreachable — no tab
+                // lists them, so they can't be selected, and pruning
+                // never evicts them because nothing new arrives to push
+                // the count past its limit. The row appears only when
+                // that's actually the situation.
+                if !settings.showImagesTab {
+                    HiddenImagesRow()
+                }
                 Divider().opacity(0.2)
                 SettingsRow("Snippets") {
                     Toggle("", isOn: $settings.showSnippetsTab).labelsHidden()
@@ -393,6 +402,206 @@ struct GeneralSettingsPane: View {
                 Divider().opacity(0.2)
                 StorageStatsRow()
             }
+
+            StorageBreakdownGroup()
+        }
+    }
+}
+
+
+
+// MARK: - Hidden Images Row
+//
+// Shown under the Images toggle when the tab is off. Says what is still
+// stored and offers the only way to get rid of it that doesn't involve
+// wiping the entire history.
+private struct HiddenImagesRow: View {
+    @State private var stats: (count: Int, protectedCount: Int, bytes: Int64)?
+    @State private var isWorking = false
+    @State private var confirming = false
+    @State private var lastResult: String?
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Group {
+            if let stats, stats.count > 0 {
+                Divider().opacity(0.2)
+                SettingsRow("Still stored", help: help(stats)) {
+                    Button(role: .destructive) {
+                        confirming = true
+                    } label: {
+                        if isWorking {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text("Delete")
+                        }
+                    }
+                    .disabled(isWorking)
+                }
+            } else if let lastResult {
+                Divider().opacity(0.2)
+                SettingsRow("Stored images", help: lastResult) { EmptyView() }
+            }
+        }
+        .task(priority: .utility) { await refresh() }
+        .alert("Delete every stored image?", isPresented: $confirming) {
+            Button("Delete", role: .destructive) { deleteAll() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(confirmationMessage)
+        }
+    }
+
+    private func help(_ s: (count: Int, protectedCount: Int, bytes: Int64)) -> String {
+        let size = ByteCountFormatter.string(fromByteCount: s.bytes, countStyle: .file)
+        let noun = s.count == 1 ? "image" : "images"
+        return "\(s.count) \(noun) · \(size) — hidden while this tab is off"
+    }
+
+    private var confirmationMessage: String {
+        guard let stats else { return "" }
+        let size = ByteCountFormatter.string(fromByteCount: stats.bytes, countStyle: .file)
+        var text = "This removes \(stats.count) image(s) and frees \(size). It can't be undone."
+        // Named explicitly, because everywhere else in Clippy these are
+        // the items nothing deletes without asking.
+        if stats.protectedCount > 0 {
+            text += "\n\n\(stats.protectedCount) of them are pinned, starred or locked — those go too."
+        }
+        return text
+    }
+
+    private func refresh() async {
+        let fresh = await HistoryPruner.shared.imageItemStats()
+        await MainActor.run { self.stats = fresh }
+    }
+
+    private func deleteAll() {
+        Task(priority: .utility) {
+            isWorking = true
+            let result = await HistoryPruner.shared.deleteAllImages()
+            let freed = ByteCountFormatter.string(fromByteCount: result.bytesFreed, countStyle: .file)
+            lastResult = "Deleted \(result.count), freed \(freed)"
+            await refresh()
+            isWorking = false
+        }
+    }
+}
+
+// MARK: - Storage Breakdown
+//
+// Where the disk space actually went.
+//
+// The row that earns this whole section is "Kept on purpose". Automatic
+// pruning never touches pinned, starred, snippet or locked items, and
+// neither does Clear Everything — both by design. That makes it the only
+// part of Clippy with no ceiling at all: star five hundred long texts and
+// nothing will ever trim them, and until now nothing told you they were
+// there. The other rows are bounded by the limits above; this one is
+// bounded by what the user remembers doing.
+private struct StorageBreakdownGroup: View {
+    @State private var breakdown: StorageBreakdown?
+    @State private var isWorking = false
+    @State private var lastResult: String?
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        SettingsGroup(
+            "What's on disk",
+            footer: "Items you pinned, starred, saved as snippets or locked are never removed automatically — not by pruning, and not by Clear Everything."
+        ) {
+            if let breakdown {
+                row("History", value: describe(
+                    count: breakdown.prunableText.count + breakdown.prunableImages.count,
+                    bytes: breakdown.prunableText.bytes + breakdown.prunableImages.bytes
+                ), help: "Subject to the limits above")
+
+                Divider().opacity(0.2)
+
+                row("Kept on purpose", value: describe(
+                    count: breakdown.protectedCount,
+                    bytes: breakdown.protectedBytes
+                ), help: "Pinned, starred, snippets and locked — never pruned", emphasised: true)
+
+                Divider().opacity(0.2)
+
+                SettingsRow(
+                    "Unreferenced image files",
+                    help: breakdown.orphanFiles.isEmpty
+                        ? "None — every file on disk belongs to an item"
+                        : "\(breakdown.orphanFiles.count) file(s), \(breakdown.orphanFiles.formatted) that no item points at"
+                ) {
+                    if !breakdown.orphanFiles.isEmpty {
+                        Button {
+                            reapOrphans()
+                        } label: {
+                            if isWorking {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Text("Delete")
+                            }
+                        }
+                        .disabled(isWorking)
+                    } else {
+                        Text("0")
+                            .font(Ember.Font.body)
+                            .foregroundColor(Ember.tertiaryText(scheme))
+                    }
+                }
+
+                Divider().opacity(0.2)
+
+                SettingsRow("Total", help: lastResult ?? "Database, write-ahead log and every image file") {
+                    HStack(spacing: 8) {
+                        Text(breakdown.totalFormatted)
+                            .font(Ember.Font.body)
+                            .foregroundColor(Ember.primaryText(scheme))
+                        Button {
+                            Task(priority: .utility) { await refresh() }
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Recalculate")
+                    }
+                }
+            } else {
+                SettingsRow("Calculating…") { ProgressView().controlSize(.small) }
+            }
+        }
+        // Utility priority for the same reason as StorageStatsRow: the
+        // work happens on a background CoreData context, and waiting on
+        // it at .userInitiated is the priority inversion Xcode flags.
+        .task(priority: .utility) { await refresh() }
+    }
+
+    private func row(_ label: String, value: String, help: String, emphasised: Bool = false) -> some View {
+        SettingsRow(label, help: help) {
+            Text(value)
+                .font(Ember.Font.body)
+                .foregroundColor(emphasised ? Ember.Palette.amber : Ember.primaryText(scheme))
+        }
+    }
+
+    private func describe(count: Int, bytes: Int64) -> String {
+        let size = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        return count == 1 ? "1 item · \(size)" : "\(count) items · \(size)"
+    }
+
+    private func refresh() async {
+        let fresh = await HistoryPruner.shared.storageBreakdown()
+        await MainActor.run { self.breakdown = fresh }
+    }
+
+    private func reapOrphans() {
+        Task(priority: .utility) {
+            isWorking = true
+            let result = await HistoryPruner.shared.reapOrphanedImages()
+            let freed = ByteCountFormatter.string(fromByteCount: result.bytesFreed, countStyle: .file)
+            lastResult = result.count == 0
+                ? "Nothing to delete"
+                : "Deleted \(result.count) file(s), freed \(freed)"
+            await refresh()
+            isWorking = false
         }
     }
 }
@@ -484,6 +693,11 @@ struct FeaturesSettingsPane: View {
                 Divider().opacity(0.2)
                 SettingsRow("Source app tracking", help: "Remember which app content came from") {
                     Toggle("", isOn: $settings.enableSourceAppTracking).labelsHidden()
+                }
+                Divider().opacity(0.2)
+                SettingsRow("Warn before sharing sensitive screenshots",
+                            help: "Ask before saving or sharing a screenshot that still shows an email, phone number, card, IBAN or key") {
+                    Toggle("", isOn: $settings.warnBeforeSharingSensitive).labelsHidden()
                 }
             }
 

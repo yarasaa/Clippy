@@ -7,6 +7,7 @@
 
 @preconcurrency import ImageIO
 import AppKit
+import CoreGraphics
 import UniformTypeIdentifiers
 
 class ScreenshotManager: NSObject {
@@ -43,11 +44,23 @@ class ScreenshotManager: NSObject {
                     try? FileManager.default.removeItem(at: tempURL)
                 }
 
-                guard process.terminationStatus == 0,
-                      let image = NSImage(contentsOf: tempURL) else {
-                    if process.terminationStatus != 0 {
-                    } else {
+                guard process.terminationStatus == 0 else {
+                    // Escape during an interactive capture exits non-zero
+                    // too, and cancelling is not a fault — so the only
+                    // thing worth reacting to here is the permission that
+                    // would make every capture fail the same way. Both
+                    // branches used to be empty: no capture, no message,
+                    // nothing in the log.
+                    if #available(macOS 10.15, *), !CGPreflightScreenCaptureAccess() {
+                        NSLog("[Clippy] Screen capture failed: screen recording permission not granted.")
+                        PermissionManager.shared.request(.screenRecording)
                     }
+                    return
+                }
+                guard let image = NSImage(contentsOf: tempURL) else {
+                    // Exit code said success but nothing readable landed —
+                    // a real failure, and one that used to disappear.
+                    NSLog("[Clippy] Screen capture wrote no readable image to \(tempURL.lastPathComponent).")
                     return
                 }
                 completion(image)

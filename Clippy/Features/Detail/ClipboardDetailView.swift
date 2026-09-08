@@ -92,9 +92,14 @@ struct ClipboardDetailView: View {
             railIcon(
                 systemName: item.isEncrypted ? "lock.fill" : "lock",
                 color: item.isEncrypted ? Ember.Palette.amber : nil,
-                tooltip: item.isEncrypted ? "Decrypt" : "Encrypt"
+                tooltip: item.isEncrypted ? "Unlock" : "Lock"
             ) {
-                monitor.toggleEncryption(for: item.id ?? UUID())
+                let id = item.id ?? UUID()
+                Task {
+                    if case .failure(let error) = await monitor.toggleEncryption(for: id) {
+                        presentSecurityFailure(error)
+                    }
+                }
             }
 
             Divider()
@@ -102,7 +107,7 @@ struct ClipboardDetailView: View {
                 .opacity(0.3)
 
             railIcon(systemName: "square.and.arrow.up", tooltip: "Share") {
-                shareItem()
+                Task { await shareItem() }
             }
 
             if item.contentType == "image" && settings.enableOCR {
@@ -427,7 +432,7 @@ struct ClipboardDetailView: View {
                 .keyboardShortcut("s", modifiers: .command)
             }
 
-            if let text = item.content, !text.isEmpty, item.contentType == "text" {
+            if !item.isEncrypted, let text = item.content, !text.isEmpty, item.contentType == "text" {
                 Text(statsFor(text))
                     .font(.system(size: 10))
                     .foregroundColor(Ember.tertiaryText(scheme))
@@ -438,10 +443,12 @@ struct ClipboardDetailView: View {
             Spacer()
 
             Button {
-                monitor.copyToClipboard(item: item.toClipboardItem())
-                withAnimation(Ember.Motion.snap) { didCopy = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    withAnimation { didCopy = false }
+                Task {
+                    guard await ClipboardSecurity.copyToPasteboard(for: item) else { return }
+                    withAnimation(Ember.Motion.snap) { didCopy = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation { didCopy = false }
+                    }
                 }
             } label: {
                 HStack(spacing: 4) {
@@ -453,10 +460,12 @@ struct ClipboardDetailView: View {
             .keyboardShortcut("c", modifiers: [.command, .shift])
 
             Button {
-                PasteManager.shared.pasteItem(item.toClipboardItem())
-                withAnimation(Ember.Motion.snap) { didPaste = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    dismiss()
+                Task {
+                    guard await ClipboardSecurity.paste(entity: item) else { return }
+                    withAnimation(Ember.Motion.snap) { didPaste = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        dismiss()
+                    }
                 }
             } label: {
                 HStack(spacing: 4) {
@@ -565,7 +574,9 @@ struct ClipboardDetailView: View {
                 inspectorSection(title: "Details", icon: "info.circle") {
                     VStack(alignment: .leading, spacing: 4) {
                         detailLine(label: "Created", value: item.date.map { RelativeDateTimeFormatter().localizedString(for: $0, relativeTo: Date()) } ?? "—")
-                        if let content = item.content, item.contentType == "text" {
+                        // Not for locked items: the length of the thing
+                        // you hid is a description of the thing you hid.
+                        if !item.isEncrypted, let content = item.content, item.contentType == "text" {
                             detailLine(label: "Length", value: "\(content.count) chars")
                             detailLine(label: "Lines", value: "\(content.split(separator: "\n", omittingEmptySubsequences: false).count)")
                         }
@@ -622,22 +633,13 @@ struct ClipboardDetailView: View {
         dismiss()
     }
 
-    private func shareItem() {
-        var shareItems: [Any] = []
-        if item.contentType == "image", let path = item.content {
-            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            let imageURL = appSupport.appendingPathComponent("Clippy").appendingPathComponent("Images").appendingPathComponent(path)
-            if FileManager.default.fileExists(atPath: imageURL.path) {
-                shareItems.append(imageURL)
-            }
-        } else if let content = item.content, !content.isEmpty {
-            let tempURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("clippy-share-\(Int(Date().timeIntervalSince1970)).txt")
-            try? content.write(to: tempURL, atomically: true, encoding: .utf8)
-            shareItems.append(tempURL)
-        }
-        guard !shareItems.isEmpty, let window = NSApp.keyWindow, let contentView = window.contentView else { return }
-        let picker = NSSharingServicePicker(items: shareItems)
+    /// The detail window's own share path — the second one. Same gate as
+    /// the card's; gating only one would have left the other door open.
+    private func shareItem() async {
+        guard let url = await ClipboardSecurity.shareableURL(for: item),
+              let window = NSApp.keyWindow,
+              let contentView = window.contentView else { return }
+        let picker = NSSharingServicePicker(items: [url])
         picker.show(relativeTo: .zero, of: contentView, preferredEdge: .minY)
     }
 

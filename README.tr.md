@@ -147,7 +147,7 @@ Clippy panondaki eyleme geçirilebilir içeriği — hem **metinde hem ekran gö
 - **📞 Telefon / ✉️ E-posta / 🔗 URL** — dokun, ara, mail at veya aç
 - **📅 Tarihler** — doğrudan Takvim'e ekle
 - **📍 Adresler** — Harita'da aç
-- **🔒 Hassas veriler** — kredi kartı, IBAN, API key ve TC kimlik algılanır (checksum doğrulamalı) ve Clippy şifrelemeni önerir
+- **🔒 Hassas veriler** — kredi kartı, IBAN, API key ve TC kimlik algılanır (checksum doğrulamalı); içinde böyle bir veri olan metin öğeleri doğrudan rozetin üzerinden kilitlenebilir
 
 <p align="center">
   <img src="docs/screenshots/28-ocr-badges.png" alt="Ekran görüntüsündeki eyleme geçirilebilir rozetler ve şifreleme önerisi" width="420">
@@ -573,8 +573,14 @@ Clippy her şeyi Mac'inde, kullanıcı hesabının altında, CoreData'da saklar.
   - `raw.githubusercontent.com/yarasaa/Clippy`'e auto-update kontrolleri
 - **Analitik, telemetri veya hesap sistemi yok**
 - **Kaynak uygulama takibi** Settings → Features'tan kapatılabilir
-- **Şifreli öğeler** — hassas pano girişlerini kilitle, kimlik
-  doğrulamasına kadar "Encrypted content" olarak görünürler
+- **Kilitli öğeler** — bir metin girdisini kilitlediğinde içeriği diskte
+  AES-GCM ile şifrelenir; anahtar Mac'inin Keychain'inde durur.
+  Görüntülemek, kopyalamak, yapıştırmak veya paylaşmak önce Touch ID (ya da
+  giriş parolan) ister. Bu sormayı kapatabilir ya da bir doğrulamayı beş
+  dakikaya kadar geçerli kılabilirsin — Ayarlar → Gizlilik. Şifreleme her
+  iki durumda da açık kalır. Bir görseli kilitlemek yalnızca veritabanı
+  satırını değil, resim dosyasının kendisini şifreler — diskteki dosya
+  okunamaz hale gelir ve küçük resmi hiçbir yerde saklanmaz.
 
 Tam döküm için [PRIVACY.md](PRIVACY.md) (yakında) bakacaksın.
 

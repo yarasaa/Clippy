@@ -65,6 +65,9 @@ struct QuickPreviewPanelView: View {
                                 }
                                 .onDrag {
                                     onDragStarted?()
+                                    // Locked items don't drag — see the note
+                                    // on ClippyCard.itemProvider.
+                                    if item.isEncrypted { return NSItemProvider() }
                                     if item.contentType == "text", let text = item.content {
                                         return NSItemProvider(object: text as NSString)
                                     } else if item.contentType == "image", let path = item.content,

@@ -35,3 +35,26 @@ extension ClipboardItemEntity {
                              lastUsedDate: self.lastUsedDate)
     }
 }
+
+// MARK: - What counts as "the user meant to keep this"
+
+extension ClipboardItemEntity {
+
+    /// Items the user deliberately saved: a snippet, something pinned,
+    /// starred, or locked.
+    ///
+    /// One definition, used by everything that deletes in bulk. Automatic
+    /// pruning must never touch these, and neither must "Clear
+    /// Everything" — if those two ever disagreed about what "protected"
+    /// means, one of them would quietly start deleting things the other
+    /// promised to keep. That is not a comment anyone would notice going
+    /// stale, so it isn't a comment.
+    static let protectedPredicate = NSPredicate(format:
+        "(keyword != nil AND keyword != '') OR isPinned == YES OR isFavorite == YES OR isEncrypted == YES"
+    )
+
+    /// The complement: everything a bulk delete is allowed to remove.
+    static let prunablePredicate = NSPredicate(format:
+        "(keyword == nil OR keyword == '') AND isPinned == NO AND isFavorite == NO AND isEncrypted == NO"
+    )
+}

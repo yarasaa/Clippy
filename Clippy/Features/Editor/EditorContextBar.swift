@@ -68,6 +68,11 @@ struct EditorContextBar: View {
     var onCancelCrop: () -> Void
 
     var onShare: () -> Void
+    var onPinToScreen: () -> Void
+    var sensitiveCount: Int
+    var isReviewingRedactions: Bool
+    var onReviewRedactions: () -> Void
+    var onRedactAll: () -> Void
     var onBringToFront: () -> Void
     var onSendToBack: () -> Void
     var onMoveUp: () -> Void
@@ -252,6 +257,58 @@ struct EditorContextBar: View {
             }
             .buttonStyle(.plain)
             .help(L("Share", settings: settings))
+
+            // MARK: Sensitive content
+            //
+            // The count is the whole design. A bare "Scan" button gets
+            // ignored, because pressing it requires suspecting there's
+            // something to find — and not suspecting is the failure this
+            // exists to fix. "Cover 3" is information you can't un-see.
+            //
+            // Nothing here appears when nothing was found: an editor that
+            // permanently displays a security control trains you to ignore
+            // it, and then it's useless on the day it matters.
+            if sensitiveCount > 0 {
+                Button(action: onReviewRedactions) {
+                    HStack(spacing: 4) {
+                        Image(systemName: isReviewingRedactions ? "eye.slash" : "eye.trianglebadge.exclamationmark")
+                            .font(.system(size: 12))
+                        Text("\(sensitiveCount)")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Ember.Palette.amber.opacity(isReviewingRedactions ? 0.35 : 0.18)))
+                    .overlay(Capsule().strokeBorder(Ember.Palette.amber.opacity(0.55), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .help(isReviewingRedactions
+                      ? L("Hide suggestions", settings: settings)
+                      : L("Found something sensitive — review", settings: settings))
+
+                if isReviewingRedactions {
+                    Button(action: onRedactAll) {
+                        Text("Cover all")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .help(L("Cover every suggestion", settings: settings))
+                }
+
+                thinDivider
+            }
+
+            // MARK: Pin to screen
+            //
+            // Sits with Copy and Share because it answers the same question —
+            // "what do I do with this now" — and like them it takes the
+            // annotated result, not the untouched capture.
+            Button(action: onPinToScreen) {
+                Image(systemName: "pin")
+                    .font(.system(size: 13))
+            }
+            .buttonStyle(.plain)
+            .help(L("Pin to Screen", settings: settings))
 
             if showImagesTab {
                 Button(action: onSaveToClippy) {

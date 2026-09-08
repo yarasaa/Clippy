@@ -58,6 +58,22 @@ struct ScreenshotEditorView: View {
     /// Style yanked with ⌥⌘C, ready to paste onto another annotation.
     @State private var copiedStyle: TextStylePreset?
     @State private var editingTextIndex: Int?
+    /// Rect the box had when a resize/move drag began, in image coords.
+    /// Anchoring to this instead of accumulating per-frame deltas keeps the
+    /// corner under the cursor exactly where the cursor is.
+    @State private var textEditDragOrigin: CGRect?
+
+    /// Things in the picture that probably shouldn't be shared, and where.
+    ///
+    /// Populated in the background after the editor opens. Nothing is drawn
+    /// or changed from this — it only feeds the count on the redact control,
+    /// so the image is exactly as it was until the user acts.
+    @State private var sensitiveFindings: [SensitiveFinding] = []
+    @State private var hasScannedForSensitive = false
+    /// Proposals are only on screen while the user is looking at them.
+    /// Nothing is drawn into the image from this — accepting one is what
+    /// creates an annotation.
+    @State private var showingRedactionProposals = false
 
     @State private var movingAnnotationID: UUID?
     @State private var dragOffset: CGSize = .zero
@@ -202,10 +218,10 @@ struct ScreenshotEditorView: View {
                 onRedo: { undoManager?.redo() },
                 onApply: { applyAnnotations() },
                 onClearAll: { clearAllAnnotations() },
-                onSave: { saveImage() },
-                onSaveToClippy: { saveToClippy() },
+                onSave: { confirmingSensitive { saveImage() } },
+                onSaveToClippy: { confirmingSensitive { saveToClippy() } },
                 onPerformOCR: { performOCR() },
-                onCopyImage: { startImageDrag() },
+                onCopyImage: { confirmingSensitive { startImageDrag() } },
                 onClose: {
                     cleanupResources()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -214,7 +230,12 @@ struct ScreenshotEditorView: View {
                 },
                 onApplyCrop: { applyCrop() },
                 onCancelCrop: { cancelCrop() },
-                onShare: { shareImage() },
+                onShare: { confirmingSensitive { shareImage() } },
+                onPinToScreen: { confirmingSensitive { pinToScreen() } },
+                sensitiveCount: sensitiveFindings.count,
+                isReviewingRedactions: showingRedactionProposals,
+                onReviewRedactions: { showingRedactionProposals.toggle() },
+                onRedactAll: { acceptAllRedactions() },
                 onBringToFront: { bringToFront() },
                 onSendToBack: { sendToBack() },
                 onMoveUp: { moveAnnotationUp() },
@@ -536,7 +557,9 @@ struct ScreenshotEditorView: View {
                                                     imagePoint: imagePoint
                                                 )
                                             },
-                                            zoomScale: zoomScale
+                                            onEyedropperExit: {
+                                                EyedropperLoupeController.shared.hide()
+                                            }
                                         )
 
                                         ForEach(viewModel.annotations.filter { $0.tool == .text }) { annotation in
@@ -654,8 +677,26 @@ struct ScreenshotEditorView: View {
                                                     // No .focused/.onSubmit/.onExitCommand here: none of them
                                                     // reach an NSViewRepresentable. Focus and the Esc / ⌘Return
                                                     // commit are handled inside CustomTextEditor instead.
+
+                                                    // Corner handles + a move grip, drawn in this same overlay
+                                                    // so they sit above the text view and get the drag first.
+                                                    //
+                                                    // The canvas skips its own selection chrome and hit-testing
+                                                    // for the box being edited (`!isEditingThisText`), which was
+                                                    // needed to stop it drawing a second outline — but it also
+                                                    // took away resizing and moving while typing, leaving the
+                                                    // box fixed at whatever it was first drawn as.
+                                                    textEditHandles(
+                                                        annotationID: annotationID,
+                                                        canvasRect: canvasRect,
+                                                        scale: scale
+                                                    )
                                                 }
                                             }
+                                        }
+
+                                        if showingRedactionProposals {
+                                            redactionProposals(in: overlayGeometry.size)
                                         }
                                     }
                                 }
@@ -756,6 +797,11 @@ struct ScreenshotEditorView: View {
         }
         .cursor(currentCursor)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // On the editor itself, not on some panel inside it. This was
+        // attached to the expand-canvas popover's `onAppear`, which only
+        // fires if you open that panel — so the scan never ran in normal
+        // use and the badge never appeared.
+        .onAppear { scanForSensitiveContent() }
     }
 
     private var currentCursor: NSCursor {
@@ -784,6 +830,20 @@ struct ScreenshotEditorView: View {
     }
 
     private func drawSingleAnnotation(_ annotation: Annotation, rect: CGRect, in context: inout GraphicsContext, canvasSize: CGSize, nsImage: NSImage? = nil) {
+        // Redaction short-circuits everything.
+        //
+        // Placed before the tool switch on purpose: a cover that any later
+        // branch could soften — through opacity, fill mode, gradient, a
+        // stroke-only mode — is a cover you can't trust. Nothing about the
+        // annotation is consulted except where it is.
+        if annotation.isRedaction {
+            context.fill(
+                Path(roundedRect: rect, cornerRadius: annotation.cornerRadius),
+                with: .color(.black)
+            )
+            return
+        }
+
         let opacity = annotation.opacity
         let dashed = annotation.dashedStroke
 
@@ -1003,14 +1063,14 @@ struct ScreenshotEditorView: View {
 
             switch annotation.fillMode {
             case .fill:
-                context.fill(bodyPath, with: .color(annotation.color))
-                context.fill(tailPath, with: .color(annotation.color))
+                context.fill(bodyPath, with: shapeFill(annotation, in: bodyRect))
+                context.fill(tailPath, with: shapeFill(annotation, in: bodyRect))
             case .stroke:
                 context.stroke(bodyPath, with: .color(annotation.color), style: strokeStyle(lineWidth: annotation.lineWidth))
                 context.stroke(tailPath, with: .color(annotation.color), style: strokeStyle(lineWidth: annotation.lineWidth))
             case .both:
-                context.fill(bodyPath, with: .color(annotation.color.opacity(0.3)))
-                context.fill(tailPath, with: .color(annotation.color.opacity(0.3)))
+                context.fill(bodyPath, with: shapeFill(annotation, in: bodyRect, opacity: 0.3))
+                context.fill(tailPath, with: shapeFill(annotation, in: bodyRect, opacity: 0.3))
                 context.stroke(bodyPath, with: .color(annotation.color), style: strokeStyle(lineWidth: annotation.lineWidth))
                 context.stroke(tailPath, with: .color(annotation.color), style: strokeStyle(lineWidth: annotation.lineWidth))
             }
@@ -1440,6 +1500,17 @@ struct ScreenshotEditorView: View {
     }
 
     private func drawAnnotation(_ a: Annotation, imageHeight: CGFloat) {
+        // Same short-circuit as the on-screen renderer — this is the one
+        // that reaches the saved file, so a redaction missing here would
+        // look applied while editing and be gone from what you actually
+        // share. Exactly how the gradient nearly shipped half-done.
+        if a.isRedaction {
+            NSColor.black.setFill()
+            let flipped = flipRect(a.rect)
+            NSBezierPath(roundedRect: flipped, xRadius: a.cornerRadius, yRadius: a.cornerRadius).fill()
+            return
+        }
+
         let c = NSColor(a.color)
         let opacity = a.opacity
 
@@ -1481,13 +1552,11 @@ struct ScreenshotEditorView: View {
                 let sketchPath = SketchRenderer.sketchRect(flipped, seed: seed)
                 switch a.fillMode {
                 case .fill:
-                    c.setFill()
-                    NSBezierPath(rect: flipped).fill()
+                    fillShape(NSBezierPath(rect: flipped), a, c)
                 case .stroke:
                     drawSketchPath(sketchPath, lineWidth: a.lineWidth)
                 case .both:
-                    c.withAlphaComponent(0.3).setFill()
-                    NSBezierPath(rect: flipped).fill()
+                    fillShape(NSBezierPath(rect: flipped), a, c, alpha: 0.3)
                     drawSketchPath(sketchPath, lineWidth: a.lineWidth)
                 }
             } else {
@@ -1497,15 +1566,13 @@ struct ScreenshotEditorView: View {
 
                 switch a.fillMode {
                 case .fill:
-                    c.setFill()
-                    p.fill()
+                    fillShape(p, a, c)
                 case .stroke:
                     c.setStroke()
                     p.lineWidth = a.lineWidth
                     p.stroke()
                 case .both:
-                    c.withAlphaComponent(0.3).setFill()
-                    p.fill()
+                    fillShape(p, a, c, alpha: 0.3)
                     c.setStroke()
                     p.lineWidth = a.lineWidth
                     p.stroke()
@@ -1518,13 +1585,11 @@ struct ScreenshotEditorView: View {
                 let sketchPath = SketchRenderer.sketchEllipse(flipped, seed: seed)
                 switch a.fillMode {
                 case .fill:
-                    c.setFill()
-                    NSBezierPath(ovalIn: flipped).fill()
+                    fillShape(NSBezierPath(ovalIn: flipped), a, c)
                 case .stroke:
                     drawSketchPath(sketchPath, lineWidth: a.lineWidth)
                 case .both:
-                    c.withAlphaComponent(0.3).setFill()
-                    NSBezierPath(ovalIn: flipped).fill()
+                    fillShape(NSBezierPath(ovalIn: flipped), a, c, alpha: 0.3)
                     drawSketchPath(sketchPath, lineWidth: a.lineWidth)
                 }
             } else {
@@ -1533,15 +1598,13 @@ struct ScreenshotEditorView: View {
 
                 switch a.fillMode {
                 case .fill:
-                    c.setFill()
-                    p.fill()
+                    fillShape(p, a, c)
                 case .stroke:
                     c.setStroke()
                     p.lineWidth = a.lineWidth
                     p.stroke()
                 case .both:
-                    c.withAlphaComponent(0.3).setFill()
-                    p.fill()
+                    fillShape(p, a, c, alpha: 0.3)
                     c.setStroke()
                     p.lineWidth = a.lineWidth
                     p.stroke()
@@ -1863,9 +1926,8 @@ struct ScreenshotEditorView: View {
 
             switch a.fillMode {
             case .fill:
-                c.setFill()
-                bodyPath.fill()
-                tailPath.fill()
+                fillShape(bodyPath, a, c)
+                fillShape(tailPath, a, c)
             case .stroke:
                 c.setStroke()
                 bodyPath.lineWidth = a.lineWidth
@@ -1873,9 +1935,8 @@ struct ScreenshotEditorView: View {
                 tailPath.lineWidth = a.lineWidth
                 tailPath.stroke()
             case .both:
-                c.withAlphaComponent(0.3).setFill()
-                bodyPath.fill()
-                tailPath.fill()
+                fillShape(bodyPath, a, c, alpha: 0.3)
+                fillShape(tailPath, a, c, alpha: 0.3)
                 c.setStroke()
                 bodyPath.lineWidth = a.lineWidth
                 bodyPath.stroke()
@@ -2108,17 +2169,31 @@ struct ScreenshotEditorView: View {
         }
     }
 
+    /// Float the annotated result above everything and close the editor.
+    ///
+    /// Closing is the point: you pinned it so you could go and work with it
+    /// visible, and leaving the editor sitting open on top of the very thing
+    /// you just pinned would defeat that.
+    private func pinToScreen() {
+        let finalImage = renderFinalImage()
+        PinnedImageController.shared.pin(image: finalImage)
+        cleanupResources()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            NSApp.keyWindow?.close()
+        }
+    }
+
     private func shareImage() {
         let finalImage = renderFinalImage()
         guard let window = NSApp.keyWindow,
               let contentView = window.contentView else { return }
 
-        // Write to temp file so AirDrop appears in share picker
-        let tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("clippy-share-\(Int(Date().timeIntervalSince1970)).png")
+        // Written to a file so AirDrop shows up in the picker at all.
+        // Staged rather than dropped in the temp directory: a shared
+        // screenshot is not something to leave lying around afterwards.
         guard let bitmap = finalImage.storageBitmapRep,
-              let pngData = bitmap.representation(using: .png, properties: [:]) else { return }
-        try? pngData.write(to: tempURL)
+              let pngData = bitmap.representation(using: .png, properties: [:]),
+              let tempURL = ShareStaging.stage(pngData, filename: "Screenshot", ext: "png") else { return }
 
         let picker = NSSharingServicePicker(items: [tempURL])
         picker.show(relativeTo: .zero, of: contentView, preferredEdge: .minY)
@@ -2236,13 +2311,133 @@ struct ScreenshotEditorView: View {
         }
     }
 
-    /// Shrinks a text annotation's box to what its text actually needs,
-    /// never wider than its wrap limit.
+    /// Resize handles and a move grip for the text box currently being
+    /// edited, in canvas coordinates.
+    ///
+    /// Dragging a corner sets `textWrapWidth` as well as the rect, so the
+    /// width you pull to becomes the width the text wraps at — otherwise the
+    /// box would grow while the text kept breaking where it always had.
+    @ViewBuilder
+    private func textEditHandles(annotationID: UUID, canvasRect: CGRect, scale: CGFloat) -> some View {
+        let handle: CGFloat = 10
+        let corners: [(x: CGFloat, y: CGFloat)] = [
+            (canvasRect.minX, canvasRect.minY),
+            (canvasRect.maxX, canvasRect.minY),
+            (canvasRect.minX, canvasRect.maxY),
+            (canvasRect.maxX, canvasRect.maxY)
+        ]
+
+        ForEach(0..<4, id: \.self) { corner in
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.white)
+                .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(Ember.Palette.amber, lineWidth: 1.5))
+                .frame(width: handle, height: handle)
+                .position(x: corners[corner].x, y: corners[corner].y)
+                .gesture(
+                    DragGesture(minimumDistance: 1)
+                        .onChanged { value in
+                            guard let idx = viewModel.annotations.firstIndex(where: { $0.id == annotationID })
+                            else { return }
+                            if textEditDragOrigin == nil {
+                                textEditDragOrigin = viewModel.annotations[idx].rect
+                            }
+                            guard let start = textEditDragOrigin else { return }
+
+                            let dx = value.translation.width / scale
+                            let dy = value.translation.height / scale
+
+                            // Build the rect from the anchor corner and the
+                            // dragged one, so pulling past the opposite edge
+                            // flips cleanly instead of going negative.
+                            let anchor = CGPoint(
+                                x: (corner == 1 || corner == 3) ? start.minX : start.maxX,
+                                y: (corner == 2 || corner == 3) ? start.minY : start.maxY
+                            )
+                            let dragged = CGPoint(
+                                x: ((corner == 1 || corner == 3) ? start.maxX : start.minX) + dx,
+                                y: ((corner == 2 || corner == 3) ? start.maxY : start.minY) + dy
+                            )
+
+                            var r = CGRect(
+                                x: min(anchor.x, dragged.x),
+                                y: min(anchor.y, dragged.y),
+                                width: abs(dragged.x - anchor.x),
+                                height: abs(dragged.y - anchor.y)
+                            )
+                            r.size.width = max(40, r.size.width)
+                            r.size.height = max(24, r.size.height)
+
+                            viewModel.annotations[idx].rect = r
+                            viewModel.annotations[idx].textWrapWidth = r.width
+                            viewModel.objectWillChange.send()
+                        }
+                        .onEnded { _ in textEditDragOrigin = nil }
+                )
+        }
+
+        // Move grip above the box: a separate target, because dragging inside
+        // the box has to keep selecting text.
+        Capsule()
+            .fill(Ember.Palette.amber)
+            .frame(width: 26, height: 6)
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.9), lineWidth: 1))
+            .position(x: canvasRect.midX, y: canvasRect.minY - 10)
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        guard let idx = viewModel.annotations.firstIndex(where: { $0.id == annotationID })
+                        else { return }
+                        if textEditDragOrigin == nil {
+                            textEditDragOrigin = viewModel.annotations[idx].rect
+                        }
+                        guard let start = textEditDragOrigin else { return }
+                        viewModel.annotations[idx].rect.origin = CGPoint(
+                            x: start.minX + value.translation.width / scale,
+                            y: start.minY + value.translation.height / scale
+                        )
+                        viewModel.objectWillChange.send()
+                    }
+                    .onEnded { _ in textEditDragOrigin = nil }
+            )
+    }
+
+    /// Fits a text annotation's box to its content when it's done being
+    /// edited — respecting a width the user chose themselves.
+    ///
+    /// Text boxes have two modes, and the distinction is already encoded in
+    /// `textWrapWidth`: a plain click leaves it nil (auto-size), a drag sets
+    /// it, as does resizing the box afterwards. This used to ignore that and
+    /// pull the width in to whatever the text measured either way, so
+    /// widening a box did nothing — the moment you finished typing it snapped
+    /// back and the text wrapped again exactly as before.
+    ///
+    /// Now only auto-size boxes hug their text on both axes. A box whose
+    /// width the user set keeps it, and only grows tall enough that nothing
+    /// is clipped — the behaviour every other editor has, and what makes the
+    /// box feel like something you can lay out rather than fight.
+    /// Fills `path` for the export renderer, honouring the gradient.
+    ///
+    /// The on-screen canvas and this AppKit path are two separate renderers,
+    /// so a gradient added to only one would look right while editing and
+    /// silently vanish from the saved file.
+    private func fillShape(_ path: NSBezierPath, _ a: Annotation, _ c: NSColor, alpha: CGFloat = 1.0) {
+        guard a.gradientFill else {
+            c.withAlphaComponent(alpha).setFill()
+            path.fill()
+            return
+        }
+        let start = NSColor(a.gradientStart).withAlphaComponent(alpha)
+        let end = NSColor(a.gradientEnd).withAlphaComponent(alpha)
+        (NSGradient(starting: start, ending: end) ?? NSGradient(starting: c, ending: c))?
+            .draw(in: path, angle: -45)
+    }
+
     private func tightenTextBox(at index: Int) {
         guard index < viewModel.annotations.count else { return }
         let annotation = viewModel.annotations[index]
         guard annotation.tool == .text, !annotation.text.isEmpty else { return }
 
+        let userSetWidth = annotation.textWrapWidth != nil
         let limit = annotation.textWrapWidth ?? Annotation.defaultWrapWidth(for: image.size)
         let inset = CustomTextEditor.contentInset
         let attributed = AnnotationTextStyle.attributedString(for: annotation)
@@ -2252,12 +2447,20 @@ struct ScreenshotEditorView: View {
             options: [.usesLineFragmentOrigin, .usesFontLeading]
         )
 
-        let width = min(ceil(measured.width) + inset.width * 2 + 2, limit)
-        let height = ceil(measured.height) + inset.height * 2
+        let neededHeight = ceil(measured.height) + inset.height * 2
 
         viewModel.objectWillChange.send()
-        viewModel.annotations[index].rect.size.width = max(40, width)
-        viewModel.annotations[index].rect.size.height = max(20, height)
+
+        if !userSetWidth {
+            let width = min(ceil(measured.width) + inset.width * 2 + 2, limit)
+            viewModel.annotations[index].rect.size.width = max(40, width)
+            viewModel.annotations[index].rect.size.height = max(20, neededHeight)
+        } else {
+            // Keep the drawn width, and keep a taller box if that's what was
+            // drawn — vertical alignment is what the extra room is for.
+            viewModel.annotations[index].rect.size.height =
+                max(20, max(annotation.rect.height, neededHeight))
+        }
     }
 
     private func addToRecentColors(_ color: Color) {
@@ -2617,6 +2820,134 @@ struct ScreenshotEditorView: View {
             expandBottom = "0"
             expandLeft = "0"
             expandRight = "0"
+        }
+    }
+
+    /// Dashed outlines over everything found, and a way to accept them.
+    ///
+    /// Proposals, not changes: the picture is untouched until one is
+    /// clicked. Each is its own target so a finding that shouldn't be
+    /// covered — your own name, a number you meant to show — can simply be
+    /// left alone.
+    @ViewBuilder
+    private func redactionProposals(in canvasSize: CGSize) -> some View {
+        let imgSize = image.size
+        let scale = min(canvasSize.width / imgSize.width, canvasSize.height / imgSize.height)
+        let offset = CGPoint(
+            x: (canvasSize.width - imgSize.width * scale) / 2,
+            y: (canvasSize.height - imgSize.height * scale) / 2
+        )
+
+        ForEach(sensitiveFindings) { finding in
+            let r = CGRect(
+                x: finding.rect.minX * scale + offset.x,
+                y: finding.rect.minY * scale + offset.y,
+                width: finding.rect.width * scale,
+                height: finding.rect.height * scale
+            )
+            Button {
+                acceptRedaction(finding)
+            } label: {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Ember.Palette.amber.opacity(0.18))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 3)
+                            .strokeBorder(
+                                Ember.Palette.amber,
+                                style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
+                            )
+                    )
+                    .frame(width: max(r.width, 8), height: max(r.height, 8))
+            }
+            .buttonStyle(.plain)
+            .position(x: r.midX, y: r.midY)
+            .help("\(finding.kind.label): \(finding.text) — click to cover")
+        }
+    }
+
+    /// Last check before the picture leaves the editor.
+    ///
+    /// Only for people who asked for it — off by default, because a prompt
+    /// that interrupts everyone is one everyone learns to click through, and
+    /// then it does nothing on the day it matters.
+    ///
+    /// It genuinely blocks, and that's the point. A warning shown after the
+    /// file is written prevents nothing; by then the thing you were being
+    /// warned about has already been shared.
+    private func confirmingSensitive(_ proceed: @escaping () -> Void) {
+        guard settings.warnBeforeSharingSensitive, !sensitiveFindings.isEmpty else {
+            proceed()
+            return
+        }
+
+        let kinds = Set(sensitiveFindings.map(\.kind.label)).sorted().joined(separator: ", ")
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = sensitiveFindings.count == 1
+            ? "Something sensitive is still visible"
+            : "\(sensitiveFindings.count) sensitive items are still visible"
+        alert.informativeText = "This image still shows: \(kinds). Cover them first?"
+        alert.addButton(withTitle: "Review")        // default — the safe path
+        alert.addButton(withTitle: "Continue")
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            showingRedactionProposals = true
+        } else {
+            proceed()
+        }
+    }
+
+    /// Turn one proposal into an actual cover.
+    private func acceptRedaction(_ finding: SensitiveFinding) {
+        addRedactions(for: [finding])
+        sensitiveFindings.removeAll { $0.id == finding.id }
+        if sensitiveFindings.isEmpty { showingRedactionProposals = false }
+    }
+
+    private func acceptAllRedactions() {
+        addRedactions(for: sensitiveFindings)
+        sensitiveFindings.removeAll()
+        showingRedactionProposals = false
+    }
+
+    /// One undo entry for the whole batch.
+    ///
+    /// Accepting seven findings at once is one decision, so ⌘Z should take
+    /// back one decision — not walk backwards through seven rectangles.
+    private func addRedactions(for findings: [SensitiveFinding]) {
+        guard !findings.isEmpty else { return }
+        let saved = viewModel.annotations
+
+        for finding in findings {
+            var annotation = Annotation(rect: finding.rect, color: .black, tool: .rectangle)
+            annotation.isRedaction = true
+            viewModel.annotations.append(annotation)
+        }
+        viewModel.objectWillChange.send()
+
+        undoManager?.registerUndo(withTarget: viewModel) { target in
+            target.annotations = saved
+            target.objectWillChange.send()
+        }
+    }
+
+    /// Look for leaked emails, phone numbers, cards, IBANs and keys.
+    ///
+    /// Off the main actor and a beat after the window appears: Vision costs
+    /// real time on a full-screen capture, and an editor that stutters on
+    /// open to run a check nobody asked for would be a bad trade. Runs once
+    /// per editor session.
+    private func scanForSensitiveContent() {
+        guard !hasScannedForSensitive else { return }
+        hasScannedForSensitive = true
+
+        let snapshot = image
+        let hint = settings.appLanguage
+
+        Task.detached(priority: .utility) {
+            try? await Task.sleep(for: .milliseconds(600))
+            let found = await MainActor.run { SensitiveScanner.scan(image: snapshot, primaryHint: hint) }
+            await MainActor.run { sensitiveFindings = found }
         }
     }
 

@@ -193,24 +193,23 @@ class QuickPreviewPanelController {
     // MARK: - Paste & Close
 
     private func pasteAndClose(item: ClipboardItemEntity) {
-        let clipboardItem = item.toClipboardItem()
-        let targetApp = previousApp
-
-        // Set pasteboard content BEFORE hiding, so it's ready when we paste
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        switch clipboardItem.contentType {
-        case .text(let text):
-            pb.setString(text, forType: .string)
-        case .image(let path):
-            if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-                let imageURL = appSupport.appendingPathComponent("Clippy/Images").appendingPathComponent(path)
-                if let image = NSImage(contentsOf: imageURL) {
-                    pb.writeObjects([image])
-                }
-            }
+        // Locked items authenticate first. The panel masks them as
+        // "Encrypted", but the number keys used to paste the text anyway —
+        // the mask was the only thing standing between a locked item and
+        // the pasteboard.
+        Task { @MainActor in
+            // Pasteboard first, while the panel is still up — the hide
+            // animation and the ⌘V that follows both assume the content
+            // is already there. Authentication for a locked item happens
+            // inside this call, which is why nothing is hidden until it
+            // returns.
+            guard await ClipboardSecurity.copyToPasteboard(for: item) else { return }
+            performPasteAndClose()
         }
-        pb.addTypes([PasteManager.pasteFromClippyType], owner: nil)
+    }
+
+    private func performPasteAndClose() {
+        let targetApp = previousApp
 
         // Hide panel, then activate target app and simulate Cmd+V
         hide {

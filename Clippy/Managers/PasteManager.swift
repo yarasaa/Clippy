@@ -62,8 +62,14 @@ class PasteManager {
         }
     }
 
-    func performPaste(completion: (() -> Void)? = nil) {
-        paste(using: { }, targetApp: nil, completion: completion)
+    /// Paste whatever is already on the pasteboard.
+    ///
+    /// Takes a target app so locked items can use it: their content is
+    /// put on the pasteboard by ClipboardSecurity (which has to decrypt
+    /// in memory rather than hand back a file path) and then pasted from
+    /// here, instead of going through `pasteItem`.
+    func performPaste(into targetApp: NSRunningApplication? = nil, completion: (() -> Void)? = nil) {
+        paste(using: { }, targetApp: targetApp, completion: completion)
     }
 
     private func paste(using pasteBlock: @escaping () -> Void, targetApp: NSRunningApplication?, completion: (() -> Void)? = nil) {
@@ -119,6 +125,10 @@ class PasteManager {
     }
 
     private func loadImage(from path: String) -> NSImage? {
+        // See ClipboardMonitor.loadImage — locked images go through
+        // ClipboardSecurity, never straight off disk.
+        guard !SecureStore.isSealedFile(path) else { return nil }
+
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return nil
         }

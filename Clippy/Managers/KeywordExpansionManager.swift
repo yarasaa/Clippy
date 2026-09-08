@@ -49,7 +49,6 @@ class KeywordExpansionManager {
     private static let nestedSnippetRegex = try! NSRegularExpression(pattern: #"\{\{;([a-zA-Z0-9_-]+)\}\}"#)
     private static let randomPlaceholderRegex = try! NSRegularExpression(pattern: #"\{\{RANDOM:(\d+)-(\d+)\}\}"#)
     private static let filePlaceholderRegex = try! NSRegularExpression(pattern: #"\{\{FILE:([^}]+)\}\}"#)
-    private static let shellPlaceholderRegex = try! NSRegularExpression(pattern: #"\{\{SHELL:([^}]+)\}\}"#)
 
     init() {
         cancellable = SettingsManager.shared.$isKeywordExpansionEnabled
@@ -164,8 +163,34 @@ class KeywordExpansionManager {
     }
 
     private func processAndPasteContent(_ content: String, keywordLength: Int) {
-        let processedContent = processDynamicPlaceholders(in: content)
+        let expanded = processDynamicPlaceholders(in: content)
 
+        // Everything above ran on the main actor, which is where it has to
+        // run — it reads the CoreData view context. {{SHELL:}} is the one
+        // placeholder that can't: it waits on a subprocess, so it resolves
+        // on a background queue and the paste continues when it lands.
+        // Snippets without one (nearly all of them) never leave this tick.
+        guard SnippetShellRunner.hasPlaceholder(in: expanded) else {
+            finishExpansion(expanded, keywordLength: keywordLength)
+            return
+        }
+
+        Self.shellQueue.async { [weak self] in
+            let resolved = SnippetShellRunner.resolve(in: expanded)
+            DispatchQueue.main.async {
+                self?.finishExpansion(resolved, keywordLength: keywordLength)
+            }
+        }
+    }
+
+    /// Serial so two snippets fired in quick succession can't run each
+    /// other's commands concurrently — snippet shell commands are the kind
+    /// of thing people expect to happen in order.
+    private static let shellQueue = DispatchQueue(label: "com.clippy.snippet-shell", qos: .userInitiated)
+
+    /// The rest of the expansion, once every placeholder is resolved:
+    /// collect `{parameter}` prompts if there are any, then paste.
+    private func finishExpansion(_ processedContent: String, keywordLength: Int) {
         let parameters = findParameters(in: processedContent)
         if !parameters.isEmpty {
             let targetApp = NSWorkspace.shared.frontmostApplication
@@ -249,9 +274,11 @@ class KeywordExpansionManager {
             if processedContent.contains("{{FILE:") {
                 processedContent = processFilePlaceholders(in: processedContent)
             }
-            if processedContent.contains("{{SHELL:") {
-                processedContent = processShellPlaceholders(in: processedContent)
-            }
+            // {{SHELL:}} is NOT expanded here. It runs a subprocess, and
+            // this loop is main-actor isolated (it reads the CoreData view
+            // context just above). Those placeholders are left standing for
+            // processAndPasteContent to resolve off the main thread — see
+            // SnippetShellRunner.
             if processedContent.contains("{{;") {
                 processedContent = processNestedSnippets(in: processedContent)
             }
@@ -328,40 +355,6 @@ class KeywordExpansionManager {
         return result
     }
 
-    private func processShellPlaceholders(in content: String) -> String {
-        var result = content
-        let matches = Self.shellPlaceholderRegex.matches(in: content, range: NSRange(content.startIndex..., in: content))
-        for match in matches.reversed() {
-            guard match.numberOfRanges == 2,
-                  let fullRange = Range(match.range, in: content),
-                  let commandRange = Range(match.range(at: 1), in: content) else { continue }
-
-            let command = String(content[commandRange]).trimmingCharacters(in: .whitespaces)
-            let task = Process()
-            task.launchPath = "/bin/sh"
-            task.arguments = ["-c", command]
-
-            let pipe = Pipe()
-            task.standardOutput = pipe
-            task.standardError = pipe
-
-            do {
-                try task.run()
-                task.waitUntilExit()
-
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                if let output = String(data: data, encoding: .utf8) {
-                    result.replaceSubrange(fullRange, with: output.trimmingCharacters(in: .whitespacesAndNewlines))
-                } else {
-                    result.replaceSubrange(fullRange, with: "")
-                }
-            } catch {
-                result.replaceSubrange(fullRange, with: "")
-            }
-        }
-        return result
-    }
-
     private func findParameters(in content: String) -> [String] {
         let results = Self.parameterRegex.matches(in: content, range: NSRange(content.startIndex..., in: content))
         let parameters = results.compactMap { match -> String? in
@@ -404,7 +397,11 @@ class KeywordExpansionManager {
 
     private func reloadCache() {
         let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "keyword != nil AND keyword != ''")
+        // Locked snippets are left out: their content is ciphertext, and
+        // expanding a keyword can't stop to ask for Touch ID — it fires
+        // from a keystroke in someone else's app. Better that the keyword
+        // simply doesn't trigger than that it types out ciphertext.
+        fetchRequest.predicate = NSPredicate(format: "keyword != nil AND keyword != '' AND isEncrypted == NO")
         // Only fetch the properties we need for better performance
         fetchRequest.propertiesToFetch = ["keyword", "content", "category", "applicationRules"]
 

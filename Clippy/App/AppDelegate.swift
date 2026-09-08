@@ -47,10 +47,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         keywordManager?.startMonitoring()
         clipboardMonitor?.startMonitoring()
 
-        // One-shot prune on launch — clears any overgrowth from
-        // previous versions that didn't have auto-pruning, and trims
-        // anything accumulated while the app was closed (orphaned
-        // image files from a prior crash, etc.).
+        // Items that earlier versions marked as locked were stored in the
+        // clear — the flag drew a lock and nothing encrypted anything.
+        // Seal them now, before any of them can be shown or copied.
+        clipboardMonitor?.migrateLegacyEncryptedItems()
+
+        // Anything a crash left in the share staging directory. No share
+        // sheet survives a relaunch, so nothing here is still in use.
+        ShareStaging.purge()
+
+        // One-shot prune on launch — clears any overgrowth from previous
+        // versions that didn't have auto-pruning, and trims anything
+        // accumulated while the app was closed.
+        //
+        // It does NOT collect orphaned image files, whatever this comment
+        // used to say: pruning only deletes the files belonging to rows it
+        // deletes itself. Files whose row is already gone are found by
+        // HistoryPruner.reapOrphanedImages(), from Settings → Features.
         Task.detached(priority: .utility) {
             await HistoryPruner.shared.pruneNow()
         }
@@ -341,6 +354,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         clipboardMonitor?.stopMonitoring()
         keywordManager?.stopMonitoring()
         clipboardMonitor?.saveContext()
+        // Staged share files are only ever needed by an open share sheet,
+        // and none is open once we're quitting.
+        ShareStaging.purgeAll()
     }
 
     func updateHotkey() {
@@ -515,9 +531,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             captureWindowItem.target = self
             menu.addItem(captureWindowItem)
 
-            let captureDelayedItem = NSMenuItem(title: L("Delayed Screenshot (3s)", settings: SettingsManager.shared), action: #selector(captureDelayed), keyEquivalent: "")
-            captureDelayedItem.target = self
-            menu.addItem(captureDelayedItem)
+            // Delay is a submenu rather than a fixed 3 seconds: three is
+            // barely enough to open a menu, and nothing about the old
+            // single item said what it would do or let you pick.
+            let delayedItem = NSMenuItem(title: L("Delayed Capture", settings: SettingsManager.shared), action: nil, keyEquivalent: "")
+            let delayedMenu = NSMenu()
+            for seconds in [3, 5, 10] {
+                let item = NSMenuItem(
+                    title: String(format: L("Full Screen after %ds", settings: SettingsManager.shared), seconds),
+                    action: #selector(captureDelayed(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.tag = seconds
+                delayedMenu.addItem(item)
+            }
+            delayedItem.submenu = delayedMenu
+            menu.addItem(delayedItem)
 
         }
 
@@ -961,8 +991,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc func captureDelayed() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+    /// Delayed full-screen capture. The delay comes from the menu item's
+    /// tag, and the countdown is visible so the wait reads as the feature
+    /// working rather than the click having missed.
+    @objc func captureDelayed(_ sender: NSMenuItem) {
+        let seconds = sender.tag > 0 ? sender.tag : 3
+        CaptureCountdown.shared.start(seconds: seconds) { [weak self] in
             ScreenshotManager.shared.captureArea(mode: .fullScreen) { image in
                 self?.showScreenshotEditor(with: image)
             }

@@ -44,7 +44,7 @@ class ClipboardMonitor: ObservableObject {
     // was the case here, and it mattered: a JPEG that's 200 KB on disk
     // decodes to ~5.5 MB in memory (a full-screen Retina grab is ~59 MB),
     // so a 50-image count limit alone permits hundreds of MB to GBs.
-    private let imageCache: NSCache<NSString, NSImage> = {
+    let imageCache: NSCache<NSString, NSImage> = {
         let cache = NSCache<NSString, NSImage>()
         cache.countLimit = 50
         cache.totalCostLimit = 100 * 1024 * 1024 // 100MB
@@ -77,7 +77,9 @@ class ClipboardMonitor: ObservableObject {
     private let fullIdleThreshold: TimeInterval   = 45.0
     private var lastActivityAt: Date = Date()
 
-    private let viewContext = PersistenceController.shared.container.viewContext
+    /// Not private: ClipboardMonitor+Security is a separate file and
+    /// needs the same context, so its edits land in the same save.
+    let viewContext = PersistenceController.shared.container.viewContext
 
     init() {
         self.changeCount = NSPasteboard.general.changeCount
@@ -521,22 +523,35 @@ class ClipboardMonitor: ObservableObject {
             guard let lastItem = try viewContext.fetch(fetchRequest).first,
                   let lastContent = lastItem.content else { return false }
 
-            // Quick length check before expensive string comparison
+            // Cheap reject first: different lengths can't be equal, and
+            // `count` on a String is O(n) but far cheaper than comparing.
             guard lastContent.count == text.count else { return false }
 
-            // For very long texts, compare prefix + suffix + length instead of full comparison
-            if text.count > 100_000 {
-                return lastContent.prefix(1000) == text.prefix(1000) &&
-                       lastContent.suffix(1000) == text.suffix(1000)
-            }
-
+            // Full equality, at every size.
+            //
+            // This used to take a shortcut past 100k characters — same
+            // length, same first 1000 and last 1000 characters counted as
+            // a duplicate. That is the exact failure the comment above
+            // describes: edit something in the middle of a large file
+            // without changing its length (a number, a hex colour, a name
+            // of equal length), copy it again, and the new version was
+            // silently dropped. The user thinks they copied it; the
+            // history still holds the old one.
+            //
+            // The shortcut was there for speed and was costing it. Measured
+            // on a 1 MB string: full `==` is 2.0 ms, the prefix/suffix
+            // version 3.0 ms — `suffix(1000)` has to walk the string to
+            // find its own start, so the "optimization" did more work than
+            // the comparison it replaced. This runs once per clipboard
+            // change. The long-text freeze it was meant to help came from
+            // `isLikelyCode`'s regex, which has its own guard.
             return lastContent == text
         } catch {
             return false
         }
     }
 
-    private func findEntity(for itemID: UUID) -> ClipboardItemEntity? {
+    func findEntity(for itemID: UUID) -> ClipboardItemEntity? {
         let fetchRequest: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
         fetchRequest.predicate = NSPredicate(format: "id == %@", itemID as CVarArg)
         fetchRequest.fetchLimit = 1
@@ -622,8 +637,13 @@ class ClipboardMonitor: ObservableObject {
         selectedItemIDs.removeAll()
     }
 
+    /// Locked items are left out rather than contributing ciphertext.
+    /// A bulk copy that stopped to ask for Touch ID once per item would
+    /// be worse than one that plainly skips them.
     func getCombinedTextForSelection() -> String {
-        let selectedItems = selectedItemIDs.compactMap { id in findEntity(for: id) }.filter { $0.contentType == "text" }
+        let selectedItems = selectedItemIDs
+            .compactMap { id in findEntity(for: id) }
+            .filter { $0.contentType == "text" && !$0.isEncrypted }
         return selectedItems.compactMap { $0.content }.joined(separator: "\n")
     }
 
@@ -636,7 +656,10 @@ class ClipboardMonitor: ObservableObject {
         guard let selectedItems = try? viewContext.fetch(fetchRequest) else { return }
         var pasteboardObjects: [NSPasteboardWriting] = []
 
-        let combinedText = selectedItems.filter { $0.contentType == "text" }.compactMap { $0.content }.joined(separator: "\n")
+        let combinedText = selectedItems
+            .filter { $0.contentType == "text" && !$0.isEncrypted }
+            .compactMap { $0.content }
+            .joined(separator: "\n")
         if !combinedText.isEmpty {
             pasteboardObjects.append(combinedText as NSPasteboardWriting)
         }
@@ -658,6 +681,16 @@ class ClipboardMonitor: ObservableObject {
         let combinedText = getCombinedTextForSelection()
 
         return NSItemProvider(object: combinedText as NSString)
+    }
+
+    /// Whether a multi-item drag would include something locked. Callers
+    /// use this to refuse the drag rather than hand over ciphertext; see
+    /// ClippyCard.itemProvider for why locked items can't drag at all.
+    var selectionContainsLockedItem: Bool {
+        let request: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
+        request.predicate = NSPredicate(format: "id IN %@ AND isEncrypted == YES", selectedItemIDs)
+        request.fetchLimit = 1
+        return ((try? viewContext.count(for: request)) ?? 0) > 0
     }
 
     func combineSelectedImagesAsNewItem(orientation: ImageOrientation) {
@@ -706,10 +739,17 @@ class ClipboardMonitor: ObservableObject {
         scheduleSave()
     }
 
-    func toggleEncryption(for itemID: UUID) {
-        guard let entity = findEntity(for: itemID) else { return }
-        entity.isEncrypted.toggle()
-        scheduleSave()
+    /// Lock or unlock, depending on where the item is now.
+    ///
+    /// This used to be `entity.isEncrypted.toggle()` and nothing else —
+    /// the content never changed, and unlocking asked for nothing. The
+    /// real work is in ClipboardMonitor+Security; both halves can fail
+    /// (the Keychain can be unavailable, the user can cancel Touch ID),
+    /// so this reports rather than silently doing nothing.
+    @discardableResult
+    func toggleEncryption(for itemID: UUID) async -> Result<Void, Error> {
+        guard let entity = findEntity(for: itemID) else { return .success(()) }
+        return entity.isEncrypted ? await unlock(itemID: itemID) : lock(itemID: itemID)
     }
 
     func deleteSelectedItems() {
@@ -752,6 +792,46 @@ class ClipboardMonitor: ObservableObject {
         viewContext.delete(item)
         if shouldSave {
             scheduleSave()
+        }
+    }
+
+    /// How many items "Clear Everything" would delete. Shown in the
+    /// confirmation, because "are you sure?" without a number is a
+    /// question nobody can actually answer.
+    var clearEverythingCount: Int {
+        let request: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
+        request.predicate = ClipboardItemEntity.prunablePredicate
+        return (try? viewContext.count(for: request)) ?? 0
+    }
+
+    /// Delete everything that isn't a snippet, pinned, starred or locked
+    /// — text, code and images alike.
+    ///
+    /// Deliberately blind to tabs. `clear(tab:)` deletes what a tab shows,
+    /// which is right for a per-tab action but means anything in a hidden
+    /// tab can't be reached at all: turn off the Images tab and old
+    /// screenshots become invisible AND undeletable. Selecting on
+    /// protection status instead of content type has no such gap, and
+    /// needs no updating when a tab is added.
+    func clearEverything() {
+        let request: NSFetchRequest<ClipboardItemEntity> = ClipboardItemEntity.fetchRequest()
+        request.predicate = ClipboardItemEntity.prunablePredicate
+
+        do {
+            let items = try viewContext.fetch(request)
+            for item in items {
+                // Files on disk too. Dropping only the rows would leave
+                // the images behind after telling the user everything was
+                // gone, which is the opposite of what this action is for.
+                if item.contentType == "image" {
+                    if let path = item.content { imageCache.removeObject(forKey: path as NSString) }
+                    deleteImageFile(for: item)
+                }
+                viewContext.delete(item)
+            }
+            scheduleSave()
+        } catch {
+            NSLog("[Clippy] Clear everything failed: \(error.localizedDescription)")
         }
     }
 
@@ -859,6 +939,11 @@ class ClipboardMonitor: ObservableObject {
     }
 
     func loadImage(from path: String) -> NSImage? {
+        // Locked images are only ever decoded through
+        // ClipboardSecurity.revealedImage, which authenticates first and
+        // keeps the result out of every cache.
+        guard !SecureStore.isSealedFile(path) else { return nil }
+
         if let cachedImage = imageCache.object(forKey: path as NSString) {
             return cachedImage
         }

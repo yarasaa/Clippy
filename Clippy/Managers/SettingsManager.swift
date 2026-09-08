@@ -270,6 +270,16 @@ class SettingsManager: ObservableObject {
     @Published var enableTemplateDetection: Bool {
         didSet { UserDefaults.standard.set(enableTemplateDetection, forKey: "enableTemplateDetection") }
     }
+    /// Ask before saving or sharing a screenshot that still has uncovered
+    /// findings in it.
+    ///
+    /// Off by default. It interrupts an explicit action, and interrupting
+    /// people who didn't ask to be interrupted is how a safety feature
+    /// becomes something you learn to click through. Whoever turns this on
+    /// is asking to be stopped.
+    @Published var warnBeforeSharingSensitive: Bool {
+        didSet { UserDefaults.standard.set(warnBeforeSharingSensitive, forKey: "warnBeforeSharingSensitive") }
+    }
     @Published var enableDuplicateDetection: Bool {
         didSet { UserDefaults.standard.set(enableDuplicateDetection, forKey: "enableDuplicateDetection") }
     }
@@ -325,7 +335,41 @@ class SettingsManager: ObservableObject {
         didSet { UserDefaults.standard.set(ollamaModel, forKey: "ollamaModel") }
     }
 
+    // MARK: - Locked items
+
+    /// Ask for Touch ID (or the login password) before revealing, copying
+    /// or pasting a locked item.
+    ///
+    /// Defaults to on. Clicking "Lock" on a card is someone stating a
+    /// security intent; starting them off with the weaker behaviour would
+    /// contradict what they just asked for, and turning it off is two
+    /// clicks. This gate is the only optional half — the content is
+    /// encrypted at rest either way (see SecureStore).
+    @Published var requireAuthForEncrypted: Bool {
+        didSet {
+            UserDefaults.standard.set(requireAuthForEncrypted, forKey: "requireAuthForEncrypted")
+            ClipboardAuthenticator.shared.invalidate()
+        }
+    }
+
+    /// How long one successful unlock stays good, in seconds. 0 asks
+    /// every time.
+    ///
+    /// The ceiling is 300 because that is the system's ceiling for
+    /// `touchIDAuthenticationAllowableReuseDuration`. A longer window
+    /// would have to be timed by Clippy itself, which is an `if` in our
+    /// own code rather than a guarantee — the same label over a weaker
+    /// promise. So it isn't offered.
+    @Published var encryptedAuthReuseDuration: Double {
+        didSet {
+            UserDefaults.standard.set(encryptedAuthReuseDuration, forKey: "encryptedAuthReuseDuration")
+            ClipboardAuthenticator.shared.invalidate()
+        }
+    }
+
     private init() {
+        self.requireAuthForEncrypted = UserDefaults.standard.object(forKey: "requireAuthForEncrypted") as? Bool ?? true
+        self.encryptedAuthReuseDuration = UserDefaults.standard.object(forKey: "encryptedAuthReuseDuration") as? Double ?? 60
         self.showCodeTab = UserDefaults.standard.object(forKey: "showCodeTab") as? Bool ?? true
         self.showImagesTab = UserDefaults.standard.object(forKey: "showImagesTab") as? Bool ?? true
         self.showSnippetsTab = UserDefaults.standard.object(forKey: "showSnippetsTab") as? Bool ?? true
@@ -448,6 +492,7 @@ class SettingsManager: ObservableObject {
         self.enableAutoOCR = UserDefaults.standard.object(forKey: "enableAutoOCR") as? Bool ?? true
         self.enableAutoTitle = UserDefaults.standard.object(forKey: "enableAutoTitle") as? Bool ?? true
         self.enableTemplateDetection = UserDefaults.standard.object(forKey: "enableTemplateDetection") as? Bool ?? true
+        self.warnBeforeSharingSensitive = UserDefaults.standard.object(forKey: "warnBeforeSharingSensitive") as? Bool ?? false
         self.enableDuplicateDetection = UserDefaults.standard.object(forKey: "enableDuplicateDetection") as? Bool ?? true
         self.enableSourceAppTracking = UserDefaults.standard.object(forKey: "enableSourceAppTracking") as? Bool ?? true
         self.enableFileConverter = UserDefaults.standard.object(forKey: "enableFileConverter") as? Bool ?? true

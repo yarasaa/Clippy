@@ -44,7 +44,7 @@ struct DrawingCanvasView: View {
     var onStopEditingText: () -> Void
     var onPickColor: ((CGPoint) -> Void)?
     var onEyedropperHover: ((CGPoint, NSPoint) -> Void)?
-    var zoomScale: CGFloat = 1.0
+    var onEyedropperExit: (() -> Void)?
 
     @Environment(\.undoManager) private var undoManager
 
@@ -364,6 +364,12 @@ struct DrawingCanvasView: View {
                     }
                 case .ended:
                     NSCursor.arrow.set()
+                    // The loupe follows the cursor, so it has no business
+                    // hanging around once the cursor has left the canvas.
+                    // It used to persist until the tool changed or the
+                    // editor closed — which is how it ended up floating over
+                    // other apps entirely.
+                    onEyedropperExit?()
                 }
             }
     }
@@ -1394,6 +1400,20 @@ struct DrawingCanvasView: View {
     // MARK: - Annotation Rendering
 
     private func drawSingleAnnotation(_ annotation: Annotation, rect: CGRect, in context: inout GraphicsContext, canvasSize: CGSize, nsImage: NSImage? = nil) {
+        // Redaction short-circuits everything.
+        //
+        // Placed before the tool switch on purpose: a cover that any later
+        // branch could soften — through opacity, fill mode, gradient, a
+        // stroke-only mode — is a cover you can't trust. Nothing about the
+        // annotation is consulted except where it is.
+        if annotation.isRedaction {
+            context.fill(
+                Path(roundedRect: rect, cornerRadius: annotation.cornerRadius),
+                with: .color(.black)
+            )
+            return
+        }
+
         let opacity = annotation.opacity
         let dashed = annotation.dashedStroke
 
@@ -1424,11 +1444,11 @@ struct DrawingCanvasView: View {
                 let sketchPath = SketchRenderer.sketchRect(rect, seed: seed)
                 switch annotation.fillMode {
                 case .fill:
-                    context.fill(Path(rect), with: .color(annotation.color))
+                    context.fill(Path(rect), with: shapeFill(annotation, in: rect))
                 case .stroke:
                     context.stroke(sketchPath, with: .color(annotation.color), lineWidth: annotation.lineWidth)
                 case .both:
-                    context.fill(Path(rect), with: .color(annotation.color.opacity(0.3)))
+                    context.fill(Path(rect), with: shapeFill(annotation, in: rect, opacity: 0.3))
                     context.stroke(sketchPath, with: .color(annotation.color), lineWidth: annotation.lineWidth)
                 }
             } else {
@@ -1437,11 +1457,11 @@ struct DrawingCanvasView: View {
 
                 switch annotation.fillMode {
                 case .fill:
-                    context.fill(rectPath, with: .color(annotation.color))
+                    context.fill(rectPath, with: shapeFill(annotation, in: rect))
                 case .stroke:
                     context.stroke(rectPath, with: .color(annotation.color), style: strokeStyle(lineWidth: annotation.lineWidth))
                 case .both:
-                    context.fill(rectPath, with: .color(annotation.color.opacity(0.3)))
+                    context.fill(rectPath, with: shapeFill(annotation, in: rect, opacity: 0.3))
                     context.stroke(rectPath, with: .color(annotation.color), style: strokeStyle(lineWidth: annotation.lineWidth))
                 }
             }
@@ -1451,11 +1471,11 @@ struct DrawingCanvasView: View {
                 let sketchPath = SketchRenderer.sketchEllipse(rect, seed: seed)
                 switch annotation.fillMode {
                 case .fill:
-                    context.fill(Path(ellipseIn: rect), with: .color(annotation.color))
+                    context.fill(Path(ellipseIn: rect), with: shapeFill(annotation, in: rect))
                 case .stroke:
                     context.stroke(sketchPath, with: .color(annotation.color), lineWidth: annotation.lineWidth)
                 case .both:
-                    context.fill(Path(ellipseIn: rect), with: .color(annotation.color.opacity(0.3)))
+                    context.fill(Path(ellipseIn: rect), with: shapeFill(annotation, in: rect, opacity: 0.3))
                     context.stroke(sketchPath, with: .color(annotation.color), lineWidth: annotation.lineWidth)
                 }
             } else {
@@ -1463,11 +1483,11 @@ struct DrawingCanvasView: View {
 
                 switch annotation.fillMode {
                 case .fill:
-                    context.fill(ellipsePath, with: .color(annotation.color))
+                    context.fill(ellipsePath, with: shapeFill(annotation, in: rect))
                 case .stroke:
                     context.stroke(ellipsePath, with: .color(annotation.color), style: strokeStyle(lineWidth: annotation.lineWidth))
                 case .both:
-                    context.fill(ellipsePath, with: .color(annotation.color.opacity(0.3)))
+                    context.fill(ellipsePath, with: shapeFill(annotation, in: rect, opacity: 0.3))
                     context.stroke(ellipsePath, with: .color(annotation.color), style: strokeStyle(lineWidth: annotation.lineWidth))
                 }
             }
@@ -1835,14 +1855,14 @@ struct DrawingCanvasView: View {
 
             switch annotation.fillMode {
             case .fill:
-                context.fill(bodyPath, with: .color(annotation.color))
-                context.fill(tailPath, with: .color(annotation.color))
+                context.fill(bodyPath, with: shapeFill(annotation, in: bodyRect))
+                context.fill(tailPath, with: shapeFill(annotation, in: bodyRect))
             case .stroke:
                 context.stroke(bodyPath, with: .color(annotation.color), style: strokeStyle(lineWidth: annotation.lineWidth))
                 context.stroke(tailPath, with: .color(annotation.color), style: strokeStyle(lineWidth: annotation.lineWidth))
             case .both:
-                context.fill(bodyPath, with: .color(annotation.color.opacity(0.3)))
-                context.fill(tailPath, with: .color(annotation.color.opacity(0.3)))
+                context.fill(bodyPath, with: shapeFill(annotation, in: bodyRect, opacity: 0.3))
+                context.fill(tailPath, with: shapeFill(annotation, in: bodyRect, opacity: 0.3))
                 context.stroke(bodyPath, with: .color(annotation.color), style: strokeStyle(lineWidth: annotation.lineWidth))
                 context.stroke(tailPath, with: .color(annotation.color), style: strokeStyle(lineWidth: annotation.lineWidth))
             }
@@ -2045,6 +2065,21 @@ private func shaftEndPoint(
     guard len > 0.001 else { return end }
     return CGPoint(x: end.x - dx / len * trim,
                    y: end.y - dy / len * trim)
+}
+
+
+/// Fill shading for a shape: a flat colour, or the annotation's gradient.
+///
+/// Kept in one place because rect and ellipse each have a sketch and a clean
+/// branch — four fill sites that must agree, or a gradient would appear on
+/// some shapes and not others.
+func shapeFill(_ a: Annotation, in rect: CGRect, opacity: Double = 1.0) -> GraphicsContext.Shading {
+    guard a.gradientFill else { return .color(a.color.opacity(opacity)) }
+    return .linearGradient(
+        Gradient(colors: [a.gradientStart.opacity(opacity), a.gradientEnd.opacity(opacity)]),
+        startPoint: CGPoint(x: rect.minX, y: rect.minY),
+        endPoint: CGPoint(x: rect.maxX, y: rect.maxY)
+    )
 }
 
 private func drawArrowhead(

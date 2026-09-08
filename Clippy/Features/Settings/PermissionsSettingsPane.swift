@@ -7,6 +7,7 @@ import SwiftUI
 
 struct PermissionsSettingsPane: View {
     @StateObject private var permissions = PermissionManager.shared
+    @EnvironmentObject private var settings: SettingsManager
     @Environment(\.colorScheme) private var scheme
     @State private var showResetConfirm: Bool = false
 
@@ -15,6 +16,8 @@ struct PermissionsSettingsPane: View {
             title: "Privacy & Permissions",
             subtitle: "Grant only what you need. Reset if a reinstall left stale entries."
         ) {
+            lockedItemsGroup
+
             SettingsGroup("System Access") {
                 ForEach(Array(ClippyPermission.allCases.enumerated()), id: \.element.id) { index, permission in
                     permissionRow(permission)
@@ -34,6 +37,49 @@ struct PermissionsSettingsPane: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("macOS will forget every permission you granted to Clippy. You'll be prompted again as needed.")
+        }
+    }
+
+
+    // MARK: Locked items
+
+    /// Note what is *not* here: a switch for the encryption itself.
+    /// Locked items are always encrypted on disk — that costs nothing and
+    /// turning it off could only ever make things worse. What's genuinely
+    /// a trade-off, and so genuinely a setting, is whether Clippy stops to
+    /// check it's you before handing the text over.
+    private var lockedItemsGroup: some View {
+        SettingsGroup(
+            "Locked Items",
+            footer: "Locked items are always encrypted on disk. This controls whether Clippy also asks who you are before revealing, copying or pasting one."
+        ) {
+            SettingsRow(
+                "Require Touch ID or password",
+                help: ClipboardAuthenticator.shared.isAvailable
+                    ? nil
+                    : "This Mac can't authenticate — set a login password to use this."
+            ) {
+                Toggle("", isOn: $settings.requireAuthForEncrypted)
+                    .labelsHidden()
+                    .disabled(!ClipboardAuthenticator.shared.isAvailable)
+            }
+
+            if settings.requireAuthForEncrypted {
+                Divider().opacity(0.2)
+                SettingsRow(
+                    "Ask again after",
+                    help: "macOS caps this at five minutes, so nothing longer is offered — a longer window would be Clippy's own timer, not a guarantee."
+                ) {
+                    Picker("", selection: $settings.encryptedAuthReuseDuration) {
+                        Text("Every time").tag(0.0)
+                        Text("1 minute").tag(60.0)
+                        Text("5 minutes").tag(300.0)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 130)
+                }
+            }
         }
     }
 

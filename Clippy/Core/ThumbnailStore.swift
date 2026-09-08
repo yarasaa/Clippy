@@ -47,6 +47,11 @@ enum ThumbnailStore {
     /// Thumbnail decoded at reduced resolution — the full-size bitmap is
     /// never materialised.
     static func thumbnail(for path: String, maxPixel: CGFloat = 640) -> NSImage? {
+        // A locked image is ciphertext on disk. Refusing here rather than
+        // letting ImageIO fail on its own is what keeps a decrypted
+        // bitmap out of the thumbnail cache: the card shows its lock, and
+        // no decoding is attempted until someone authenticates.
+        guard !SecureStore.isSealedFile(path) else { return nil }
         let key = "\(path)@\(Int(maxPixel))" as NSString
         if let cached = cache.object(forKey: key) { return cached }
 

@@ -203,8 +203,7 @@ struct ClippyCard: View {
             // "naked" domains (github.com, wangchujiang.com, claude.ai)
             // via NSDataDetector — the same engine macOS Mail uses for
             // auto-linking. Any TLD Mail would turn blue, we recognise.
-            if item.contentType == "text",
-               let content = item.content,
+            if let content = actionableText,
                let url = quickURL(from: content) {
                 iconButton(systemName: "safari", help: "Open URL") {
                     NSWorkspace.shared.open(url)
@@ -221,7 +220,13 @@ struct ClippyCard: View {
             // Transform menu — text items always; image items only
             // when OCR has produced searchable text (so the AI
             // section has something useful to act on).
-            if item.contentType == "text"
+            //
+            // Never for locked items. These actions rewrite `content` in
+            // place, and on a locked item that content is ciphertext:
+            // "Uppercase" would corrupt it past decrypting. Losing the
+            // data would be a worse outcome than any of this menu offers.
+            if !item.isEncrypted,
+               item.contentType == "text"
                 || (item.contentType == "image" && (item.extractedText?.isEmpty == false)) {
                 transformationMenu
             }
@@ -325,7 +330,7 @@ struct ClippyCard: View {
                     Button("Decode from JSON String") { monitor.decodeFromJSONString(for: itemID) }
                 }
 
-                if let content = item.content, content.count <= 50_000, item.toClipboardItem().isJSON {
+                if let content = actionableText, content.count <= 50_000, item.toClipboardItem().isJSON {
                     Section("JSON") {
                         Button("Format JSON") { monitor.formatJSON(for: itemID) }
                         Button("Minify JSON") { monitor.minifyJSON(for: itemID) }
@@ -843,12 +848,29 @@ struct ClippyCard: View {
         }
         Divider()
         Button {
-            if let id = item.id {
-                monitor.toggleEncryption(for: id)
+            guard let id = item.id else { return }
+            Task {
+                if case .failure(let error) = await monitor.toggleEncryption(for: id) {
+                    presentSecurityFailure(error)
+                }
             }
         } label: {
-            Label("Encrypt this item…", systemImage: "lock.fill")
+            Label("Lock this item…", systemImage: "lock.fill")
         }
+    }
+
+    /// The item's text for anything that inspects or acts on it — Open
+    /// URL, web search, QR, colour conversion, the AI actions.
+    ///
+    /// `nil` for a locked item. Its `content` is ciphertext, so reading it
+    /// directly produces both nonsense and, in the AI case, a locked
+    /// item's data leaving the Mac. One accessor rather than an
+    /// `!isEncrypted` at each of the seven call sites, because seven
+    /// guards is a list you eventually add an eighth item to and forget.
+    private var actionableText: String? {
+        guard !item.isEncrypted, item.contentType == "text" else { return nil }
+        guard let content = item.content, !content.isEmpty else { return nil }
+        return content
     }
 
     /// Shows only the last 4 alphanumerics of a card / IBAN / TC etc.
@@ -866,7 +888,7 @@ struct ClippyCard: View {
     private var dragPreview: some View {
         VStack {
             if item.contentType == "text" {
-                Text(String((item.content ?? "").prefix(1000)))
+                Text(String((actionableText ?? "").prefix(1000)))
                     .lineLimit(15)
                     .font(.body)
             } else if item.contentType == "image", let imagePath = item.content,
@@ -925,11 +947,18 @@ struct ClippyCard: View {
             .allowsHitTesting(false)
     }
 
+    /// Paste, unlocking first if the item is locked.
+    ///
+    /// The flash only fires once the content is actually in hand — a
+    /// confirmation animation for a paste that never happened (because
+    /// Touch ID was cancelled) would be a lie.
     private func pasteWithFlash() {
-        withAnimation { didPasteFlash = true }
-        PasteManager.shared.pasteItem(item.toClipboardItem())
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            didPasteFlash = false
+        Task {
+            guard await ClipboardSecurity.paste(entity: item) else { return }
+            withAnimation { didPasteFlash = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                didPasteFlash = false
+            }
         }
     }
 
@@ -937,7 +966,9 @@ struct ClippyCard: View {
 
     @ViewBuilder
     private var cardContextMenu: some View {
-        Button { monitor.copyToClipboard(item: item.toClipboardItem()) } label: {
+        Button {
+            Task { await ClipboardSecurity.copyToPasteboard(for: item) }
+        } label: {
             Label("Copy", systemImage: "doc.on.doc")
         }
 
@@ -945,8 +976,22 @@ struct ClippyCard: View {
             Label("Paste", systemImage: "arrow.down.doc")
         }
 
-        Button { shareClipboardItem() } label: {
+        Button {
+            Task { await shareClipboardItem() }
+        } label: {
             Label("Share…", systemImage: "square.and.arrow.up")
+        }
+
+        // Pin to Screen — images only. Floating a wall of text above every
+        // window isn't useful; a reference picture is exactly what this is
+        // for, so the row simply isn't offered for text.
+        if item.contentType == "image", let image = loadImageForPinning() {
+            Button {
+                PinnedImageController.shared.pin(image: image)
+                NotificationCenter.default.post(name: .closeClippyPopover, object: nil)
+            } label: {
+                Label("Pin to Screen", systemImage: "pin")
+            }
         }
 
         // Send to Phone. QR is only genuinely good for URLs (the
@@ -959,8 +1004,7 @@ struct ClippyCard: View {
         // on iOS, and the native path (Share → AirDrop, above) already does
         // it well. An inert "hint" row was here before; a menu item you
         // can't click is noise, so it's gone.
-        if item.contentType == "text",
-           let content = item.content,
+        if let content = actionableText,
            let url = phoneQRURL(from: content) {
             Button {
                 QRSharePanelController.shared.show(
@@ -975,8 +1019,7 @@ struct ClippyCard: View {
         // Web search (P3.31). Text items only — running a search on
         // a screenshot's filename is meaningless and OCR'd text has
         // less consistent value for direct web search.
-        if item.contentType == "text",
-           let content = item.content,
+        if let content = actionableText,
            let query = trimmedSearchQuery(from: content) {
             Menu {
                 Button {
@@ -1024,8 +1067,7 @@ struct ClippyCard: View {
         }
 
         // Color converter
-        if item.contentType == "text",
-           let content = item.content,
+        if let content = actionableText,
            ColorConverter.detectFormat(content) != nil,
            let color = ColorConverter.parseColor(content) {
 
@@ -1097,11 +1139,18 @@ struct ClippyCard: View {
             Label(item.isPinned ? "Unpin" : "Pin", systemImage: item.isPinned ? "pin.slash" : "pin")
         }
 
-        // Encryption
+        // Lock / unlock. Text is encrypted in the `content` field; an
+        // image's file is encrypted on disk, since its content is only a
+        // filename and sealing that would protect nothing.
         Button {
-            monitor.toggleEncryption(for: item.id ?? UUID())
+            let id = item.id ?? UUID()
+            Task {
+                if case .failure(let error) = await monitor.toggleEncryption(for: id) {
+                    presentSecurityFailure(error)
+                }
+            }
         } label: {
-            Label(item.isEncrypted ? "Decrypt" : "Encrypt",
+            Label(item.isEncrypted ? "Unlock" : "Lock",
                   systemImage: item.isEncrypted ? "lock.open" : "lock")
         }
 
@@ -1180,9 +1229,7 @@ struct ClippyCard: View {
     /// Returns nil when neither is meaningfully populated, so the
     /// AI menu hides instead of running on garbage (filename, etc).
     private func aiSourceText() -> String? {
-        if item.contentType == "text", let c = item.content, !c.isEmpty {
-            return c
-        }
+        if let content = actionableText { return content }
         if item.contentType == "image", let t = item.extractedText, !t.isEmpty {
             return t
         }
@@ -1301,7 +1348,25 @@ struct ClippyCard: View {
         pb.setString(text, forType: .string)
     }
 
+    /// Full-resolution image for a pin.
+    ///
+    /// Deliberately not the cached thumbnail: a pin is something you read
+    /// off, and it can be resized up, so it needs the real pixels.
+    private func loadImageForPinning() -> NSImage? {
+        guard item.contentType == "image",
+              let path = item.content,
+              let dir = monitor.getImagesDirectory() else { return nil }
+        return NSImage(contentsOf: dir.appendingPathComponent(path))
+    }
+
     private func itemProvider(for item: ClipboardItemEntity) -> NSItemProvider {
+        // Locked items don't drag. `onDrag` has to hand back a provider
+        // synchronously and authentication is asynchronous, so there is no
+        // honest way to gate it here — and a drag that silently delivered
+        // the ciphertext would just be a broken paste. Copy or Paste from
+        // the menu, which can ask.
+        guard !item.isEncrypted else { return NSItemProvider() }
+
         if item.contentType == "text", let text = item.content {
             return NSItemProvider(object: text as NSString)
         } else if item.contentType == "image", let path = item.content {
@@ -1312,24 +1377,14 @@ struct ClippyCard: View {
         return NSItemProvider()
     }
 
-    private func shareClipboardItem() {
-        var shareItems: [Any] = []
-
-        if item.contentType == "image", let path = item.content {
-            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            let imageURL = appSupport.appendingPathComponent("Clippy").appendingPathComponent("Images").appendingPathComponent(path)
-            if FileManager.default.fileExists(atPath: imageURL.path) {
-                shareItems.append(imageURL)
-            }
-        } else if let content = item.content, !content.isEmpty {
-            let tempURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("clippy-share-\(Int(Date().timeIntervalSince1970)).txt")
-            try? content.write(to: tempURL, atomically: true, encoding: .utf8)
-            shareItems.append(tempURL)
-        }
-
-        guard !shareItems.isEmpty, let window = NSApp.keyWindow, let contentView = window.contentView else { return }
-        let picker = NSSharingServicePicker(items: shareItems)
+    /// Share sheet. Locked items unlock first — sharing hands the content
+    /// to another app, which is about the most thorough way there is to
+    /// leak something a lock was drawn over.
+    private func shareClipboardItem() async {
+        guard let url = await ClipboardSecurity.shareableURL(for: item),
+              let window = NSApp.keyWindow,
+              let contentView = window.contentView else { return }
+        let picker = NSSharingServicePicker(items: [url])
         picker.show(relativeTo: .zero, of: contentView, preferredEdge: .minY)
     }
 

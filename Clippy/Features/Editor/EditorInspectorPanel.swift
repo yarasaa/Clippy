@@ -1405,6 +1405,45 @@ struct EditorInspectorPanel: View {
                     .buttonStyle(.plain)
                 }
             }
+
+            // Gradient only means something when there IS a fill, so it stays
+            // out of the way in stroke-only mode rather than sitting there
+            // doing nothing.
+            if current != .stroke {
+                Toggle(isOn: Binding(
+                    get: { b.wrappedValue.gradientFill },
+                    set: { on in mutateAnnotation(id: id) { $0.gradientFill = on } }
+                )) {
+                    Text("Gradient")
+                        .font(.system(size: 12))
+                        .foregroundColor(Ember.primaryText(scheme))
+                }
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+
+                if b.wrappedValue.gradientFill {
+                    HStack(spacing: 8) {
+                        ColorPicker("", selection: Binding(
+                            get: { b.wrappedValue.gradientStart },
+                            set: { c in mutateAnnotation(id: id) { $0.gradientStartColor = c } }
+                        ))
+                        .labelsHidden()
+
+                        LinearGradient(
+                            colors: [b.wrappedValue.gradientStart, b.wrappedValue.gradientEnd],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                        .frame(height: 14)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                        ColorPicker("", selection: Binding(
+                            get: { b.wrappedValue.gradientEnd },
+                            set: { c in mutateAnnotation(id: id) { $0.gradientEndColor = c } }
+                        ))
+                        .labelsHidden()
+                    }
+                }
+            }
         }
     }
 

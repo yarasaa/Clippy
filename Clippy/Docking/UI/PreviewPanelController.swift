@@ -118,35 +118,6 @@ class PreviewPanelController {
         // leaving a panel sized for the previous content.
         let host = NSHostingController(rootView: contentView)
         if #available(macOS 13.0, *) {
-            // `.intrinsicContentSize` only — deliberately NOT
-            // `.preferredContentSize`.
-            //
-            // `.intrinsicContentSize` republishes the SwiftUI ideal size so
-            // `fittingSize` in `positionPanel` reads the size for THIS
-            // content instead of a stale one from the previous hover. It
-            // reports a size; it does not act on the window.
-            //
-            // `.preferredContentSize` does act on the window, and that
-            // closed a loop that killed the app in the field:
-            //
-            //   orderFront → the window lays out for the first time
-            //     → NSHostingView.windowDidLayout()
-            //       → NSHostingView.updateAnimatedWindowSize()
-            //         → -[NSWindow _setFrameCommon:display:]
-            //           → displayIfNeeded → NSHostingView.layout()
-            //             → SwiftUI re-renders, geometry changes
-            //               → window lays out again → repeat
-            //
-            // Crash reports show this ~6800 levels deep, 35k frames, dying
-            // in `___chkstk_darwin` with "Thread stack size exceeded due to
-            // excessive recursion". It never converges because the panel's
-            // ideal size depends on the width it is offered (a horizontal
-            // ScrollView of cards under `.fixedSize()`), so each pass can
-            // hand back a different answer.
-            //
-            // Nothing is lost by dropping it: `positionPanel` measures with
-            // `fittingSize` and sets the frame itself, so having the hosting
-            // controller drive window size too was always redundant.
             host.sizingOptions = [.intrinsicContentSize]
         }
         panel.contentViewController = host

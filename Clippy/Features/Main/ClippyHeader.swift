@@ -13,6 +13,12 @@ struct ClippyHeader: View {
     let isEmpty: Bool
 
     let onClear: () -> Void
+    /// Clear regardless of tab. Separate from `onClear` because it deletes
+    /// a different set, not more of the same set — see issue #11.
+    let onClearEverything: () -> Void
+    /// How many items that would remove. Zero hides the row: an action
+    /// that would do nothing shouldn't be offered.
+    let clearEverythingCount: Int
     let onImportSnippets: () -> Void
     let onGenerateUUID: () -> Void
     let onGenerateLorem: () -> Void
@@ -118,6 +124,20 @@ struct ClippyHeader: View {
                 Label(clearLabel, systemImage: "trash")
             }
             .disabled(isEmpty)
+
+            // The tab-blind one. Issue #9 replaced a promised "Clear All"
+            // with the context-aware clear above; issue #11 is the same
+            // person coming back because clearing their history now means
+            // visiting every tab in turn. Both actions are useful — this
+            // one deletes by whether the user saved something on purpose,
+            // not by which tab it lives in.
+            if clearEverythingCount > 0 {
+                Button(role: .destructive) {
+                    onClearEverything()
+                } label: {
+                    Label("Clear Everything…", systemImage: "trash.slash")
+                }
+            }
         } label: {
             Image(systemName: "ellipsis.circle")
                 .font(.system(size: 14, weight: .medium))
