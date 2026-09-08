@@ -67,6 +67,50 @@ jobs:
           echo "ASSET_NAME=$ASSET_NAME" >> "$GITHUB_ENV"
           gh release download "${{ steps.meta.outputs.tag }}" --pattern "$ASSET_NAME" --clobber
 
+      - name: Verify the asset really is this version
+        # v1.0.17 went out with a 1.0.16 build inside it. The release, the
+        # signature and the appcast were all correct — they just described
+        # the wrong app. Anyone who took the update installed 1.0.16, was
+        # offered 1.0.17 again, and looped.
+        #
+        # Nothing checked, because nothing compared the tag to the bundle.
+        # This does, and fails the release rather than publishing a loop.
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ steps.meta.outputs.version }}"
+          WORK=$(mktemp -d)
+
+          case "$ASSET_NAME" in
+            *.dmg)
+              MOUNT="$WORK/mnt"
+              mkdir -p "$MOUNT"
+              hdiutil attach "$ASSET_NAME" -nobrowse -readonly -mountpoint "$MOUNT" > /dev/null
+              APP=$(find "$MOUNT" -maxdepth 1 -name "*.app" | head -n 1)
+              ;;
+            *.zip)
+              ditto -x -k "$ASSET_NAME" "$WORK"
+              APP=$(find "$WORK" -maxdepth 2 -name "*.app" | head -n 1)
+              ;;
+          esac
+
+          if [ -z "${APP:-}" ]; then
+            echo "::error::No .app found inside $ASSET_NAME"
+            exit 1
+          fi
+
+          FOUND=$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")
+          BUILD=$(plutil -extract CFBundleVersion raw "$APP/Contents/Info.plist")
+          echo "Tag says $EXPECTED · bundle says $FOUND (build $BUILD)"
+
+          case "$ASSET_NAME" in
+            *.dmg) hdiutil detach "$MOUNT" -quiet || true ;;
+          esac
+
+          if [ "$FOUND" != "$EXPECTED" ]; then
+            echo "::error::$ASSET_NAME contains Clippy $FOUND, but the release is tagged $EXPECTED. Rebuild and re-upload the asset."
+            exit 1
+          fi
+
       - name: Install Sparkle CLI (for sign_update)
         # Straight from Sparkle's own release, not Homebrew. The `sparkle`
         # cask was disabled on 2026-09-01 for failing Homebrew's Gatekeeper
